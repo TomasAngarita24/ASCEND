@@ -38,3 +38,11 @@ export interface ProgressChartResponse {
     value: number;
   }>;
 }
+
+export interface MuscleGroupStatisticsResponse {
+  data: Array<{
+    muscleGroup: string;
+    trainingFrequency: number;
+    volume: number;
+  }>;
+}

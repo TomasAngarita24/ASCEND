@@ -34,9 +34,9 @@ async function registerAndGetAccessToken(): Promise<string> {
   return response.body.accessToken as string;
 }
 
-async function createExercise(accessToken: string): Promise<string> {
+async function createExercise(accessToken: string, targetMuscleGroups: string[] = []): Promise<string> {
   const response = await request('/exercises', {
-    body: JSON.stringify({ name: `Workout exercise ${randomUUID()}` }),
+    body: JSON.stringify({ name: `Workout exercise ${randomUUID()}`, targetMuscleGroups }),
     headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
     method: 'POST',
   });
@@ -137,7 +137,7 @@ describe('workouts', () => {
   it('returns paginated history with completed-workout metrics', async () => {
     const accessToken = await registerAndGetAccessToken();
     const headers = { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' };
-    const exerciseId = await createExercise(accessToken);
+    const exerciseId = await createExercise(accessToken, ['Chest']);
     const started = await request('/workouts', { body: '{}', headers, method: 'POST' });
     const workoutId = (started.body.workout as Record<string, string>).id;
     const exercise = await request(`/workouts/${workoutId}/exercises`, {
@@ -193,6 +193,16 @@ describe('workouts', () => {
     });
     assert.equal(frequencyChart.status, 200);
     assert.equal((frequencyChart.body.data as Array<Record<string, number>>)[0].value, 1);
+
+    const muscleGroups = await request('/progress/muscle-groups', {
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    assert.equal(muscleGroups.status, 200);
+    assert.deepEqual(muscleGroups.body.data, [{
+      muscleGroup: 'Chest',
+      trainingFrequency: 1,
+      volume: 600,
+    }]);
 
     const personalRecords = await request('/progress/personal-records', {
       headers: { authorization: `Bearer ${accessToken}` },

@@ -2,7 +2,9 @@ import { Router } from 'express';
 
 import { asyncHandler } from '../../lib/async-handler';
 import { authenticate } from '../auth/auth.middleware';
-import { getEstimatedOneRepMax, getExerciseProgression, getProgressChart, getStatistics } from './progress.service';
+import {
+  getEstimatedOneRepMax, getExerciseProgression, getMuscleGroupStatistics, getProgressChart, getStatistics,
+} from './progress.service';
 import { getPersonalRecords } from './personal-record.service';
 import { validateExerciseProgression, validateProgressChart, validateStatistics } from './progress.validation';
 import { validateExerciseId } from '../exercise/exercise.validation';
@@ -33,4 +35,8 @@ progressRouter.get('/personal-records', asyncHandler(async (request, response) =
 
 progressRouter.get('/charts', asyncHandler(async (request, response) => {
   response.status(200).json(await getProgressChart(request.auth!.userId, validateProgressChart(request.query)));
+}));
+
+progressRouter.get('/muscle-groups', asyncHandler(async (request, response) => {
+  response.status(200).json(await getMuscleGroupStatistics(request.auth!.userId));
 }));

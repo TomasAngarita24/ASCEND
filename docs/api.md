@@ -1046,6 +1046,8 @@ Returns muscle-group statistics derived from exercise associations and recorded 
 
 Muscle-balance visualizations and the heatmap remain future features; this endpoint supplies the data that may support them.
 
+`trainingFrequency` counts each completed workout at most once per muscle group. The full completed-set volume of an exercise contributes to every target muscle group associated with that exercise.
+
 #### Errors for Progress Endpoints
 
 - `400 Bad Request` — A date range, metric, or exercise identifier is invalid.

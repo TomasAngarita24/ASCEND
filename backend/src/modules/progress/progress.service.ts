@@ -5,6 +5,7 @@ import { estimateOneRepMax } from './one-rep-max';
 import { getPersonalRecords } from './personal-record.service';
 import type {
   EstimatedOneRepMaxResponse, ExerciseProgressionResponse, ProgressChartResponse, ProgressStatisticsResponse,
+  MuscleGroupStatisticsResponse,
 } from './progress.types';
 
 interface StatisticsInput {
@@ -226,6 +227,52 @@ export async function getProgressChart(
     data: [...valuesByWeek.entries()]
       .map(([date, value]) => ({ date, value }))
       .sort((left, right) => left.date.localeCompare(right.date)),
+  };
+}
+
+export async function getMuscleGroupStatistics(userId: string): Promise<MuscleGroupStatisticsResponse> {
+  const workouts = await prisma.workout.findMany({
+    where: { userId, status: 'completed' },
+    select: {
+      workoutExercises: {
+        select: {
+          exercise: { select: { targetMuscleGroups: true } },
+          sets: {
+            where: { isCompleted: true },
+            select: { repetitions: true, weight: true },
+          },
+        },
+      },
+    },
+  });
+  const statistics = new Map<string, { trainingFrequency: number; volume: number }>();
+  for (const workout of workouts) {
+    const groupsInWorkout = new Set<string>();
+    for (const workoutExercise of workout.workoutExercises) {
+      if (workoutExercise.sets.length === 0) {
+        continue;
+      }
+      const volume = workoutExercise.sets.reduce(
+        (total, set) => total + Number(set.weight ?? 0) * (set.repetitions ?? 0),
+        0,
+      );
+      for (const muscleGroup of workoutExercise.exercise.targetMuscleGroups) {
+        const current = statistics.get(muscleGroup) ?? { trainingFrequency: 0, volume: 0 };
+        current.volume += volume;
+        statistics.set(muscleGroup, current);
+        groupsInWorkout.add(muscleGroup);
+      }
+    }
+    for (const muscleGroup of groupsInWorkout) {
+      const current = statistics.get(muscleGroup)!;
+      current.trainingFrequency += 1;
+    }
+  }
+
+  return {
+    data: [...statistics.entries()]
+      .map(([muscleGroup, values]) => ({ muscleGroup, ...values }))
+      .sort((left, right) => left.muscleGroup.localeCompare(right.muscleGroup)),
   };
 }
 

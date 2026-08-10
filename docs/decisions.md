@@ -117,3 +117,9 @@ Each daily point uses the highest completed-set weight and Epley estimate, and s
 **Status:** Decided
 
 Only completed workouts and completed sets contribute to chart data.
+
+## Muscle Group Statistics
+
+**Decision:** A muscle group's training frequency counts each completed workout only once. An exercise's full completed-set volume contributes to each of its associated target muscle groups.
+
+**Status:** Decided
