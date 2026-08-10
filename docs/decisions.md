@@ -110,6 +110,14 @@ A record is added to the returned history only when a value strictly exceeds the
 
 Each daily point uses the highest completed-set weight and Epley estimate, and sums completed repetitions and volume for that exercise.
 
+## Global Exercise Library
+
+**Decision:** ASCEND provides a versioned, idempotent Prisma seed with an initial global exercise library.
+
+**Status:** Decided
+
+Seeded exercises have no creator, so they are visible to every authenticated user. Re-running the seed keeps existing global exercises and only inserts missing entries.
+
 ## Progress Chart Aggregation
 
 **Decision:** Exercise-chart metrics use daily values; workout frequency and weekly volume use UTC calendar weeks beginning on Monday.

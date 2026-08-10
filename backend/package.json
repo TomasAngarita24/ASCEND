@@ -12,6 +12,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:seed": "tsx prisma/seed.ts",
     "test": "tsx --test tests/auth.integration.test.ts tests/exercise.integration.test.ts tests/routine.integration.test.ts tests/workout.integration.test.ts"
   },
   "keywords": [

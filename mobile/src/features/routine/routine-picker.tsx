@@ -11,7 +11,11 @@ interface RoutinePickerProps {
   onStarted: (workout: MobileWorkout, tokens: Tokens) => void;
   onBrowseExercises: () => void;
   onEditRoutine: (routineId: string) => void;
+  onLogout: () => Promise<void>;
+  onStartIndependentWorkout: () => Promise<void>;
+  onViewProgress: () => void;
   onTokensChange: (tokens: Tokens) => void;
+  userEmail: string;
 }
 
 export function RoutinePicker({
@@ -20,13 +24,19 @@ export function RoutinePicker({
   onStarted,
   onBrowseExercises,
   onEditRoutine,
+  onLogout,
+  onStartIndependentWorkout,
+  onViewProgress,
   onTokensChange,
+  userEmail,
 }: RoutinePickerProps): React.JSX.Element {
   const [routines, setRoutines] = useState<RoutineSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [startingRoutineId, setStartingRoutineId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newRoutineName, setNewRoutineName] = useState('');
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isStartingIndependentWorkout, setIsStartingIndependentWorkout] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -77,9 +87,35 @@ export function RoutinePicker({
     }
   };
 
+  const logout = async () => {
+    setIsLoggingOut(true);
+    setError(null);
+    try {
+      await onLogout();
+    } catch (requestError) {
+      setError(requestError instanceof ApiError ? requestError.message : 'No fue posible cerrar sesión.');
+      setIsLoggingOut(false);
+    }
+  };
+
+  const startIndependentWorkout = async () => {
+    setIsStartingIndependentWorkout(true);
+    setError(null);
+    try {
+      await onStartIndependentWorkout();
+    } catch (requestError) {
+      setError(requestError instanceof ApiError ? requestError.message : 'No fue posible iniciar el entrenamiento.');
+      setIsStartingIndependentWorkout(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Selecciona una rutina</Text>
+      <Text style={styles.account}>{userEmail}</Text>
+      <Pressable disabled={isLoggingOut} onPress={() => { void logout(); }} style={styles.logoutButton}>
+        <Text style={styles.logoutButtonText}>{isLoggingOut ? 'Cerrando sesión...' : 'Cerrar sesión'}</Text>
+      </Pressable>
       <TextInput
         onChangeText={setNewRoutineName}
         placeholder="Nombre de nueva rutina"
@@ -91,6 +127,12 @@ export function RoutinePicker({
       </Pressable>
       <Pressable onPress={onBrowseExercises} style={styles.exerciseButton}>
         <Text style={styles.exerciseButtonText}>Explorar ejercicios</Text>
+      </Pressable>
+      <Pressable onPress={onViewProgress} style={styles.exerciseButton}>
+        <Text style={styles.exerciseButtonText}>Ver progreso</Text>
+      </Pressable>
+      <Pressable disabled={isStartingIndependentWorkout} onPress={() => { void startIndependentWorkout(); }} style={styles.createButton}>
+        <Text style={styles.createButtonText}>{isStartingIndependentWorkout ? 'Iniciando...' : 'Iniciar entrenamiento independiente'}</Text>
       </Pressable>
       {isLoading && <ActivityIndicator />}
       {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
@@ -114,6 +156,9 @@ export function RoutinePicker({
 }
 
 const styles = StyleSheet.create({
+  account: {
+    color: '#4b5563',
+  },
   createButton: {
     alignItems: 'center',
     backgroundColor: '#1d4ed8',
@@ -146,6 +191,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     padding: 12,
+  },
+  logoutButton: {
+    alignItems: 'center',
+    backgroundColor: '#b91c1c',
+    borderRadius: 8,
+    padding: 12,
+  },
+  logoutButtonText: {
+    color: '#ffffff',
+    fontWeight: '700',
   },
   routine: {
     backgroundColor: '#f3f4f6',

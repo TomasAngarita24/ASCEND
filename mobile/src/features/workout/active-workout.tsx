@@ -39,7 +39,14 @@ interface ActiveWorkoutProps {
     isCompleted: boolean,
     restSeconds: number,
   ) => Promise<void>;
+  onUpdateSet: (
+    exerciseId: string,
+    setId: string,
+    input: SetInput,
+    restSeconds: number,
+  ) => Promise<void>;
   onTransition: (action: WorkoutAction) => Promise<void>;
+  onAddExercise: () => void;
 }
 
 const setTypes: SetType[] = ['normal', 'warmup', 'drop_set', 'failure'];
@@ -124,11 +131,96 @@ function SetForm({ exerciseId, onRecord }: SetFormProps): React.JSX.Element {
   );
 }
 
+interface EditableSetProps {
+  canEdit: boolean;
+  set: ActiveWorkoutSet;
+  setNumber: number;
+  onSave: (input: SetInput) => Promise<void>;
+  onToggleCompletion: () => Promise<void>;
+}
+
+function EditableSet({
+  canEdit,
+  set,
+  setNumber,
+  onSave,
+  onToggleCompletion,
+}: EditableSetProps): React.JSX.Element {
+  const [isEditing, setIsEditing] = useState(false);
+  const [weight, setWeight] = useState(set.weight.toString());
+  const [repetitions, setRepetitions] = useState(set.repetitions.toString());
+  const [rpe, setRpe] = useState(set.rpe.toString());
+  const [setType, setSetType] = useState<SetType>(set.setType);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = async () => {
+    const parsedWeight = Number(weight);
+    const parsedRepetitions = Number(repetitions);
+    const parsedRpe = Number(rpe);
+    if (!Number.isFinite(parsedWeight) || parsedWeight < 0 || !Number.isInteger(parsedRepetitions) || parsedRepetitions < 1 || !Number.isFinite(parsedRpe) || parsedRpe < 0 || parsedRpe > 10) {
+      setError('Ingresa valores válidos.');
+      return;
+    }
+    setIsSaving(true);
+    setError(null);
+    try {
+      await onSave({
+        isCompleted: set.isCompleted,
+        repetitions: parsedRepetitions,
+        rpe: parsedRpe,
+        setType,
+        weight: parsedWeight,
+      });
+      setIsEditing(false);
+    } catch {
+      setError('No fue posible editar la serie.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <View style={[styles.set, set.isCompleted && styles.completedSet]}>
+      <Text style={styles.setText}>Serie {setNumber}</Text>
+      <Text style={styles.setText}>{set.weight} kg × {set.repetitions}</Text>
+      <Text style={styles.setText}>RPE {set.rpe} · {set.setType}</Text>
+      <Text style={styles.setText}>{set.isCompleted ? 'Completada' : 'Pendiente'}</Text>
+      {canEdit && (
+        <View style={styles.setActions}>
+          <Pressable onPress={() => { void onToggleCompletion(); }} style={styles.setActionButton}>
+            <Text>{set.isCompleted ? 'Desmarcar' : 'Completar'}</Text>
+          </Pressable>
+          <Pressable onPress={() => setIsEditing((value) => !value)} style={styles.setActionButton}>
+            <Text>Editar</Text>
+          </Pressable>
+        </View>
+      )}
+      {isEditing && (
+        <View style={styles.form}>
+          <TextInput keyboardType="decimal-pad" onChangeText={setWeight} placeholder="Peso" style={styles.input} value={weight} />
+          <TextInput keyboardType="number-pad" onChangeText={setRepetitions} placeholder="Reps" style={styles.input} value={repetitions} />
+          <TextInput keyboardType="decimal-pad" onChangeText={setRpe} placeholder="RPE" style={styles.input} value={rpe} />
+          <Pressable onPress={() => setSetType(getNextSetType(setType))} style={styles.typeButton}>
+            <Text>{setType}</Text>
+          </Pressable>
+          {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
+          <Pressable disabled={isSaving} onPress={() => { void save(); }} style={styles.recordButton}>
+            <Text style={styles.recordButtonText}>{isSaving ? 'Guardando...' : 'Guardar serie'}</Text>
+          </Pressable>
+        </View>
+      )}
+    </View>
+  );
+}
+
 export function ActiveWorkout({
   workout,
   onRecordSet,
   onSetCompletionChange,
   onTransition,
+  onAddExercise,
+  onUpdateSet,
 }: ActiveWorkoutProps): React.JSX.Element {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [transitionError, setTransitionError] = useState<string | null>(null);
@@ -150,6 +242,7 @@ export function ActiveWorkout({
       <Text style={styles.title}>{workout.name}</Text>
       <Text style={styles.status}>Estado: {workout.status}</Text>
       <View style={styles.controls}>
+        {canRecord && <WorkoutControlButton disabled={false} label="Añadir ejercicio" onPress={onAddExercise} />}
         {workout.status === 'active' && <WorkoutControlButton disabled={isTransitioning} label="Pausar" onPress={() => { void transition('pause'); }} />}
         {workout.status === 'paused' && <WorkoutControlButton disabled={isTransitioning} label="Reanudar" onPress={() => { void transition('resume'); }} />}
         {['active', 'paused'].includes(workout.status) && <WorkoutControlButton disabled={isTransitioning} label="Completar" onPress={() => { void transition('complete'); }} />}
@@ -161,19 +254,14 @@ export function ActiveWorkout({
           <Text style={styles.exerciseName}>{exercise.name}</Text>
           <Text style={styles.restTime}>Descanso: {exercise.restSeconds} s</Text>
           {exercise.sets.map((set, index) => (
-            <Pressable
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: set.isCompleted }}
-              disabled={!canRecord}
+            <EditableSet
+              canEdit={canRecord}
               key={set.id}
-              onPress={() => { void onSetCompletionChange(exercise.id, set.id, !set.isCompleted, exercise.restSeconds); }}
-              style={[styles.set, set.isCompleted && styles.completedSet]}
-            >
-              <Text style={styles.setText}>Serie {index + 1}</Text>
-              <Text style={styles.setText}>{set.weight} kg × {set.repetitions}</Text>
-              <Text style={styles.setText}>RPE {set.rpe} · {set.setType}</Text>
-              <Text style={styles.setText}>{set.isCompleted ? 'Completada' : 'Pendiente'}</Text>
-            </Pressable>
+              onSave={(input) => onUpdateSet(exercise.id, set.id, input, exercise.restSeconds)}
+              onToggleCompletion={() => onSetCompletionChange(exercise.id, set.id, !set.isCompleted, exercise.restSeconds)}
+              set={set}
+              setNumber={index + 1}
+            />
           ))}
           {canRecord && <SetForm exerciseId={exercise.id} onRecord={(input) => onRecordSet(exercise.id, input, exercise.restSeconds)} />}
         </View>
@@ -244,6 +332,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     gap: 4,
     padding: 12,
+  },
+  setActionButton: {
+    backgroundColor: '#d1d5db',
+    borderRadius: 6,
+    padding: 8,
+  },
+  setActions: {
+    flexDirection: 'row',
+    gap: 8,
   },
   setText: {
     color: '#ffffff',

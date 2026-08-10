@@ -10,6 +10,7 @@ Initial scaffold for the ASCEND backend API.
 4. Wait until `docker compose ps` reports the `postgres` service as healthy.
 5. In `backend/`, generate the Prisma client with `npm run prisma:generate`.
 6. Apply the initial database migration with `npm run prisma:migrate:dev`.
+7. Populate the global exercise library with `npm run prisma:seed`.
 
 The Prisma schema and migration history are in `prisma/`. Do not edit the database schema manually; make database changes through Prisma migrations.
 

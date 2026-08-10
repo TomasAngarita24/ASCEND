@@ -126,6 +126,37 @@ export class RoutineService {
     };
   }
 
+  async update(
+    tokens: Tokens,
+    routineId: string,
+    name: string,
+  ): Promise<{ routine: RoutineDetail; tokens: Tokens }> {
+    const result = await this.authService.requestAuthenticated<RoutineDetailResponse>(tokens, `/routines/${routineId}`, {
+      body: JSON.stringify({ name }),
+      method: 'PATCH',
+    });
+    return { routine: result.data.routine, tokens: result.tokens };
+  }
+
+  async duplicate(
+    tokens: Tokens,
+    routineId: string,
+  ): Promise<{ routine: RoutineDetail; tokens: Tokens }> {
+    const result = await this.authService.requestAuthenticated<RoutineDetailResponse>(
+      tokens,
+      `/routines/${routineId}/duplicate`,
+      { method: 'POST' },
+    );
+    return { routine: result.data.routine, tokens: result.tokens };
+  }
+
+  async delete(tokens: Tokens, routineId: string): Promise<{ tokens: Tokens }> {
+    const result = await this.authService.requestAuthenticated<void>(tokens, `/routines/${routineId}`, {
+      method: 'DELETE',
+    });
+    return { tokens: result.tokens };
+  }
+
   async getDetail(tokens: Tokens, routineId: string): Promise<{ routine: RoutineDetail; tokens: Tokens }> {
     const result = await this.authService.requestAuthenticated<RoutineDetailResponse>(tokens, `/routines/${routineId}`);
     return { routine: result.data.routine, tokens: result.tokens };
@@ -156,6 +187,32 @@ export class RoutineService {
       { body: JSON.stringify(input), method: 'PATCH' },
     );
     return { routineExercise: result.data.routineExercise, tokens: result.tokens };
+  }
+
+  async deleteExercise(
+    tokens: Tokens,
+    routineId: string,
+    routineExerciseId: string,
+  ): Promise<{ tokens: Tokens }> {
+    const result = await this.authService.requestAuthenticated<void>(
+      tokens,
+      `/routines/${routineId}/exercises/${routineExerciseId}`,
+      { method: 'DELETE' },
+    );
+    return { tokens: result.tokens };
+  }
+
+  async reorderExercises(
+    tokens: Tokens,
+    routineId: string,
+    routineExerciseIds: string[],
+  ): Promise<{ routine: RoutineDetail; tokens: Tokens }> {
+    const result = await this.authService.requestAuthenticated<RoutineDetailResponse>(
+      tokens,
+      `/routines/${routineId}/exercises/reorder`,
+      { body: JSON.stringify({ routineExerciseIds }), method: 'POST' },
+    );
+    return { routine: result.data.routine, tokens: result.tokens };
   }
 
   async startWorkout(
