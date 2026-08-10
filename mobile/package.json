@@ -18,7 +18,8 @@
   "license": "MIT",
   "dependencies": {
     "react": "^18.2.0",
-    "react-native": "^0.75.0"
+    "react-native": "^0.75.0",
+    "react-native-keychain": "^10.0.0"
   },
   "devDependencies": {
     "@react-native/babel-preset": "^0.75.0",

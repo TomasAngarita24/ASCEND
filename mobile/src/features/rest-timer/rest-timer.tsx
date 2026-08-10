@@ -1,10 +1,10 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { useRestTimer } from './use-rest-timer';
+import type { RestTimer as RestTimerState } from './use-rest-timer';
 
 interface RestTimerProps {
-  defaultDurationSeconds: number;
+  timer: RestTimerState;
 }
 
 function formatTime(totalSeconds: number): string {
@@ -26,8 +26,7 @@ function TimerButton({ label, onPress }: TimerButtonProps): React.JSX.Element {
   );
 }
 
-export function RestTimer({ defaultDurationSeconds }: RestTimerProps): React.JSX.Element {
-  const timer = useRestTimer({ defaultDurationSeconds });
+export function RestTimer({ timer }: RestTimerProps): React.JSX.Element {
   const primaryAction = () => {
     if (timer.isRunning) {
       timer.pause();
