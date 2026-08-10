@@ -19,3 +19,17 @@ export interface ExerciseListResponse {
     total: number;
   };
 }
+
+export interface PreviousPerformanceResponse {
+  previousWorkout: {
+    id: string;
+    completedAt: string;
+    sets: Array<{
+      setNumber: number;
+      weight: number | null;
+      repetitions: number | null;
+      rpe: number | null;
+      setType: string;
+    }>;
+  } | null;
+}

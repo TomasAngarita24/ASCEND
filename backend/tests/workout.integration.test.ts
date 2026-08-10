@@ -151,6 +151,20 @@ describe('workouts', () => {
     const completed = await request(`/workouts/${workoutId}/complete`, { headers, method: 'POST' });
     assert.equal(completed.status, 200);
 
+    const previousPerformance = await request(`/exercises/${exerciseId}/previous-performance`, {
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    assert.equal(previousPerformance.status, 200);
+    const previousWorkout = previousPerformance.body.previousWorkout as Record<string, unknown>;
+    assert.equal(previousWorkout.id, workoutId);
+    assert.deepEqual(previousWorkout.sets, [{
+      setNumber: 1,
+      weight: 60,
+      repetitions: 10,
+      rpe: null,
+      setType: 'normal',
+    }]);
+
     const history = await request('/workouts?page=1&limit=20', {
       headers: { authorization: `Bearer ${accessToken}` },
     });

@@ -1,7 +1,7 @@
 import type { Exercise, Prisma } from '../../generated/prisma/client';
 import { prisma } from '../../database/prisma';
 import { HttpError } from '../../errors/http-error';
-import type { ExerciseListResponse, ExerciseResponse } from './exercise.types';
+import type { ExerciseListResponse, ExerciseResponse, PreviousPerformanceResponse } from './exercise.types';
 
 interface CreateExerciseInput {
   description?: string;
@@ -118,6 +118,51 @@ export async function listExercises(
       limit: input.limit,
       page: input.page,
       total,
+    },
+  };
+}
+
+export async function getPreviousPerformance(
+  userId: string,
+  exerciseId: string,
+): Promise<PreviousPerformanceResponse> {
+  const exercise = await prisma.exercise.findFirst({
+    where: { AND: [visibleTo(userId), { id: exerciseId }] },
+    select: { id: true },
+  });
+  if (!exercise) {
+    throw new HttpError(404, 'EXERCISE_NOT_FOUND', 'Exercise does not exist or is not accessible.');
+  }
+
+  const workout = await prisma.workout.findFirst({
+    where: {
+      userId,
+      status: 'completed',
+      workoutExercises: { some: { exerciseId } },
+    },
+    include: {
+      workoutExercises: {
+        where: { exerciseId },
+        include: { sets: { orderBy: { setNumber: 'asc' } } },
+      },
+    },
+    orderBy: { completedAt: 'desc' },
+  });
+  if (!workout?.completedAt) {
+    return { previousWorkout: null };
+  }
+
+  return {
+    previousWorkout: {
+      id: workout.id,
+      completedAt: workout.completedAt.toISOString(),
+      sets: workout.workoutExercises.flatMap((workoutExercise) => workoutExercise.sets.map((set) => ({
+        setNumber: set.setNumber,
+        weight: set.weight === null ? null : Number(set.weight),
+        repetitions: set.repetitions,
+        rpe: set.rpe === null ? null : Number(set.rpe),
+        setType: set.setType,
+      }))),
     },
   };
 }
