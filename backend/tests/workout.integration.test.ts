@@ -165,6 +165,12 @@ describe('workouts', () => {
       setType: 'normal',
     }]);
 
+    const estimatedOneRepMax = await request(`/progress/exercises/${exerciseId}/estimated-one-rep-max`, {
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    assert.equal(estimatedOneRepMax.status, 200);
+    assert.equal(estimatedOneRepMax.body.estimatedOneRepMax, 80);
+
     const history = await request('/workouts?page=1&limit=20', {
       headers: { authorization: `Bearer ${accessToken}` },
     });
@@ -177,6 +183,19 @@ describe('workouts', () => {
     assert.equal(entries[0].totalRepetitions, 10);
     assert.equal(entries[0].totalVolume, 600);
     assert.equal((history.body.pagination as Record<string, number>).total, 1);
+
+    const statistics = await request('/progress/statistics', {
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    assert.equal(statistics.status, 200);
+    assert.deepEqual(statistics.body.statistics, {
+      totalWorkouts: 1,
+      workoutFrequency: 1,
+      totalVolume: 600,
+      totalSets: 1,
+      totalRepetitions: 10,
+      personalRecords: 0,
+    });
 
     const cancelled = await request('/workouts', { body: '{}', headers, method: 'POST' });
     const cancelledWorkoutId = (cancelled.body.workout as Record<string, string>).id;

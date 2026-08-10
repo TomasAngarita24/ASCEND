@@ -85,3 +85,11 @@ The configuration uses a persistent Docker volume and a healthcheck. Database cr
 **Status:** Decided
 
 Tests create and remove isolated temporary data so they can validate real authentication behavior without preserving test accounts.
+
+## Estimated One-Rep Maximum
+
+**Decision:** ASCEND will estimate one-repetition maximum using the Epley formula: `weight * (1 + repetitions / 30)`.
+
+**Status:** Decided
+
+The estimate uses completed sets with recorded weight and repetitions. ASCEND returns the highest value for the requested exercise, rounded to two decimal places.

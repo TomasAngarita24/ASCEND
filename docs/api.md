@@ -1018,7 +1018,7 @@ Returns the current estimated one-repetition maximum for an exercise, calculated
 }
 ```
 
-The calculation method is intentionally not fixed yet; it will be defined during implementation.
+ASCEND uses the Epley formula for every completed set with recorded weight and repetitions: `weight * (1 + repetitions / 30)`. The endpoint returns the highest calculated value, rounded to two decimal places. If there are no qualifying sets, `estimatedOneRepMax` is `null`.
 
 ### `GET /progress/muscle-groups`
 
