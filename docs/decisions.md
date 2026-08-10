@@ -93,3 +93,19 @@ Tests create and remove isolated temporary data so they can validate real authen
 **Status:** Decided
 
 The estimate uses completed sets with recorded weight and repetitions. ASCEND returns the highest value for the requested exercise, rounded to two decimal places.
+
+## Personal Record History
+
+**Decision:** Personal records are derived from completed workout data rather than stored as a separate database entity.
+
+**Status:** Decided
+
+A record is added to the returned history only when a value strictly exceeds the user's previous value for the same exercise and metric. Training-volume records compare the total completed volume for an exercise within one completed workout.
+
+## Exercise Progression Aggregation
+
+**Decision:** Exercise progression is aggregated by UTC completion date.
+
+**Status:** Decided
+
+Each daily point uses the highest completed-set weight and Epley estimate, and sums completed repetitions and volume for that exercise.

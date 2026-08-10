@@ -171,6 +171,30 @@ describe('workouts', () => {
     assert.equal(estimatedOneRepMax.status, 200);
     assert.equal(estimatedOneRepMax.body.estimatedOneRepMax, 80);
 
+    const progression = await request(`/progress/exercises/${exerciseId}`, {
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    assert.equal(progression.status, 200);
+    const progressionData = progression.body.data as Array<Record<string, unknown>>;
+    assert.equal(progressionData.length, 1);
+    assert.equal(progressionData[0].weight, 60);
+    assert.equal(progressionData[0].repetitions, 10);
+    assert.equal(progressionData[0].volume, 600);
+    assert.equal(progressionData[0].estimatedOneRepMax, 80);
+
+    const personalRecords = await request('/progress/personal-records', {
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    assert.equal(personalRecords.status, 200);
+    const records = personalRecords.body.data as Array<Record<string, unknown>>;
+    assert.equal(records.length, 4);
+    assert.deepEqual(new Set(records.map((record) => record.type)), new Set([
+      'highest_weight',
+      'highest_repetitions_at_weight',
+      'estimated_one_rep_max',
+      'highest_training_volume',
+    ]));
+
     const history = await request('/workouts?page=1&limit=20', {
       headers: { authorization: `Bearer ${accessToken}` },
     });
@@ -194,7 +218,7 @@ describe('workouts', () => {
       totalVolume: 600,
       totalSets: 1,
       totalRepetitions: 10,
-      personalRecords: 0,
+      personalRecords: 4,
     });
 
     const cancelled = await request('/workouts', { body: '{}', headers, method: 'POST' });

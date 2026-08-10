@@ -951,6 +951,8 @@ Returns progression data for one exercise, including weight, repetitions, volume
 }
 ```
 
+ASCEND groups completed data by UTC completion date. Each point contains the highest recorded weight and estimated one-repetition maximum, plus the total completed repetitions and volume for that exercise on that date. When no completed set on a date has a recorded weight, `weight` and `estimatedOneRepMax` are `null`.
+
 ### `GET /progress/charts`
 
 Returns chart-ready training data.
@@ -1001,6 +1003,8 @@ Returns the authenticated user's personal-record history.
 ```
 
 Record types are `highest_weight`, `highest_repetitions_at_weight`, `estimated_one_rep_max`, and `highest_training_volume`.
+
+Personal-record history is derived from completed workouts. ASCEND creates a record entry only when a completed set, or an exercise's total volume within a completed workout, strictly exceeds the user's previous value for that metric. Estimated one-repetition maximum records use the Epley formula.
 
 ### `GET /progress/exercises/:exerciseId/estimated-one-rep-max`
 

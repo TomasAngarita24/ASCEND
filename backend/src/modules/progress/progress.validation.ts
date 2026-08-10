@@ -21,3 +21,7 @@ function parse<T>(schema: z.ZodType<T>, value: unknown): T {
 export function validateStatistics(value: unknown): z.infer<typeof statisticsSchema> {
   return parse(statisticsSchema, value);
 }
+
+export function validateExerciseProgression(value: unknown): z.infer<typeof statisticsSchema> {
+  return parse(statisticsSchema, value);
+}

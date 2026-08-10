@@ -16,3 +16,17 @@ export interface EstimatedOneRepMaxResponse {
   };
   estimatedOneRepMax: number | null;
 }
+
+export interface ExerciseProgressionResponse {
+  exercise: {
+    id: string;
+    name: string;
+  };
+  data: Array<{
+    date: string;
+    weight: number | null;
+    repetitions: number;
+    volume: number;
+    estimatedOneRepMax: number | null;
+  }>;
+}
