@@ -1,7 +1,7 @@
 import type { Prisma, Workout, WorkoutExercise, WorkoutSet } from '../../generated/prisma/client';
 import { prisma } from '../../database/prisma';
 import { HttpError } from '../../errors/http-error';
-import type { SetResponse, WorkoutExerciseResponse, WorkoutResponse } from './workout.types';
+import type { SetResponse, WorkoutExerciseResponse, WorkoutHistoryResponse, WorkoutResponse } from './workout.types';
 
 type WorkoutWithExercises = Prisma.WorkoutGetPayload<{
   include: {
@@ -21,6 +21,14 @@ interface SetInput {
   setNumber?: number;
   setType?: string;
   weight?: number;
+}
+
+interface WorkoutHistoryInput {
+  dateFrom?: Date;
+  dateTo?: Date;
+  limit: number;
+  page: number;
+  status: 'completed' | 'cancelled';
 }
 
 function toSetResponse(item: WorkoutSet): SetResponse {
@@ -117,6 +125,54 @@ export async function startWorkout(userId: string, routineId?: string): Promise<
 
 export async function getWorkout(userId: string, workoutId: string): Promise<WorkoutResponse> {
   return toWorkoutResponse(await findWorkout(userId, workoutId));
+}
+
+export async function listWorkoutHistory(userId: string, input: WorkoutHistoryInput): Promise<WorkoutHistoryResponse> {
+  const startedAt: Prisma.DateTimeFilter = {};
+  if (input.dateFrom) {
+    startedAt.gte = input.dateFrom;
+  }
+  if (input.dateTo) {
+    startedAt.lte = input.dateTo;
+  }
+  const where: Prisma.WorkoutWhereInput = {
+    userId,
+    status: input.status,
+    ...(Object.keys(startedAt).length > 0 ? { startedAt } : {}),
+  };
+  const [workouts, total] = await prisma.$transaction([
+    prisma.workout.findMany({
+      where,
+      include: { workoutExercises: { include: { sets: true } } },
+      orderBy: { startedAt: 'desc' },
+      skip: (input.page - 1) * input.limit,
+      take: input.limit,
+    }),
+    prisma.workout.count({ where }),
+  ]);
+
+  return {
+    data: workouts.map((workout) => {
+      const completedSets = workout.workoutExercises.flatMap((item) => item.sets.filter((set) => set.isCompleted));
+      const totalRepetitions = completedSets.reduce((totalValue, set) => totalValue + (set.repetitions ?? 0), 0);
+      const totalVolume = completedSets.reduce((totalValue, set) => totalValue + Number(set.weight ?? 0) * (set.repetitions ?? 0), 0);
+      return {
+        id: workout.id,
+        routineId: workout.routineId,
+        status: workout.status,
+        startedAt: workout.startedAt.toISOString(),
+        completedAt: workout.completedAt?.toISOString() ?? null,
+        durationSeconds: workout.completedAt === null
+          ? null
+          : Math.floor((workout.completedAt.getTime() - workout.startedAt.getTime()) / 1000),
+        exerciseCount: workout.workoutExercises.length,
+        setsCompleted: completedSets.length,
+        totalRepetitions,
+        totalVolume,
+      };
+    }),
+    pagination: { page: input.page, limit: input.limit, total },
+  };
 }
 
 export async function transitionWorkout(userId: string, workoutId: string, action: 'pause' | 'resume' | 'complete' | 'cancel'): Promise<WorkoutResponse> {

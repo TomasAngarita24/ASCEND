@@ -134,6 +134,47 @@ describe('workouts', () => {
     assert.equal(((completedWorkout.body.workout as Record<string, unknown>).exercises as unknown[]).length, 1);
   });
 
+  it('returns paginated history with completed-workout metrics', async () => {
+    const accessToken = await registerAndGetAccessToken();
+    const headers = { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' };
+    const exerciseId = await createExercise(accessToken);
+    const started = await request('/workouts', { body: '{}', headers, method: 'POST' });
+    const workoutId = (started.body.workout as Record<string, string>).id;
+    const exercise = await request(`/workouts/${workoutId}/exercises`, {
+      body: JSON.stringify({ exerciseId }), headers, method: 'POST',
+    });
+    const workoutExerciseId = (exercise.body.workoutExercise as Record<string, string>).id;
+    const set = await request(`/workouts/${workoutId}/exercises/${workoutExerciseId}/sets`, {
+      body: JSON.stringify({ weight: 60, repetitions: 10, isCompleted: true }), headers, method: 'POST',
+    });
+    assert.equal(set.status, 201);
+    const completed = await request(`/workouts/${workoutId}/complete`, { headers, method: 'POST' });
+    assert.equal(completed.status, 200);
+
+    const history = await request('/workouts?page=1&limit=20', {
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    assert.equal(history.status, 200);
+    const entries = history.body.data as Array<Record<string, unknown>>;
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0].id, workoutId);
+    assert.equal(entries[0].exerciseCount, 1);
+    assert.equal(entries[0].setsCompleted, 1);
+    assert.equal(entries[0].totalRepetitions, 10);
+    assert.equal(entries[0].totalVolume, 600);
+    assert.equal((history.body.pagination as Record<string, number>).total, 1);
+
+    const cancelled = await request('/workouts', { body: '{}', headers, method: 'POST' });
+    const cancelledWorkoutId = (cancelled.body.workout as Record<string, string>).id;
+    const cancellation = await request(`/workouts/${cancelledWorkoutId}/cancel`, { headers, method: 'POST' });
+    assert.equal(cancellation.status, 200);
+    const cancelledHistory = await request('/workouts?status=cancelled', {
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    assert.equal(cancelledHistory.status, 200);
+    assert.equal((cancelledHistory.body.data as Array<Record<string, string>>)[0].id, cancelledWorkoutId);
+  });
+
   it('does not expose a workout to another user', async () => {
     const ownerToken = await registerAndGetAccessToken();
     const otherUserToken = await registerAndGetAccessToken();

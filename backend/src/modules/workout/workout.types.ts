@@ -25,3 +25,25 @@ export interface WorkoutResponse {
   completedAt: string | null;
   exercises: WorkoutExerciseResponse[];
 }
+
+export interface WorkoutHistoryEntry {
+  id: string;
+  routineId: string | null;
+  status: string;
+  startedAt: string;
+  completedAt: string | null;
+  durationSeconds: number | null;
+  exerciseCount: number;
+  setsCompleted: number;
+  totalRepetitions: number;
+  totalVolume: number;
+}
+
+export interface WorkoutHistoryResponse {
+  data: WorkoutHistoryEntry[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+  };
+}

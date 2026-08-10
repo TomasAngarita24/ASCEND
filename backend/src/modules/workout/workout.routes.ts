@@ -3,10 +3,10 @@ import { Router } from 'express';
 import { asyncHandler } from '../../lib/async-handler';
 import { authenticate } from '../auth/auth.middleware';
 import {
-  addWorkoutExercise, createSet, deleteWorkoutExercise, getWorkout, startWorkout, transitionWorkout, updateSet,
+  addWorkoutExercise, createSet, deleteWorkoutExercise, getWorkout, listWorkoutHistory, startWorkout, transitionWorkout, updateSet,
 } from './workout.service';
 import {
-  validateAddWorkoutExercise, validateCreateSet, validateStartWorkout, validateUpdateSet, validateWorkoutId,
+  validateAddWorkoutExercise, validateCreateSet, validateStartWorkout, validateUpdateSet, validateWorkoutHistory, validateWorkoutId,
 } from './workout.validation';
 
 export const workoutRouter = Router();
@@ -16,6 +16,10 @@ workoutRouter.use(authenticate);
 workoutRouter.post('/', asyncHandler(async (request, response) => {
   const input = validateStartWorkout(request.body);
   response.status(201).json({ workout: await startWorkout(request.auth!.userId, input.routineId) });
+}));
+
+workoutRouter.get('/', asyncHandler(async (request, response) => {
+  response.status(200).json(await listWorkoutHistory(request.auth!.userId, validateWorkoutHistory(request.query)));
 }));
 
 workoutRouter.get('/:workoutId', asyncHandler(async (request, response) => {

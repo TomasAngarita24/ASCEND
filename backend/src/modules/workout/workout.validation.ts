@@ -24,6 +24,16 @@ const createSetSchema = z.object({
 const updateSetSchema = createSetSchema
   .omit({ setNumber: true })
   .refine((value) => Object.keys(value).length > 0, { message: 'At least one field is required.' });
+const workoutHistorySchema = z.object({
+  dateFrom: z.coerce.date().optional(),
+  dateTo: z.coerce.date().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  page: z.coerce.number().int().min(1).default(1),
+  status: z.enum(['completed', 'cancelled']).default('completed'),
+}).refine(
+  (value) => !value.dateFrom || !value.dateTo || value.dateFrom <= value.dateTo,
+  { message: 'The start date cannot be after the end date.' },
+);
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);
@@ -49,6 +59,10 @@ export function validateCreateSet(value: unknown): z.infer<typeof createSetSchem
 
 export function validateUpdateSet(value: unknown): z.infer<typeof updateSetSchema> {
   return parse(updateSetSchema, value);
+}
+
+export function validateWorkoutHistory(value: unknown): z.infer<typeof workoutHistorySchema> {
+  return parse(workoutHistorySchema, value);
 }
 
 export function validateWorkoutId(value: unknown): string {
