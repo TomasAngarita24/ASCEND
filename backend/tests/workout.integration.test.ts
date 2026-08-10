@@ -182,6 +182,18 @@ describe('workouts', () => {
     assert.equal(progressionData[0].volume, 600);
     assert.equal(progressionData[0].estimatedOneRepMax, 80);
 
+    const volumeChart = await request(`/progress/charts?metric=volume&exerciseId=${exerciseId}`, {
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    assert.equal(volumeChart.status, 200);
+    assert.equal((volumeChart.body.data as Array<Record<string, number>>)[0].value, 600);
+
+    const frequencyChart = await request('/progress/charts?metric=workout_frequency', {
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    assert.equal(frequencyChart.status, 200);
+    assert.equal((frequencyChart.body.data as Array<Record<string, number>>)[0].value, 1);
+
     const personalRecords = await request('/progress/personal-records', {
       headers: { authorization: `Bearer ${accessToken}` },
     });

@@ -109,3 +109,11 @@ A record is added to the returned history only when a value strictly exceeds the
 **Status:** Decided
 
 Each daily point uses the highest completed-set weight and Epley estimate, and sums completed repetitions and volume for that exercise.
+
+## Progress Chart Aggregation
+
+**Decision:** Exercise-chart metrics use daily values; workout frequency and weekly volume use UTC calendar weeks beginning on Monday.
+
+**Status:** Decided
+
+Only completed workouts and completed sets contribute to chart data.

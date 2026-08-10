@@ -30,3 +30,11 @@ export interface ExerciseProgressionResponse {
     estimatedOneRepMax: number | null;
   }>;
 }
+
+export interface ProgressChartResponse {
+  metric: 'weight' | 'volume' | 'repetitions' | 'workout_frequency' | 'weekly_volume';
+  data: Array<{
+    date: string;
+    value: number;
+  }>;
+}

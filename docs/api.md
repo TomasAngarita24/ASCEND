@@ -980,6 +980,8 @@ Returns chart-ready training data.
 }
 ```
 
+For `weight`, `volume`, and `repetitions`, ASCEND returns daily data for the requested exercise. `workout_frequency` and `weekly_volume` return values grouped by the UTC Monday that starts each week. Only completed workouts and completed sets contribute to chart data.
+
 ### `GET /progress/personal-records`
 
 Returns the authenticated user's personal-record history.

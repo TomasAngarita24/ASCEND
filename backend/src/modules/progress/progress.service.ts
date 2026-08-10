@@ -4,7 +4,7 @@ import { HttpError } from '../../errors/http-error';
 import { estimateOneRepMax } from './one-rep-max';
 import { getPersonalRecords } from './personal-record.service';
 import type {
-  EstimatedOneRepMaxResponse, ExerciseProgressionResponse, ProgressStatisticsResponse,
+  EstimatedOneRepMaxResponse, ExerciseProgressionResponse, ProgressChartResponse, ProgressStatisticsResponse,
 } from './progress.types';
 
 interface StatisticsInput {
@@ -22,9 +22,21 @@ interface ProgressionPoint {
   weight: number | null;
 }
 
+interface ProgressChartInput extends StatisticsInput {
+  exerciseId?: string;
+  metric: ProgressChartResponse['metric'];
+}
+
 function getWeekCount(dateFrom: Date, dateTo: Date): number {
   const millisecondsPerWeek = 7 * 24 * 60 * 60 * 1000;
   return Math.max(1, (dateTo.getTime() - dateFrom.getTime()) / millisecondsPerWeek);
+}
+
+function getWeekStart(date: Date): string {
+  const weekStart = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const daysSinceMonday = (weekStart.getUTCDay() + 6) % 7;
+  weekStart.setUTCDate(weekStart.getUTCDate() - daysSinceMonday);
+  return weekStart.toISOString().slice(0, 10);
 }
 
 export async function getEstimatedOneRepMax(
@@ -143,6 +155,77 @@ export async function getExerciseProgression(
         ? null
         : Number(point.estimatedOneRepMax.toFixed(2)),
     })),
+  };
+}
+
+export async function getProgressChart(
+  userId: string,
+  input: ProgressChartInput,
+): Promise<ProgressChartResponse> {
+  if (input.exerciseId) {
+    const progression = await getExerciseProgression(userId, input.exerciseId, input);
+    const data = progression.data.flatMap((point) => {
+      if (input.metric === 'weight') {
+        return point.weight === null ? [] : [{ date: point.date, value: point.weight }];
+      }
+      if (input.metric === 'volume') {
+        return [{ date: point.date, value: point.volume }];
+      }
+      if (input.metric === 'repetitions') {
+        return [{ date: point.date, value: point.repetitions }];
+      }
+      return [];
+    });
+    return { metric: input.metric, data };
+  }
+
+  const startedAt: Prisma.DateTimeFilter = {};
+  if (input.dateFrom) {
+    startedAt.gte = input.dateFrom;
+  }
+  if (input.dateTo) {
+    startedAt.lte = input.dateTo;
+  }
+  const workouts = await prisma.workout.findMany({
+    where: {
+      userId,
+      status: 'completed',
+      ...(Object.keys(startedAt).length > 0 ? { startedAt } : {}),
+    },
+    select: {
+      completedAt: true,
+      workoutExercises: {
+        select: {
+          sets: {
+            where: { isCompleted: true },
+            select: { repetitions: true, weight: true },
+          },
+        },
+      },
+    },
+  });
+  const valuesByWeek = new Map<string, number>();
+  for (const workout of workouts) {
+    if (!workout.completedAt) {
+      continue;
+    }
+    const week = getWeekStart(workout.completedAt);
+    const previousValue = valuesByWeek.get(week) ?? 0;
+    if (input.metric === 'workout_frequency') {
+      valuesByWeek.set(week, previousValue + 1);
+      continue;
+    }
+    const volume = workout.workoutExercises
+      .flatMap((exercise) => exercise.sets)
+      .reduce((total, set) => total + Number(set.weight ?? 0) * (set.repetitions ?? 0), 0);
+    valuesByWeek.set(week, previousValue + volume);
+  }
+
+  return {
+    metric: input.metric,
+    data: [...valuesByWeek.entries()]
+      .map(([date, value]) => ({ date, value }))
+      .sort((left, right) => left.date.localeCompare(right.date)),
   };
 }
 

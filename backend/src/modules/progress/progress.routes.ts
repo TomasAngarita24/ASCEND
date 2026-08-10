@@ -2,9 +2,9 @@ import { Router } from 'express';
 
 import { asyncHandler } from '../../lib/async-handler';
 import { authenticate } from '../auth/auth.middleware';
-import { getEstimatedOneRepMax, getExerciseProgression, getStatistics } from './progress.service';
+import { getEstimatedOneRepMax, getExerciseProgression, getProgressChart, getStatistics } from './progress.service';
 import { getPersonalRecords } from './personal-record.service';
-import { validateExerciseProgression, validateStatistics } from './progress.validation';
+import { validateExerciseProgression, validateProgressChart, validateStatistics } from './progress.validation';
 import { validateExerciseId } from '../exercise/exercise.validation';
 
 export const progressRouter = Router();
@@ -29,4 +29,8 @@ progressRouter.get('/exercises/:exerciseId', asyncHandler(async (request, respon
 
 progressRouter.get('/personal-records', asyncHandler(async (request, response) => {
   response.status(200).json(await getPersonalRecords(request.auth!.userId));
+}));
+
+progressRouter.get('/charts', asyncHandler(async (request, response) => {
+  response.status(200).json(await getProgressChart(request.auth!.userId, validateProgressChart(request.query)));
 }));
