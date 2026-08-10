@@ -1,10 +1,12 @@
 import React from 'react';
-import { SafeAreaView, StyleSheet, Text } from 'react-native';
+import { SafeAreaView, StyleSheet } from 'react-native';
+
+import { RestTimer } from './src/features/rest-timer/rest-timer';
 
 export default function App(): React.JSX.Element {
   return (
     <SafeAreaView style={styles.container}>
-      <Text>ASCEND mobile app scaffold</Text>
+      <RestTimer defaultDurationSeconds={90} />
     </SafeAreaView>
   );
 }
