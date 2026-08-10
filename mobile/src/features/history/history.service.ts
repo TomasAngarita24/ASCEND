@@ -18,6 +18,34 @@ interface WorkoutHistoryResponse {
   data: WorkoutHistoryEntry[];
 }
 
+export interface WorkoutDetail {
+  id: string;
+  status: string;
+  startedAt: string;
+  completedAt: string | null;
+  exercises: Array<{
+    id: string;
+    position: number;
+    exercise: {
+      id: string;
+      name: string;
+    };
+    sets: Array<{
+      id: string;
+      setNumber: number;
+      weight: number | null;
+      repetitions: number | null;
+      rpe: number | null;
+      setType: string;
+      isCompleted: boolean;
+    }>;
+  }>;
+}
+
+interface WorkoutDetailResponse {
+  workout: WorkoutDetail;
+}
+
 export class HistoryService {
   constructor(private readonly authService: AuthService) {}
 
@@ -27,5 +55,10 @@ export class HistoryService {
       '/workouts?status=completed&page=1&limit=20',
     );
     return { workouts: result.data.data, tokens: result.tokens };
+  }
+
+  async getDetail(tokens: Tokens, workoutId: string): Promise<{ workout: WorkoutDetail; tokens: Tokens }> {
+    const result = await this.authService.requestAuthenticated<WorkoutDetailResponse>(tokens, `/workouts/${workoutId}`);
+    return { workout: result.data.workout, tokens: result.tokens };
   }
 }

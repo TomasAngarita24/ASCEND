@@ -12,15 +12,53 @@ interface RoutineListResponse {
   data: RoutineSummary[];
 }
 
-interface RoutineExercise {
+interface CreateRoutineResponse {
+  routine: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface RoutineExercise {
+  id: string;
+  exercise: {
+    id: string;
+    name: string;
+  };
   position: number;
   restSeconds: number | null;
+  targetRepetitionsMax: number | null;
+  targetRepetitionsMin: number | null;
+  targetSets: number | null;
+  targetWeight: number | null;
+  notes: string | null;
 }
 
 interface RoutineDetailResponse {
   routine: {
+    id: string;
+    name: string;
     exercises: RoutineExercise[];
   };
+}
+
+export interface RoutineDetail {
+  id: string;
+  name: string;
+  exercises: RoutineExercise[];
+}
+
+export interface RoutineExerciseInput {
+  notes?: string;
+  restSeconds?: number;
+  targetRepetitionsMax?: number;
+  targetRepetitionsMin?: number;
+  targetSets?: number;
+  targetWeight?: number;
+}
+
+interface RoutineExerciseResponse {
+  routineExercise: RoutineExercise;
 }
 
 interface WorkoutResponse {
@@ -68,6 +106,56 @@ export class RoutineService {
   async list(tokens: Tokens): Promise<{ routines: RoutineSummary[]; tokens: Tokens }> {
     const result = await this.authService.requestAuthenticated<RoutineListResponse>(tokens, '/routines');
     return { routines: result.data.data, tokens: result.tokens };
+  }
+
+  async create(
+    tokens: Tokens,
+    name: string,
+  ): Promise<{ routine: RoutineSummary; tokens: Tokens }> {
+    const result = await this.authService.requestAuthenticated<CreateRoutineResponse>(tokens, '/routines', {
+      body: JSON.stringify({ name }),
+      method: 'POST',
+    });
+    return {
+      routine: {
+        id: result.data.routine.id,
+        name: result.data.routine.name,
+        exerciseCount: 0,
+      },
+      tokens: result.tokens,
+    };
+  }
+
+  async getDetail(tokens: Tokens, routineId: string): Promise<{ routine: RoutineDetail; tokens: Tokens }> {
+    const result = await this.authService.requestAuthenticated<RoutineDetailResponse>(tokens, `/routines/${routineId}`);
+    return { routine: result.data.routine, tokens: result.tokens };
+  }
+
+  async addExercise(
+    tokens: Tokens,
+    routineId: string,
+    exerciseId: string,
+  ): Promise<{ routineExercise: RoutineExercise; tokens: Tokens }> {
+    const result = await this.authService.requestAuthenticated<RoutineExerciseResponse>(
+      tokens,
+      `/routines/${routineId}/exercises`,
+      { body: JSON.stringify({ exerciseId }), method: 'POST' },
+    );
+    return { routineExercise: result.data.routineExercise, tokens: result.tokens };
+  }
+
+  async updateExercise(
+    tokens: Tokens,
+    routineId: string,
+    routineExerciseId: string,
+    input: RoutineExerciseInput,
+  ): Promise<{ routineExercise: RoutineExercise; tokens: Tokens }> {
+    const result = await this.authService.requestAuthenticated<RoutineExerciseResponse>(
+      tokens,
+      `/routines/${routineId}/exercises/${routineExerciseId}`,
+      { body: JSON.stringify(input), method: 'PATCH' },
+    );
+    return { routineExercise: result.data.routineExercise, tokens: result.tokens };
   }
 
   async startWorkout(

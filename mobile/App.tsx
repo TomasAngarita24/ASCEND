@@ -6,7 +6,10 @@ import { AuthScreen } from './src/features/auth/auth-screen';
 import { AuthService } from './src/features/auth/auth.service';
 import type { AuthSession } from './src/features/auth/auth.types';
 import { TokenStorage } from './src/features/auth/token-storage';
+import { ExerciseLibrary } from './src/features/exercise/exercise-library';
+import { ExerciseService } from './src/features/exercise/exercise.service';
 import { HistoryService } from './src/features/history/history.service';
+import { WorkoutDetailScreen } from './src/features/history/workout-detail';
 import { WorkoutHistory } from './src/features/history/workout-history';
 import { RestTimer } from './src/features/rest-timer/rest-timer';
 import { useRestTimer } from './src/features/rest-timer/use-rest-timer';
@@ -17,12 +20,14 @@ import {
 import { WorkoutService, type SetInput, type WorkoutAction } from './src/features/workout/workout.service';
 import { ApiClient } from './src/lib/api-client';
 import { RoutinePicker } from './src/features/routine/routine-picker';
+import { RoutineEditor } from './src/features/routine/routine-editor';
 import { RoutineService, type MobileWorkout } from './src/features/routine/routine.service';
 
 const authService = new AuthService(new ApiClient(apiBaseUrl), new TokenStorage());
 const routineService = new RoutineService(authService);
 const workoutService = new WorkoutService(authService);
 const historyService = new HistoryService(authService);
+const exerciseService = new ExerciseService(authService);
 
 function toActiveWorkout(workout: MobileWorkout): ActiveWorkoutData {
   return workout;
@@ -31,6 +36,9 @@ function toActiveWorkout(workout: MobileWorkout): ActiveWorkoutData {
 export default function App(): React.JSX.Element {
   const [workout, setWorkout] = useState<ActiveWorkoutData | null>(null);
   const [session, setSession] = useState<AuthSession | null | undefined>(undefined);
+  const [selectedHistoryWorkoutId, setSelectedHistoryWorkoutId] = useState<string | null>(null);
+  const [isViewingExercises, setIsViewingExercises] = useState(false);
+  const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(null);
   const restTimer = useRestTimer({ defaultDurationSeconds: 90 });
 
   useEffect(() => {
@@ -136,6 +144,36 @@ export default function App(): React.JSX.Element {
   }
 
   if (workout === null) {
+    if (selectedRoutineId) {
+      return (
+        <SafeAreaView style={styles.container}>
+          <RoutineEditor
+            exerciseService={exerciseService}
+            onBack={() => setSelectedRoutineId(null)}
+            onTokensChange={(tokens) => {
+              setSession((currentSession) => currentSession && { ...currentSession, tokens });
+            }}
+            routineId={selectedRoutineId}
+            routineService={routineService}
+            tokens={session.tokens}
+          />
+        </SafeAreaView>
+      );
+    }
+    if (isViewingExercises) {
+      return (
+        <SafeAreaView style={styles.container}>
+          <ExerciseLibrary
+            exerciseService={exerciseService}
+            onBack={() => setIsViewingExercises(false)}
+            onTokensChange={(tokens) => {
+              setSession((currentSession) => currentSession && { ...currentSession, tokens });
+            }}
+            tokens={session.tokens}
+          />
+        </SafeAreaView>
+      );
+    }
     return (
       <SafeAreaView style={styles.container}>
         <RoutinePicker
@@ -143,11 +181,29 @@ export default function App(): React.JSX.Element {
             setSession((currentSession) => currentSession && { ...currentSession, tokens });
             setWorkout(toActiveWorkout(startedWorkout));
           }}
+          onBrowseExercises={() => setIsViewingExercises(true)}
+          onEditRoutine={setSelectedRoutineId}
           onTokensChange={(tokens) => {
             setSession((currentSession) => currentSession && { ...currentSession, tokens });
           }}
           routineService={routineService}
           tokens={session.tokens}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  if (selectedHistoryWorkoutId) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <WorkoutDetailScreen
+          historyService={historyService}
+          onBack={() => setSelectedHistoryWorkoutId(null)}
+          onTokensChange={(tokens) => {
+            setSession((currentSession) => currentSession && { ...currentSession, tokens });
+          }}
+          tokens={session.tokens}
+          workoutId={selectedHistoryWorkoutId}
         />
       </SafeAreaView>
     );
@@ -159,6 +215,7 @@ export default function App(): React.JSX.Element {
         <WorkoutHistory
           historyService={historyService}
           onStartNewWorkout={() => setWorkout(null)}
+          onSelectWorkout={setSelectedHistoryWorkoutId}
           onTokensChange={(tokens) => {
             setSession((currentSession) => currentSession && { ...currentSession, tokens });
           }}

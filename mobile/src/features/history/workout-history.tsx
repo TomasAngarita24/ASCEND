@@ -9,6 +9,7 @@ interface WorkoutHistoryProps {
   historyService: HistoryService;
   tokens: Tokens;
   onStartNewWorkout: () => void;
+  onSelectWorkout: (workoutId: string) => void;
   onTokensChange: (tokens: Tokens) => void;
 }
 
@@ -24,14 +25,20 @@ function formatDate(value: string): string {
   return new Date(value).toLocaleDateString();
 }
 
-function WorkoutHistoryItem({ workout }: { workout: WorkoutHistoryEntry }): React.JSX.Element {
+function WorkoutHistoryItem({
+  workout,
+  onPress,
+}: {
+  workout: WorkoutHistoryEntry;
+  onPress: () => void;
+}): React.JSX.Element {
   return (
-    <View style={styles.workout}>
+    <Pressable onPress={onPress} style={styles.workout}>
       <Text style={styles.workoutDate}>{formatDate(workout.startedAt)}</Text>
       <Text>{formatDuration(workout.durationSeconds)} · {workout.exerciseCount} ejercicios</Text>
       <Text>{workout.setsCompleted} series · {workout.totalRepetitions} repeticiones</Text>
       <Text>{workout.totalVolume} kg de volumen</Text>
-    </View>
+    </Pressable>
   );
 }
 
@@ -39,6 +46,7 @@ export function WorkoutHistory({
   historyService,
   tokens,
   onStartNewWorkout,
+  onSelectWorkout,
   onTokensChange,
 }: WorkoutHistoryProps): React.JSX.Element {
   const [workouts, setWorkouts] = useState<WorkoutHistoryEntry[]>([]);
@@ -68,7 +76,9 @@ export function WorkoutHistory({
       {isLoading && <ActivityIndicator />}
       {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
       {!isLoading && workouts.length === 0 && <Text>Aún no hay entrenamientos completados.</Text>}
-      {workouts.map((workout) => <WorkoutHistoryItem key={workout.id} workout={workout} />)}
+      {workouts.map((workout) => (
+        <WorkoutHistoryItem key={workout.id} onPress={() => onSelectWorkout(workout.id)} workout={workout} />
+      ))}
     </ScrollView>
   );
 }
