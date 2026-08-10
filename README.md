@@ -61,7 +61,7 @@ ASCEND/
 │
 ├── mobile/          # React Native mobile application
 │
-├── backend/         # Node.js + Express backend API
+├── backend/         # Node.js + backend API
 │
 ├── docs/            # Project and technical documentation
 │
