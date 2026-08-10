@@ -107,14 +107,6 @@ Users should be able to start the timer automatically or manually, pause it, ski
 
 ASCEND should support grouping two or more exercises into supersets. Users should be able to create a superset, add and remove exercises, perform exercises sequentially, and track sets independently for each exercise.
 
-Example:
-
-```text
-Superset A
-
-Exercise 1: Bicep Curl
-Exercise 2: Triceps Extension
-```
 
 ## Workout History
 
