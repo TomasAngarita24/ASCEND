@@ -69,3 +69,19 @@ The detailed contract is documented in [API](api.md), and the session data model
 **Status:** Decided
 
 Backend application setup is separated from process startup so the application can be tested and extended without coupling it to the listening server.
+
+## Local PostgreSQL Environment
+
+**Decision:** Local PostgreSQL development will run through Docker Compose using the versioned `compose.yaml` configuration.
+
+**Status:** Decided
+
+The configuration uses a persistent Docker volume and a healthcheck. Database credentials are supplied through the ignored root `.env` file, based on `.env.example`.
+
+## Automated Testing
+
+**Decision:** Backend integration tests use Node's native test runner and exercise the Express application with the local PostgreSQL database.
+
+**Status:** Decided
+
+Tests create and remove isolated temporary data so they can validate real authentication behavior without preserving test accounts.

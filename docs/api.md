@@ -2,6 +2,25 @@
 
 The general API contract will be designed after the requirements and architecture have been finalized. The authentication contract is defined below because it is needed by every protected endpoint.
 
+## Health
+
+### `GET /health`
+
+Returns the backend and database availability. This endpoint does not require authentication.
+
+#### Success response — `200 OK`
+
+```json
+{
+  "status": "ok",
+  "database": "connected"
+}
+```
+
+#### Error response — `503 Service Unavailable`
+
+Returned with the `DATABASE_UNAVAILABLE` error code when PostgreSQL cannot be reached.
+
 ## Authentication
 
 All authentication requests and protected API requests must use HTTPS.

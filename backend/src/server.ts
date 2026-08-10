@@ -1,8 +1,20 @@
 import { app } from './app';
+import { env } from './config/env';
+import { prisma } from './database/prisma';
 
-const DEFAULT_PORT = 3000;
-const port = Number(process.env.PORT) || DEFAULT_PORT;
-
-app.listen(port, () => {
-  console.log(`ASCEND backend scaffold listening on port ${port}`);
+const server = app.listen(env.port, () => {
+  console.log(`ASCEND backend listening on port ${env.port} in ${env.nodeEnv} mode.`);
 });
+
+function shutdown(signal: NodeJS.Signals): void {
+  console.log(`Received ${signal}; shutting down gracefully.`);
+
+  server.close(() => {
+    void prisma.$disconnect().finally(() => {
+      process.exit(0);
+    });
+  });
+}
+
+process.once('SIGINT', () => shutdown('SIGINT'));
+process.once('SIGTERM', () => shutdown('SIGTERM'));
