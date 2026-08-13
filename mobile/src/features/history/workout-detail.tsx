@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { colors, typography, spacing } from '../../theme';
+import AnimatedPressable from '../../components/AnimatedPressable';
 
 import { ApiError } from '../../lib/api-client';
 import type { Tokens } from '../auth/auth.types';
@@ -57,16 +59,19 @@ export function WorkoutDetailScreen({
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Pressable accessibilityRole="button" onPress={onBack} style={styles.backButton}>
+      <AnimatedPressable accessibilityRole="button" onPress={onBack} style={styles.backButton}>
         <Text style={styles.backButtonText}>Volver al historial</Text>
-      </Pressable>
+      </AnimatedPressable>
       {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-      {!workout && !error && <ActivityIndicator />}
+      {!workout && !error && <ActivityIndicator color={colors.accent} />}
       {workout && (
         <>
-          <Text style={styles.title}>Entrenamiento {workout.status}</Text>
-          <Text>{formatDate(workout.startedAt)}</Text>
-          {workout.completedAt && <Text>Finalizado: {formatDate(workout.completedAt)}</Text>}
+          <View style={styles.hero}>
+            <Text style={styles.eyebrow}>DETALLE</Text>
+            <Text style={styles.title}>Entrenamiento {workout.status}</Text>
+            <Text style={styles.meta}>{formatDate(workout.startedAt)}</Text>
+            {workout.completedAt && <Text style={styles.meta}>Finalizado: {formatDate(workout.completedAt)}</Text>}
+          </View>
           {workout.exercises.map((exercise) => <ExerciseDetail exercise={exercise} key={exercise.id} />)}
         </>
       )}
@@ -77,38 +82,57 @@ export function WorkoutDetailScreen({
 const styles = StyleSheet.create({
   backButton: {
     alignSelf: 'flex-start',
-    backgroundColor: '#374151',
-    borderRadius: 6,
-    padding: 10,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 999,
+    paddingHorizontal: spacing(1.5),
+    paddingVertical: spacing(1),
   },
   backButtonText: {
-    color: '#ffffff',
+    color: colors.text,
   },
   container: {
-    gap: 12,
-    padding: 24,
+    backgroundColor: colors.background,
+    gap: spacing(1.5),
+    padding: spacing(2.5),
   },
   error: {
-    color: '#b91c1c',
+    color: colors.danger,
   },
   exercise: {
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    gap: 8,
-    padding: 16,
+    backgroundColor: colors.surface,
+    borderColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: spacing(1),
+    padding: spacing(2),
   },
   exerciseName: {
-    fontSize: 18,
+    color: colors.text,
+    fontSize: typography.h3,
     fontWeight: '700',
   },
+  eyebrow: {
+    color: colors.accentAlt,
+    fontSize: typography.caption,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  hero: {
+    gap: spacing(0.5),
+  },
+  meta: {
+    color: colors.muted,
+  },
   set: {
-    backgroundColor: '#ffffff',
-    borderRadius: 6,
-    gap: 4,
-    padding: 10,
+    backgroundColor: '#111827',
+    borderRadius: 10,
+    gap: spacing(0.5),
+    padding: spacing(1.25),
   },
   title: {
-    fontSize: 24,
+    color: colors.text,
+    fontSize: typography.h2,
     fontWeight: '700',
   },
 });

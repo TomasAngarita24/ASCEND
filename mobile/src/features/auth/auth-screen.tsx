@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
+import AnimatedPressable from '../../components/AnimatedPressable';
+import { colors, typography, spacing } from '../../theme';
+import Card from '../../components/Card';
 
 import { ApiError } from '../../lib/api-client';
 import type { AuthSession } from './auth.types';
@@ -33,71 +36,180 @@ export function AuthScreen({ authService, onAuthenticated }: AuthScreenProps): R
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>ASCEND</Text>
-      <Text style={styles.subtitle}>{isRegistering ? 'Crea tu cuenta' : 'Inicia sesión'}</Text>
-      <TextInput
-        autoCapitalize="none"
-        autoComplete="email"
-        keyboardType="email-address"
-        onChangeText={setEmail}
-        placeholder="Correo electrónico"
-        style={styles.input}
-        value={email}
-      />
-      <TextInput
-        autoComplete={isRegistering ? 'new-password' : 'current-password'}
-        onChangeText={setPassword}
-        placeholder="Contraseña"
-        secureTextEntry
-        style={styles.input}
-        value={password}
-      />
-      {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-      <Pressable accessibilityRole="button" disabled={isSubmitting} onPress={submit} style={styles.primaryButton}>
-        <Text style={styles.primaryButtonText}>{isSubmitting ? 'Procesando...' : isRegistering ? 'Crear cuenta' : 'Ingresar'}</Text>
-      </Pressable>
-      <Pressable accessibilityRole="button" disabled={isSubmitting} onPress={() => setIsRegistering((value) => !value)}>
-        <Text style={styles.link}>{isRegistering ? 'Ya tengo una cuenta' : 'Crear una cuenta'}</Text>
-      </Pressable>
+    <View style={styles.background}>
+      <View style={styles.glowTop} />
+      <View style={styles.glowBottom} />
+      <View style={styles.overlay} />
+
+      <View style={styles.brandHeader}>
+        <Text style={styles.brandName}>ASCEND</Text>
+      </View>
+
+      <View style={styles.content}>
+        <Card style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.title}>{isRegistering ? 'Crea tu cuenta' : 'Inicia sesión'}</Text>
+            <Text style={styles.subtitle}>
+              {isRegistering
+                ? 'Comienza tu plan de entrenamiento con energía y foco.'
+                : 'Tu próxima sesión empieza aquí.'}
+            </Text>
+          </View>
+          <View style={styles.form}>
+            <TextInput
+              autoCapitalize="none"
+              autoComplete="email"
+              keyboardType="email-address"
+              onChangeText={setEmail}
+              placeholder="Correo electrónico"
+              placeholderTextColor="#8b95a8"
+              style={styles.input}
+              value={email}
+            />
+            <TextInput
+              autoComplete={isRegistering ? 'new-password' : 'current-password'}
+              onChangeText={setPassword}
+              placeholder="Contraseña"
+              placeholderTextColor="#8b95a8"
+              secureTextEntry
+              style={styles.input}
+              value={password}
+            />
+            {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
+            <AnimatedPressable
+              accessibilityRole="button"
+              disabled={isSubmitting}
+              onPress={submit}
+              style={styles.primaryButton}
+            >
+              <Text style={styles.primaryButtonText}>
+                {isSubmitting ? 'Procesando...' : isRegistering ? 'Crear cuenta' : 'Ingresar'}
+              </Text>
+            </AnimatedPressable>
+          </View>
+        </Card>
+      </View>
+
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>
+          {isRegistering ? '¿Ya tienes cuenta? ' : '¿No tienes cuenta? '}
+        </Text>
+        <AnimatedPressable
+          accessibilityRole="button"
+          disabled={isSubmitting}
+          onPress={() => setIsRegistering((value) => !value)}
+        >
+          <Text style={styles.footerLink}>
+            {isRegistering ? 'Inicia sesión' : 'Crear una cuenta'}
+          </Text>
+        </AnimatedPressable>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    gap: 16,
-    padding: 24,
+  background: {
+    backgroundColor: colors.background,
+    flex: 1,
+  },
+  brandHeader: {
+    alignItems: 'center',
+    paddingBottom: spacing(2),
+    paddingTop: spacing(4),
+  },
+  brandName: {
+    color: colors.accentAlt,
+    fontSize: typography.h1,
+    fontWeight: '800',
+    letterSpacing: 4,
+  },
+  card: {
+    backgroundColor: colors.surface,
+    borderColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 28,
+    borderWidth: 1,
+    gap: spacing(2.5),
+    marginHorizontal: spacing(3),
+    padding: spacing(3),
+  },
+  cardHeader: {
+    gap: spacing(1),
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
   },
   error: {
-    color: '#b91c1c',
+    color: colors.danger,
+  },
+  footer: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    paddingBottom: spacing(4),
+    paddingHorizontal: spacing(3),
+    paddingTop: spacing(2),
+  },
+  footerLink: {
+    color: colors.accentAlt,
+    fontWeight: '700',
+  },
+  footerText: {
+    color: colors.muted,
+  },
+  form: {
+    gap: 12,
+  },
+  glowBottom: {
+    backgroundColor: 'rgba(34, 197, 94, 0.20)',
+    borderRadius: 999,
+    bottom: -40,
+    height: 220,
+    position: 'absolute',
+    right: -80,
+    width: 220,
+  },
+  glowTop: {
+    backgroundColor: 'rgba(125, 211, 252, 0.18)',
+    borderRadius: 999,
+    height: 180,
+    left: -70,
+    position: 'absolute',
+    top: 50,
+    width: 180,
   },
   input: {
-    borderColor: '#9ca3af',
-    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 14,
     borderWidth: 1,
-    padding: 12,
+    color: colors.text,
+    paddingHorizontal: spacing(1.75),
+    paddingVertical: spacing(1.6),
   },
-  link: {
-    color: '#1d4ed8',
-    textAlign: 'center',
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(2, 6, 23, 0.42)',
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#1f2937',
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: colors.accent,
+    borderRadius: 16,
+    paddingVertical: spacing(1.75),
   },
   primaryButtonText: {
-    color: '#ffffff',
+    color: '#052e16',
     fontWeight: '700',
   },
   subtitle: {
-    color: '#4b5563',
-    fontSize: 18,
+    color: colors.muted,
+    fontSize: typography.body,
+    lineHeight: 22,
   },
   title: {
-    fontSize: 32,
+    color: colors.text,
+    fontSize: typography.h2,
     fontWeight: '700',
   },
 });

@@ -2,7 +2,7 @@
   "extends": "@react-native/typescript-config/tsconfig.json",
   "compilerOptions": {
     "strict": true,
-    "types": ["react", "react-native"]
+    "types": ["react", "react-native", "jest", "node"]
   },
-  "include": ["App.tsx", "index.js"]
+  "include": ["App.tsx", "index.js", "src/**/*", "tests/**/*"]
 }

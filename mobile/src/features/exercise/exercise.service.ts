@@ -44,15 +44,15 @@ export class ExerciseService {
     tokens: Tokens,
     filters: ExerciseFilters,
   ): Promise<{ exercises: ExerciseSummary[]; tokens: Tokens }> {
-    const parameters = new URLSearchParams({ page: '1', limit: '50' });
-    if (filters.query) {
-      parameters.set('query', filters.query);
+    const parameters = new URLSearchParams({ page: '1', limit: '200' });
+    if (filters.query && filters.query.trim()) {
+      parameters.set('query', filters.query.trim());
     }
-    if (filters.muscleGroup) {
-      parameters.set('muscleGroup', filters.muscleGroup);
+    if (filters.muscleGroup && filters.muscleGroup.trim()) {
+      parameters.set('muscleGroup', filters.muscleGroup.trim());
     }
-    if (filters.equipment) {
-      parameters.set('equipment', filters.equipment);
+    if (filters.equipment && filters.equipment.trim()) {
+      parameters.set('equipment', filters.equipment.trim());
     }
     const result = await this.authService.requestAuthenticated<ExerciseListResponse>(
       tokens,

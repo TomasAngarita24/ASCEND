@@ -4,7 +4,7 @@ import { HttpError } from '../../errors/http-error';
 
 const credentialsSchema = z.object({
   email: z.email().transform((email) => email.trim().toLowerCase()),
-  password: z.string().min(12),
+  password: z.string().min(8).max(128),
 });
 
 const refreshTokenSchema = z.object({

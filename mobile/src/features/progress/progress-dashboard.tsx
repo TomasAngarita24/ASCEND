@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { colors, typography, spacing } from '../../theme';
+import AnimatedPressable from '../../components/AnimatedPressable';
 
 import { ApiError } from '../../lib/api-client';
 import type { Tokens } from '../auth/auth.types';
@@ -47,43 +49,46 @@ export function ProgressDashboardScreen({
   }, [onTokensChange, progressService, tokens]);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Pressable onPress={onBack} style={styles.backButton}>
-        <Text style={styles.backButtonText}>Volver a rutinas</Text>
-      </Pressable>
-      <Text style={styles.title}>Progreso</Text>
-      {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-      {!dashboard && !error && <ActivityIndicator />}
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
+      <AnimatedPressable onPress={onBack} style={styles.backButton}>
+        <Text style={styles.backButtonText}>Volver</Text>
+      </AnimatedPressable>
+      <View style={styles.header}>
+        <Text style={styles.eyebrow}>ASCEND</Text>
+        <Text style={styles.title}>Progreso</Text>
+      </View>
+        {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
+          {!dashboard && !error && <ActivityIndicator color={colors.accent} />}
       {dashboard && (
         <>
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Estadísticas</Text>
-            <Text>{dashboard.statistics.totalWorkouts} entrenamientos</Text>
-            <Text>{dashboard.statistics.workoutFrequency} por semana</Text>
-            <Text>{dashboard.statistics.totalVolume} kg de volumen</Text>
-            <Text>{dashboard.statistics.totalSets} series · {dashboard.statistics.totalRepetitions} repeticiones</Text>
-            <Text>{dashboard.statistics.personalRecords} récords personales</Text>
-            <Pressable onPress={onViewExerciseProgression} style={styles.progressButton}>
+            <Text style={styles.bodyText}>{dashboard.statistics.totalWorkouts} entrenamientos</Text>
+            <Text style={styles.bodyText}>{dashboard.statistics.workoutFrequency} por semana</Text>
+            <Text style={styles.bodyText}>{dashboard.statistics.totalVolume} kg de volumen</Text>
+            <Text style={styles.bodyText}>{dashboard.statistics.totalSets} series · {dashboard.statistics.totalRepetitions} repeticiones</Text>
+            <Text style={styles.bodyText}>{dashboard.statistics.personalRecords} récords personales</Text>
+            <AnimatedPressable onPress={onViewExerciseProgression} style={styles.progressButton}>
               <Text style={styles.progressButtonText}>Ver progresión por ejercicio</Text>
-            </Pressable>
+            </AnimatedPressable>
           </View>
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Récords personales</Text>
-            {dashboard.personalRecords.length === 0 && <Text>Aún no hay récords.</Text>}
+            {dashboard.personalRecords.length === 0 && <Text style={styles.helper}>Aún no hay récords.</Text>}
             {dashboard.personalRecords.map((record, index) => (
               <View key={`${record.type}-${record.exercise.id}-${record.achievedAt}-${index}`} style={styles.item}>
-                <Text>{formatRecordType(record.type)} · {record.exercise.name}</Text>
-                <Text>{record.value}</Text>
+                <Text style={styles.bodyText}>{formatRecordType(record.type)} · {record.exercise.name}</Text>
+                <Text style={styles.metricValue}>{record.value}</Text>
               </View>
             ))}
           </View>
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Grupos musculares</Text>
-            {dashboard.muscleGroups.length === 0 && <Text>Aún no hay datos por grupo muscular.</Text>}
+            {dashboard.muscleGroups.length === 0 && <Text style={styles.helper}>Aún no hay datos por grupo muscular.</Text>}
             {dashboard.muscleGroups.map((group) => (
               <View key={group.muscleGroup} style={styles.item}>
-                <Text>{group.muscleGroup}</Text>
-                <Text>{group.trainingFrequency} entrenamientos · {group.volume} kg</Text>
+                <Text style={styles.bodyText}>{group.muscleGroup}</Text>
+                <Text style={styles.helper}>{group.trainingFrequency} entrenamientos · {group.volume} kg</Text>
               </View>
             ))}
           </View>
@@ -96,47 +101,78 @@ export function ProgressDashboardScreen({
 const styles = StyleSheet.create({
   backButton: {
     alignSelf: 'flex-start',
-    backgroundColor: '#374151',
-    borderRadius: 6,
-    padding: 10,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 999,
+    paddingHorizontal: spacing(1.5),
+    paddingVertical: spacing(1),
   },
   backButtonText: {
-    color: '#ffffff',
+    color: colors.text,
   },
   container: {
-    gap: 12,
-    padding: 24,
+    flexGrow: 1,
+    gap: spacing(1.5),
+    padding: spacing(2.5),
+    paddingBottom: spacing(4),
+  },
+  scroll: {
+    backgroundColor: colors.background,
+    flex: 1,
   },
   error: {
-    color: '#b91c1c',
+    color: colors.danger,
   },
   item: {
-    borderTopColor: '#d1d5db',
+    borderTopColor: 'rgba(255,255,255,0.08)',
     borderTopWidth: 1,
     gap: 4,
     paddingVertical: 10,
   },
   progressButton: {
     alignItems: 'center',
-    backgroundColor: '#1d4ed8',
-    borderRadius: 6,
-    padding: 10,
+    backgroundColor: colors.accentAlt,
+    borderRadius: 14,
+    padding: spacing(1.25),
   },
   progressButtonText: {
-    color: '#ffffff',
+    color: colors.text,
     fontWeight: '700',
   },
   section: {
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    gap: 8,
-    padding: 16,
+    backgroundColor: colors.surface,
+    borderColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: spacing(1),
+    padding: spacing(2),
   },
   sectionTitle: {
+    color: '#f8fafc',
     fontSize: 18,
     fontWeight: '700',
   },
+  bodyText: {
+    color: '#f8fafc',
+  },
+  eyebrow: {
+    color: '#7dd3fc',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  header: {
+    gap: 4,
+  },
+  helper: {
+    color: '#94a3b8',
+  },
+  metricValue: {
+    color: '#7dd3fc',
+    fontWeight: '700',
+  },
   title: {
+    color: '#f8fafc',
     fontSize: 26,
     fontWeight: '700',
   },

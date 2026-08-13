@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import AnimatedPressable from '../../components/AnimatedPressable';
+import { colors, typography, spacing } from '../../theme';
 
 import type { SetInput, SetType, WorkoutAction } from './workout.service';
 
@@ -72,9 +74,9 @@ function WorkoutControlButton({
   onPress,
 }: WorkoutControlButtonProps): React.JSX.Element {
   return (
-    <Pressable disabled={disabled} onPress={onPress} style={styles.controlButton}>
+    <AnimatedPressable disabled={disabled} onPress={onPress} style={styles.controlButton}>
       <Text style={styles.controlButtonText}>{label}</Text>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -120,13 +122,13 @@ function SetForm({ exerciseId, onRecord }: SetFormProps): React.JSX.Element {
       <TextInput keyboardType="decimal-pad" onChangeText={setWeight} placeholder="Peso" style={styles.input} value={weight} />
       <TextInput keyboardType="number-pad" onChangeText={setRepetitions} placeholder="Reps" style={styles.input} value={repetitions} />
       <TextInput keyboardType="decimal-pad" onChangeText={setRpe} placeholder="RPE" style={styles.input} value={rpe} />
-      <Pressable accessibilityRole="button" onPress={() => setSetType(getNextSetType(setType))} style={styles.typeButton}>
+      <AnimatedPressable accessibilityRole="button" onPress={() => setSetType(getNextSetType(setType))} style={styles.typeButton}>
         <Text>{setType}</Text>
-      </Pressable>
+      </AnimatedPressable>
       {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-      <Pressable accessibilityRole="button" disabled={isSaving} onPress={() => { void record(); }} style={styles.recordButton}>
+      <AnimatedPressable accessibilityRole="button" disabled={isSaving} onPress={() => { void record(); }} style={styles.recordButton}>
         <Text style={styles.recordButtonText}>{isSaving ? 'Guardando...' : `Registrar serie ${exerciseId}`}</Text>
-      </Pressable>
+      </AnimatedPressable>
     </View>
   );
 }
@@ -188,12 +190,12 @@ function EditableSet({
       <Text style={styles.setText}>{set.isCompleted ? 'Completada' : 'Pendiente'}</Text>
       {canEdit && (
         <View style={styles.setActions}>
-          <Pressable onPress={() => { void onToggleCompletion(); }} style={styles.setActionButton}>
+          <AnimatedPressable onPress={() => { void onToggleCompletion(); }} style={styles.setActionButton}>
             <Text>{set.isCompleted ? 'Desmarcar' : 'Completar'}</Text>
-          </Pressable>
-          <Pressable onPress={() => setIsEditing((value) => !value)} style={styles.setActionButton}>
+          </AnimatedPressable>
+          <AnimatedPressable onPress={() => setIsEditing((value) => !value)} style={styles.setActionButton}>
             <Text>Editar</Text>
-          </Pressable>
+          </AnimatedPressable>
         </View>
       )}
       {isEditing && (
@@ -201,13 +203,13 @@ function EditableSet({
           <TextInput keyboardType="decimal-pad" onChangeText={setWeight} placeholder="Peso" style={styles.input} value={weight} />
           <TextInput keyboardType="number-pad" onChangeText={setRepetitions} placeholder="Reps" style={styles.input} value={repetitions} />
           <TextInput keyboardType="decimal-pad" onChangeText={setRpe} placeholder="RPE" style={styles.input} value={rpe} />
-          <Pressable onPress={() => setSetType(getNextSetType(setType))} style={styles.typeButton}>
+          <AnimatedPressable onPress={() => setSetType(getNextSetType(setType))} style={styles.typeButton}>
             <Text>{setType}</Text>
-          </Pressable>
+          </AnimatedPressable>
           {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-          <Pressable disabled={isSaving} onPress={() => { void save(); }} style={styles.recordButton}>
+          <AnimatedPressable disabled={isSaving} onPress={() => { void save(); }} style={styles.recordButton}>
             <Text style={styles.recordButtonText}>{isSaving ? 'Guardando...' : 'Guardar serie'}</Text>
-          </Pressable>
+          </AnimatedPressable>
         </View>
       )}
     </View>
@@ -239,8 +241,11 @@ export function ActiveWorkout({
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>{workout.name}</Text>
-      <Text style={styles.status}>Estado: {workout.status}</Text>
+      <View style={styles.header}>
+        <Text style={styles.eyebrow}>ENTRENAMIENTO</Text>
+        <Text style={styles.title}>{workout.name}</Text>
+        <Text style={styles.status}>Estado: {workout.status}</Text>
+      </View>
       <View style={styles.controls}>
         {canRecord && <WorkoutControlButton disabled={false} label="Añadir ejercicio" onPress={onAddExercise} />}
         {workout.status === 'active' && <WorkoutControlButton disabled={isTransitioning} label="Pausar" onPress={() => { void transition('pause'); }} />}
@@ -275,16 +280,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#14532d',
   },
   controlButton: {
-    backgroundColor: '#374151',
-    borderRadius: 6,
-    padding: 10,
+    backgroundColor: colors.accent,
+    borderRadius: 999,
+    paddingHorizontal: spacing(1.5),
+    paddingVertical: spacing(1.25),
   },
   controlButtonText: {
-    color: '#ffffff',
+    color: '#052e16',
+    fontWeight: '700',
   },
   container: {
-    gap: 16,
-    padding: 20,
+    backgroundColor: colors.background,
+    gap: spacing(2),
+    padding: spacing(2.5),
   },
   controls: {
     flexDirection: 'row',
@@ -292,32 +300,46 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   exercise: {
-    backgroundColor: '#f3f4f6',
-    borderRadius: 12,
-    gap: 8,
-    padding: 16,
+    backgroundColor: colors.surface,
+    borderColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: spacing(1),
+    padding: spacing(2),
   },
   exerciseName: {
-    fontSize: 20,
+    color: colors.text,
+    fontSize: typography.h3,
     fontWeight: '700',
   },
   error: {
-    color: '#b91c1c',
+    color: '#ff7b7b',
+  },
+  eyebrow: {
+    color: '#7dd3fc',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
   },
   form: {
     gap: 8,
   },
+  header: {
+    gap: 4,
+  },
   input: {
-    backgroundColor: '#ffffff',
-    borderColor: '#9ca3af',
-    borderRadius: 6,
+    backgroundColor: '#111827',
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 12,
     borderWidth: 1,
+    color: '#f8fafc',
     padding: 10,
   },
   recordButton: {
     alignItems: 'center',
-    backgroundColor: '#1d4ed8',
-    borderRadius: 8,
+    backgroundColor: '#2563eb',
+    borderRadius: 12,
     padding: 12,
   },
   recordButtonText: {
@@ -325,17 +347,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   restTime: {
-    color: '#4b5563',
+    color: '#94a3b8',
   },
   set: {
-    backgroundColor: '#1f2937',
-    borderRadius: 8,
-    gap: 4,
-    padding: 12,
+    backgroundColor: '#111827',
+    borderRadius: 10,
+    gap: spacing(0.5),
+    padding: spacing(1.5),
   },
   setActionButton: {
-    backgroundColor: '#d1d5db',
-    borderRadius: 6,
+    backgroundColor: '#1e293b',
+    borderRadius: 8,
     padding: 8,
   },
   setActions: {
@@ -343,20 +365,21 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   setText: {
-    color: '#ffffff',
+    color: '#f8fafc',
   },
   status: {
-    color: '#4b5563',
+    color: '#94a3b8',
     textTransform: 'capitalize',
   },
   title: {
+    color: '#f8fafc',
     fontSize: 26,
     fontWeight: '700',
   },
   typeButton: {
     alignItems: 'center',
-    backgroundColor: '#d1d5db',
-    borderRadius: 6,
-    padding: 10,
+    backgroundColor: '#1e293b',
+    borderRadius: 10,
+    padding: spacing(1.25),
   },
 });

@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
-import { apiBaseUrl } from './src/config/api';
+import { colors } from './src/theme';
+
+import { apiBaseUrls } from './src/config/api';
+import { PlaceholderScreen } from './src/features/account/placeholder-screen';
 import { AuthScreen } from './src/features/auth/auth-screen';
 import { AuthService } from './src/features/auth/auth.service';
 import type { AuthSession } from './src/features/auth/auth.types';
@@ -20,14 +24,15 @@ import {
 import { WorkoutService, type SetInput, type WorkoutAction } from './src/features/workout/workout.service';
 import { WorkoutExercisePicker } from './src/features/workout/workout-exercise-picker';
 import { ApiClient } from './src/lib/api-client';
-import { RoutinePicker } from './src/features/routine/routine-picker';
 import { RoutineEditor } from './src/features/routine/routine-editor';
 import { ProgressDashboardScreen } from './src/features/progress/progress-dashboard';
 import { ExerciseProgressionScreen } from './src/features/progress/exercise-progression';
 import { ProgressService } from './src/features/progress/progress.service';
 import { RoutineService, type MobileWorkout } from './src/features/routine/routine.service';
+import { MainTabShell } from './src/features/shell/main-tab-shell';
+import type { MainTab } from './src/components/BottomTabBar';
 
-const authService = new AuthService(new ApiClient(apiBaseUrl), new TokenStorage());
+const authService = new AuthService(new ApiClient(apiBaseUrls), new TokenStorage());
 const routineService = new RoutineService(authService);
 const workoutService = new WorkoutService(authService);
 const historyService = new HistoryService(authService);
@@ -39,19 +44,43 @@ function toActiveWorkout(workout: MobileWorkout): ActiveWorkoutData {
 }
 
 export default function App(): React.JSX.Element {
+  return (
+    <SafeAreaProvider>
+      <AppContent />
+    </SafeAreaProvider>
+  );
+}
+
+function AppContent(): React.JSX.Element {
   const [workout, setWorkout] = useState<ActiveWorkoutData | null>(null);
   const [session, setSession] = useState<AuthSession | null | undefined>(undefined);
   const [selectedHistoryWorkoutId, setSelectedHistoryWorkoutId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<MainTab>('workouts');
   const [isViewingExercises, setIsViewingExercises] = useState(false);
-  const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(null);
   const [isViewingProgress, setIsViewingProgress] = useState(false);
   const [isViewingExerciseProgression, setIsViewingExerciseProgression] = useState(false);
+  const [isViewingBodyMeasurements, setIsViewingBodyMeasurements] = useState(false);
+  const [isViewingCalendar, setIsViewingCalendar] = useState(false);
+  const [isViewingExplore, setIsViewingExplore] = useState(false);
+  const [isViewingHistory, setIsViewingHistory] = useState(false);
+  const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(null);
   const [isAddingWorkoutExercise, setIsAddingWorkoutExercise] = useState(false);
   const restTimer = useRestTimer({ defaultDurationSeconds: 90 });
 
   useEffect(() => {
     authService.restoreSession().then(setSession).catch(() => setSession(null));
   }, []);
+
+  const returnToAccount = useCallback(() => {
+    setIsViewingExercises(false);
+    setIsViewingProgress(false);
+    setIsViewingExerciseProgression(false);
+    setIsViewingBodyMeasurements(false);
+    setIsViewingCalendar(false);
+    setIsViewingHistory(false);
+    setActiveTab('profile');
+  }, []);
+
   const handleSetCompletionChange = useCallback((
     exerciseId: string,
     setId: string,
@@ -181,9 +210,14 @@ export default function App(): React.JSX.Element {
     setWorkout(null);
     setSelectedHistoryWorkoutId(null);
     setSelectedRoutineId(null);
+    setActiveTab('workouts');
     setIsViewingExercises(false);
     setIsViewingProgress(false);
     setIsViewingExerciseProgression(false);
+    setIsViewingBodyMeasurements(false);
+    setIsViewingCalendar(false);
+    setIsViewingExplore(false);
+    setIsViewingHistory(false);
     setIsAddingWorkoutExercise(false);
     setSession(null);
   }, [session]);
@@ -260,7 +294,7 @@ export default function App(): React.JSX.Element {
       return (
         <SafeAreaView style={styles.container}>
           <ProgressDashboardScreen
-            onBack={() => setIsViewingProgress(false)}
+            onBack={returnToAccount}
             onViewExerciseProgression={() => setIsViewingExerciseProgression(true)}
             onTokensChange={(tokens) => {
               setSession((currentSession) => currentSession && { ...currentSession, tokens });
@@ -276,7 +310,58 @@ export default function App(): React.JSX.Element {
         <SafeAreaView style={styles.container}>
           <ExerciseLibrary
             exerciseService={exerciseService}
-            onBack={() => setIsViewingExercises(false)}
+            onBack={returnToAccount}
+            onTokensChange={(tokens) => {
+              setSession((currentSession) => currentSession && { ...currentSession, tokens });
+            }}
+            tokens={session.tokens}
+          />
+        </SafeAreaView>
+      );
+    }
+    if (isViewingBodyMeasurements) {
+      return (
+        <SafeAreaView style={styles.container}>
+          <PlaceholderScreen
+            description="Aquí podrás registrar tu peso, medidas corporales y seguir tu evolución física."
+            onBack={returnToAccount}
+            title="Medidas corporales"
+          />
+        </SafeAreaView>
+      );
+    }
+    if (isViewingCalendar) {
+      return (
+        <SafeAreaView style={styles.container}>
+          <PlaceholderScreen
+            description="Consulta tu historial de entrenamientos y planifica tus próximas sesiones."
+            onBack={returnToAccount}
+            title="Calendario"
+          />
+        </SafeAreaView>
+      );
+    }
+    if (isViewingExplore) {
+      return (
+        <SafeAreaView style={styles.container}>
+          <PlaceholderScreen
+            description="Aquí podrás descubrir rutinas creadas por la comunidad."
+            onBack={() => {
+              setIsViewingExplore(false);
+              setActiveTab('workouts');
+            }}
+            title="Explorar rutinas"
+          />
+        </SafeAreaView>
+      );
+    }
+    if (isViewingHistory) {
+      return (
+        <SafeAreaView style={styles.container}>
+          <WorkoutHistory
+            historyService={historyService}
+            onSelectWorkout={setSelectedHistoryWorkoutId}
+            onStartNewWorkout={() => setIsViewingHistory(false)}
             onTokensChange={(tokens) => {
               setSession((currentSession) => currentSession && { ...currentSession, tokens });
             }}
@@ -286,20 +371,27 @@ export default function App(): React.JSX.Element {
       );
     }
     return (
-      <SafeAreaView style={styles.container}>
-        <RoutinePicker
+      <SafeAreaView edges={['top']} style={styles.container}>
+        <MainTabShell
+          activeTab={activeTab}
+          historyService={historyService}
+          onEditRoutine={setSelectedRoutineId}
+          onExploreRoutines={() => setIsViewingExplore(true)}
+          onLogout={handleLogout}
+          onStartIndependentWorkout={handleStartIndependentWorkout}
           onStarted={(startedWorkout, tokens) => {
             setSession((currentSession) => currentSession && { ...currentSession, tokens });
             setWorkout(toActiveWorkout(startedWorkout));
           }}
-          onBrowseExercises={() => setIsViewingExercises(true)}
-          onEditRoutine={setSelectedRoutineId}
-          onLogout={handleLogout}
-          onStartIndependentWorkout={handleStartIndependentWorkout}
-          onViewProgress={() => setIsViewingProgress(true)}
+          onTabChange={setActiveTab}
           onTokensChange={(tokens) => {
             setSession((currentSession) => currentSession && { ...currentSession, tokens });
           }}
+          onViewBodyMeasurements={() => setIsViewingBodyMeasurements(true)}
+          onViewCalendar={() => setIsViewingCalendar(true)}
+          onViewExercises={() => setIsViewingExercises(true)}
+          onViewHistory={() => setIsViewingHistory(true)}
+          onViewStatistics={() => setIsViewingProgress(true)}
           routineService={routineService}
           tokens={session.tokens}
           userEmail={session.user.email}
@@ -373,10 +465,12 @@ export default function App(): React.JSX.Element {
 
 const styles = StyleSheet.create({
   container: {
+    backgroundColor: colors.background,
     flex: 1,
   },
   loadingContainer: {
     alignItems: 'center',
+    backgroundColor: colors.background,
     flex: 1,
     justifyContent: 'center',
   },

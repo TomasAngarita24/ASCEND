@@ -2,8 +2,8 @@ import { app } from './app';
 import { env } from './config/env';
 import { prisma } from './database/prisma';
 
-const server = app.listen(env.port, () => {
-  console.log(`ASCEND backend listening on port ${env.port} in ${env.nodeEnv} mode.`);
+const server = app.listen(env.port, '0.0.0.0', () => {
+  console.log(`ASCEND backend listening on 0.0.0.0:${env.port} in ${env.nodeEnv} mode.`);
 });
 
 function shutdown(signal: NodeJS.Signals): void {

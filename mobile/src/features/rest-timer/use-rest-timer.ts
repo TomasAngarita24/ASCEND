@@ -6,6 +6,7 @@ interface UseRestTimerOptions {
 }
 
 export interface RestTimer {
+  hasStarted: boolean;
   isRunning: boolean;
   remainingSeconds: number;
   adjust: (seconds: number) => void;
@@ -27,6 +28,7 @@ export function useRestTimer({
     normalizeDuration(defaultDurationSeconds),
   );
   const [isRunning, setIsRunning] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
 
   useEffect(() => {
     if (!isRunning) {
@@ -49,6 +51,7 @@ export function useRestTimer({
   }, [isRunning, onComplete]);
 
   const start = useCallback((durationSeconds = defaultDurationSeconds) => {
+    setHasStarted(true);
     setRemainingSeconds(normalizeDuration(durationSeconds));
     setIsRunning(durationSeconds > 0);
   }, [defaultDurationSeconds]);
@@ -65,5 +68,5 @@ export function useRestTimer({
     setRemainingSeconds((currentSeconds) => normalizeDuration(currentSeconds + seconds));
   }, []);
 
-  return { isRunning, remainingSeconds, adjust, pause, resume, skip, start };
+  return { hasStarted, isRunning, remainingSeconds, adjust, pause, resume, skip, start };
 }

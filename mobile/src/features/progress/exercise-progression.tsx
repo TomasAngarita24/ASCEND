@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { colors, typography, spacing } from '../../theme';
+import AnimatedPressable from '../../components/AnimatedPressable';
 
 import { ApiError } from '../../lib/api-client';
 import type { Tokens } from '../auth/auth.types';
@@ -97,30 +99,30 @@ export function ExerciseProgressionScreen({
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Pressable onPress={onBack} style={styles.backButton}>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
+      <AnimatedPressable onPress={onBack} style={styles.backButton}>
         <Text style={styles.backButtonText}>Volver a progreso</Text>
-      </Pressable>
+      </AnimatedPressable>
       <Text style={styles.title}>Progresión por ejercicio</Text>
-      {!selectedExercise && <Text>Selecciona un ejercicio.</Text>}
+      {!selectedExercise && <Text style={styles.helper}>Selecciona un ejercicio.</Text>}
       {exercises.map((exercise) => (
-        <Pressable key={exercise.id} onPress={() => { void selectExercise(exercise); }} style={styles.exerciseButton}>
-          <Text>{exercise.name}</Text>
-        </Pressable>
+        <AnimatedPressable key={exercise.id} onPress={() => { void selectExercise(exercise); }} style={styles.exerciseButton}>
+          <Text style={styles.exerciseButtonText}>{exercise.name}</Text>
+        </AnimatedPressable>
       ))}
-      {isLoading && <ActivityIndicator />}
+      {isLoading && <ActivityIndicator color="#22c55e" />}
       {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
       {selectedExercise && !isLoading && !error && (
         <>
           <Text style={styles.subtitle}>{selectedExercise.name}</Text>
-          {data.length === 0 && <Text>Aún no hay series completadas para este ejercicio.</Text>}
+          {data.length === 0 && <Text style={styles.helper}>Aún no hay series completadas para este ejercicio.</Text>}
           {data.length > 0 && (
             <>
               <View style={styles.metrics}>
                 {(['weight', 'volume', 'repetitions', 'estimatedOneRepMax'] as Metric[]).map((item) => (
-                  <Pressable key={item} onPress={() => setMetric(item)} style={styles.metricButton}>
-                    <Text>{metricLabel(item)}</Text>
-                  </Pressable>
+                  <AnimatedPressable key={item} onPress={() => setMetric(item)} style={styles.metricButton}>
+                    <Text style={styles.metricButtonText}>{metricLabel(item)}</Text>
+                  </AnimatedPressable>
                 ))}
               </View>
               <Text style={styles.chartTitle}>{metricLabel(metric)}</Text>
@@ -133,63 +135,86 @@ export function ExerciseProgressionScreen({
   );
 }
 
+
 const styles = StyleSheet.create({
   backButton: {
     alignSelf: 'flex-start',
-    backgroundColor: '#374151',
-    borderRadius: 6,
-    padding: 10,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 999,
+    paddingHorizontal: spacing(1.5),
+    paddingVertical: spacing(1),
   },
   backButtonText: {
-    color: '#ffffff',
+    color: colors.text,
   },
-  chart: {
-    gap: 10,
-  },
-  chartBar: {
-    backgroundColor: '#1d4ed8',
-    borderRadius: 4,
-    height: 16,
+  chartTitle: {
+    color: colors.text,
+    fontSize: typography.h3,
+    fontWeight: '700',
   },
   chartDate: {
+    color: colors.muted,
     fontSize: 11,
     width: 76,
+  },
+  chartBar: {
+    backgroundColor: colors.accent,
+    borderRadius: 6,
+    height: 16,
+  },
+  chart: {
+    gap: spacing(1),
   },
   chartRow: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 8,
   },
-  chartTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
   chartTrack: {
-    backgroundColor: '#dbeafe',
-    borderRadius: 4,
+    backgroundColor: '#1e293b',
+    borderRadius: 6,
     flex: 1,
     height: 16,
   },
   chartValue: {
+    color: colors.text,
     minWidth: 40,
     textAlign: 'right',
   },
   container: {
-    gap: 12,
-    padding: 24,
+    flexGrow: 1,
+    gap: spacing(1.5),
+    padding: spacing(2.5),
+    paddingBottom: spacing(4),
+  },
+  scroll: {
+    backgroundColor: colors.background,
+    flex: 1,
   },
   error: {
-    color: '#b91c1c',
+    color: colors.danger,
   },
   exerciseButton: {
-    backgroundColor: '#e5e7eb',
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: colors.surface,
+    borderColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: spacing(1.5),
+  },
+  exerciseButtonText: {
+    color: colors.text,
+  },
+  helper: {
+    color: colors.muted,
   },
   metricButton: {
-    backgroundColor: '#d1d5db',
-    borderRadius: 6,
-    padding: 10,
+    backgroundColor: '#111827',
+    borderRadius: 999,
+    paddingHorizontal: spacing(1.25),
+    paddingVertical: spacing(1),
+  },
+  metricButtonText: {
+    color: colors.text,
   },
   metrics: {
     flexDirection: 'row',
@@ -197,11 +222,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   subtitle: {
-    fontSize: 20,
+    color: colors.text,
+    fontSize: typography.h3,
     fontWeight: '700',
   },
   title: {
-    fontSize: 26,
+    color: colors.text,
+    fontSize: typography.h2,
     fontWeight: '700',
   },
 });

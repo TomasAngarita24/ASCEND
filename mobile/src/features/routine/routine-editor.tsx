@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import AnimatedPressable from '../../components/AnimatedPressable';
 import { ApiError } from '../../lib/api-client';
+import { colors, spacing, typography } from '../../theme';
 import type { Tokens } from '../auth/auth.types';
 import { ExerciseService, type ExerciseSummary } from '../exercise/exercise.service';
 import {
@@ -13,11 +15,11 @@ import {
 
 interface RoutineEditorProps {
   exerciseService: ExerciseService;
+  onBack: () => void;
+  onTokensChange: (tokens: Tokens) => void;
   routineId: string;
   routineService: RoutineService;
   tokens: Tokens;
-  onBack: () => void;
-  onTokensChange: (tokens: Tokens) => void;
 }
 
 function parseNumber(value: string): number | undefined {
@@ -29,9 +31,9 @@ function parseNumber(value: string): number | undefined {
 }
 
 interface RoutineExerciseEditorProps {
-  exercise: RoutineExercise;
   canMoveDown: boolean;
   canMoveUp: boolean;
+  exercise: RoutineExercise;
   onDelete: () => Promise<void>;
   onMoveDown: () => Promise<void>;
   onMoveUp: () => Promise<void>;
@@ -39,9 +41,9 @@ interface RoutineExerciseEditorProps {
 }
 
 function RoutineExerciseEditor({
-  exercise,
   canMoveDown,
   canMoveUp,
+  exercise,
   onDelete,
   onMoveDown,
   onMoveUp,
@@ -83,25 +85,69 @@ function RoutineExerciseEditor({
   return (
     <View style={styles.routineExercise}>
       <Text style={styles.exerciseName}>{exercise.position}. {exercise.exercise.name}</Text>
-      <TextInput keyboardType="number-pad" onChangeText={setTargetSets} placeholder="Series objetivo" style={styles.input} value={targetSets} />
-      <TextInput keyboardType="number-pad" onChangeText={setRepetitionsMin} placeholder="Repeticiones mínimas" style={styles.input} value={repetitionsMin} />
-      <TextInput keyboardType="number-pad" onChangeText={setRepetitionsMax} placeholder="Repeticiones máximas" style={styles.input} value={repetitionsMax} />
-      <TextInput keyboardType="decimal-pad" onChangeText={setTargetWeight} placeholder="Peso objetivo" style={styles.input} value={targetWeight} />
-      <TextInput keyboardType="number-pad" onChangeText={setRestSeconds} placeholder="Descanso en segundos" style={styles.input} value={restSeconds} />
-      <TextInput multiline onChangeText={setNotes} placeholder="Notas" style={styles.input} value={notes} />
-      <Pressable disabled={isSaving} onPress={() => { void save(); }} style={styles.saveButton}>
-        <Text style={styles.saveButtonText}>{isSaving ? 'Guardando...' : 'Guardar configuración'}</Text>
-      </Pressable>
+      <View style={styles.inputGrid}>
+        <TextInput
+          keyboardType="number-pad"
+          onChangeText={setTargetSets}
+          placeholder="Series objetivo"
+          placeholderTextColor={colors.muted}
+          style={styles.input}
+          value={targetSets}
+        />
+        <TextInput
+          keyboardType="number-pad"
+          onChangeText={setRepetitionsMin}
+          placeholder="Repeticiones mínimas"
+          placeholderTextColor={colors.muted}
+          style={styles.input}
+          value={repetitionsMin}
+        />
+        <TextInput
+          keyboardType="number-pad"
+          onChangeText={setRepetitionsMax}
+          placeholder="Repeticiones máximas"
+          placeholderTextColor={colors.muted}
+          style={styles.input}
+          value={repetitionsMax}
+        />
+        <TextInput
+          keyboardType="decimal-pad"
+          onChangeText={setTargetWeight}
+          placeholder="Peso objetivo (kg)"
+          placeholderTextColor={colors.muted}
+          style={styles.input}
+          value={targetWeight}
+        />
+        <TextInput
+          keyboardType="number-pad"
+          onChangeText={setRestSeconds}
+          placeholder="Descanso (segundos)"
+          placeholderTextColor={colors.muted}
+          style={styles.input}
+          value={restSeconds}
+        />
+      </View>
+      <TextInput
+        multiline
+        onChangeText={setNotes}
+        placeholder="Notas"
+        placeholderTextColor={colors.muted}
+        style={styles.input}
+        value={notes}
+      />
+      <AnimatedPressable disabled={isSaving} onPress={() => { void save(); }} style={styles.saveConfigButton}>
+        <Text style={styles.saveConfigButtonText}>{isSaving ? 'Guardando...' : 'Guardar configuración'}</Text>
+      </AnimatedPressable>
       <View style={styles.exerciseActions}>
-        <Pressable disabled={isSaving || !canMoveUp} onPress={() => { void runAction(onMoveUp); }} style={styles.actionButton}>
-          <Text>Subir</Text>
-        </Pressable>
-        <Pressable disabled={isSaving || !canMoveDown} onPress={() => { void runAction(onMoveDown); }} style={styles.actionButton}>
-          <Text>Bajar</Text>
-        </Pressable>
-        <Pressable disabled={isSaving} onPress={() => { void runAction(onDelete); }} style={styles.deleteButton}>
+        <AnimatedPressable disabled={isSaving || !canMoveUp} onPress={() => { void runAction(onMoveUp); }} style={styles.actionButton}>
+          <Text style={styles.actionButtonText}>Subir</Text>
+        </AnimatedPressable>
+        <AnimatedPressable disabled={isSaving || !canMoveDown} onPress={() => { void runAction(onMoveDown); }} style={styles.actionButton}>
+          <Text style={styles.actionButtonText}>Bajar</Text>
+        </AnimatedPressable>
+        <AnimatedPressable disabled={isSaving} onPress={() => { void runAction(onDelete); }} style={styles.deleteButton}>
           <Text style={styles.deleteButtonText}>Eliminar</Text>
-        </Pressable>
+        </AnimatedPressable>
       </View>
     </View>
   );
@@ -109,17 +155,18 @@ function RoutineExerciseEditor({
 
 export function RoutineEditor({
   exerciseService,
+  onBack,
+  onTokensChange,
   routineId,
   routineService,
   tokens,
-  onBack,
-  onTokensChange,
 }: RoutineEditorProps): React.JSX.Element {
   const [routine, setRoutine] = useState<RoutineDetail | null>(null);
   const [exercises, setExercises] = useState<ExerciseSummary[]>([]);
   const [routineName, setRoutineName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSavingRoutine, setIsSavingRoutine] = useState(false);
+  const [isPickerVisible, setIsPickerVisible] = useState(false);
 
   useEffect(() => {
     const loadRoutine = async () => {
@@ -149,6 +196,7 @@ export function RoutineEditor({
         ...currentRoutine,
         exercises: [...currentRoutine.exercises, result.routineExercise],
       });
+      setIsPickerVisible(false);
       if (result.tokens.accessToken !== tokens.accessToken) {
         onTokensChange(result.tokens);
       }
@@ -157,9 +205,9 @@ export function RoutineEditor({
     }
   };
 
-  const updateRoutineName = async () => {
+  const saveAndExit = async () => {
     if (!routine || !routineName.trim()) {
-      setError('El nombre es obligatorio.');
+      setError('El título de rutina es obligatorio.');
       return;
     }
     setIsSavingRoutine(true);
@@ -170,44 +218,9 @@ export function RoutineEditor({
       if (result.tokens.accessToken !== tokens.accessToken) {
         onTokensChange(result.tokens);
       }
-    } catch (requestError) {
-      setError(requestError instanceof ApiError ? requestError.message : 'No fue posible renombrar la rutina.');
-    } finally {
-      setIsSavingRoutine(false);
-    }
-  };
-
-  const duplicateRoutine = async () => {
-    if (!routine) {
-      return;
-    }
-    setIsSavingRoutine(true);
-    try {
-      const result = await routineService.duplicate(tokens, routine.id);
-      if (result.tokens.accessToken !== tokens.accessToken) {
-        onTokensChange(result.tokens);
-      }
       onBack();
     } catch (requestError) {
-      setError(requestError instanceof ApiError ? requestError.message : 'No fue posible duplicar la rutina.');
-    } finally {
-      setIsSavingRoutine(false);
-    }
-  };
-
-  const deleteRoutine = async () => {
-    if (!routine) {
-      return;
-    }
-    setIsSavingRoutine(true);
-    try {
-      const result = await routineService.delete(tokens, routine.id);
-      if (result.tokens.accessToken !== tokens.accessToken) {
-        onTokensChange(result.tokens);
-      }
-      onBack();
-    } catch (requestError) {
-      setError(requestError instanceof ApiError ? requestError.message : 'No fue posible eliminar la rutina.');
+      setError(requestError instanceof ApiError ? requestError.message : 'No fue posible guardar la rutina.');
     } finally {
       setIsSavingRoutine(false);
     }
@@ -221,8 +234,8 @@ export function RoutineEditor({
       const result = await routineService.updateExercise(tokens, routine.id, routineExerciseId, input);
       setRoutine((currentRoutine) => currentRoutine && {
         ...currentRoutine,
-        exercises: currentRoutine.exercises.map((exercise) => (
-          exercise.id === routineExerciseId ? result.routineExercise : exercise
+        exercises: currentRoutine.exercises.map((item) => (
+          item.id === routineExerciseId ? result.routineExercise : item
         )),
       });
       if (result.tokens.accessToken !== tokens.accessToken) {
@@ -242,8 +255,8 @@ export function RoutineEditor({
       setRoutine((currentRoutine) => currentRoutine && {
         ...currentRoutine,
         exercises: currentRoutine.exercises
-          .filter((exercise) => exercise.id !== routineExerciseId)
-          .map((exercise, index) => ({ ...exercise, position: index + 1 })),
+          .filter((item) => item.id !== routineExerciseId)
+          .map((item, index) => ({ ...item, position: index + 1 })),
       });
       if (result.tokens.accessToken !== tokens.accessToken) {
         onTokensChange(result.tokens);
@@ -257,7 +270,7 @@ export function RoutineEditor({
     if (!routine) {
       return;
     }
-    const currentIndex = routine.exercises.findIndex((exercise) => exercise.id === routineExerciseId);
+    const currentIndex = routine.exercises.findIndex((item) => item.id === routineExerciseId);
     const targetIndex = currentIndex + direction;
     if (currentIndex < 0 || targetIndex < 0 || targetIndex >= routine.exercises.length) {
       return;
@@ -271,7 +284,7 @@ export function RoutineEditor({
       const result = await routineService.reorderExercises(
         tokens,
         routine.id,
-        reorderedExercises.map((exercise) => exercise.id),
+        reorderedExercises.map((item) => item.id),
       );
       setRoutine(result.routine);
       if (result.tokens.accessToken !== tokens.accessToken) {
@@ -283,47 +296,108 @@ export function RoutineEditor({
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Pressable onPress={onBack} style={styles.backButton}>
-        <Text style={styles.backButtonText}>Volver a rutinas</Text>
-      </Pressable>
-      {!routine && !error && <ActivityIndicator />}
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
+      {/* Top Header Bar matching Image 2 */}
+      <View style={styles.topBar}>
+        <AnimatedPressable
+          accessibilityRole="button"
+          disabled={isSavingRoutine}
+          onPress={onBack}
+        >
+          <Text style={styles.cancelText}>Cancelar</Text>
+        </AnimatedPressable>
+
+        <Text style={styles.topBarTitle}>Crear rutina</Text>
+
+        <AnimatedPressable
+          accessibilityRole="button"
+          disabled={isSavingRoutine}
+          onPress={() => { void saveAndExit(); }}
+          style={styles.savePillBtn}
+        >
+          <Text style={styles.savePillBtnText}>
+            {isSavingRoutine ? '...' : 'Guardar'}
+          </Text>
+        </AnimatedPressable>
+      </View>
+
+      {!routine && !error && <ActivityIndicator color={colors.accentAlt} style={{ marginVertical: 20 }} />}
       {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
+
       {routine && (
         <>
-          <Text style={styles.title}>Editar rutina</Text>
-          <TextInput onChangeText={setRoutineName} placeholder="Nombre de rutina" style={styles.input} value={routineName} />
-          <View style={styles.routineActions}>
-            <Pressable disabled={isSavingRoutine} onPress={() => { void updateRoutineName(); }} style={styles.saveButton}>
-              <Text style={styles.saveButtonText}>Renombrar</Text>
-            </Pressable>
-            <Pressable disabled={isSavingRoutine} onPress={() => { void duplicateRoutine(); }} style={styles.actionButton}>
-              <Text>Duplicar</Text>
-            </Pressable>
-            <Pressable disabled={isSavingRoutine} onPress={() => { void deleteRoutine(); }} style={styles.deleteButton}>
-              <Text style={styles.deleteButtonText}>Eliminar rutina</Text>
-            </Pressable>
-          </View>
-          <Text style={styles.subtitle}>Añadir ejercicio</Text>
-          {exercises.map((exercise) => (
-            <Pressable key={exercise.id} onPress={() => { void addExercise(exercise.id); }} style={styles.libraryExercise}>
-              <Text style={styles.exerciseName}>{exercise.name}</Text>
-              <Text>{exercise.targetMuscleGroups.join(', ')}</Text>
-            </Pressable>
-          ))}
-          <Text style={styles.subtitle}>Configuración</Text>
-          {routine.exercises.map((exercise, index) => (
-            <RoutineExerciseEditor
-              canMoveDown={index < routine.exercises.length - 1}
-              canMoveUp={index > 0}
-              exercise={exercise}
-              key={exercise.id}
-              onDelete={() => deleteExercise(exercise.id)}
-              onMoveDown={() => moveExercise(exercise.id, 1)}
-              onMoveUp={() => moveExercise(exercise.id, -1)}
-              onSave={(input) => saveExercise(exercise.id, input)}
-            />
-          ))}
+          {/* Routine Title Input matching Image 2 */}
+          <TextInput
+            onChangeText={setRoutineName}
+            placeholder="Título de rutina"
+            placeholderTextColor={colors.muted}
+            style={styles.routineTitleInput}
+            value={routineName}
+          />
+
+          {/* Empty State matching Image 2 when no exercises exist */}
+          {routine.exercises.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <MaterialIcons name="fitness-center" size={56} color={colors.muted} />
+              <Text style={styles.emptyText}>
+                Comienza añadiendo un ejercicio a tu rutina.
+              </Text>
+              <AnimatedPressable
+                onPress={() => setIsPickerVisible(true)}
+                style={styles.addExerciseMainBtn}
+              >
+                <MaterialIcons name="add" size={22} color="#ffffff" />
+                <Text style={styles.addExerciseMainBtnText}>Añadir ejercicio</Text>
+              </AnimatedPressable>
+            </View>
+          ) : (
+            <>
+              {/* Exercise Items List */}
+              {routine.exercises.map((item, index) => (
+                <RoutineExerciseEditor
+                  canMoveDown={index < routine.exercises.length - 1}
+                  canMoveUp={index > 0}
+                  exercise={item}
+                  key={item.id}
+                  onDelete={() => deleteExercise(item.id)}
+                  onMoveDown={() => moveExercise(item.id, 1)}
+                  onMoveUp={() => moveExercise(item.id, -1)}
+                  onSave={(input) => saveExercise(item.id, input)}
+                />
+              ))}
+
+              {/* Add Exercise CTA Button at Bottom */}
+              <AnimatedPressable
+                onPress={() => setIsPickerVisible(true)}
+                style={styles.addExerciseMainBtn}
+              >
+                <MaterialIcons name="add" size={22} color="#ffffff" />
+                <Text style={styles.addExerciseMainBtnText}>Añadir ejercicio</Text>
+              </AnimatedPressable>
+            </>
+          )}
+
+          {/* Exercise Picker Modal */}
+          {isPickerVisible && (
+            <View style={styles.pickerContainer}>
+              <View style={styles.pickerHeader}>
+                <Text style={styles.pickerTitle}>Seleccionar ejercicio</Text>
+                <AnimatedPressable onPress={() => setIsPickerVisible(false)}>
+                  <MaterialIcons name="close" size={24} color={colors.muted} />
+                </AnimatedPressable>
+              </View>
+              {exercises.map((item) => (
+                <AnimatedPressable
+                  key={item.id}
+                  onPress={() => { void addExercise(item.id); }}
+                  style={styles.pickerItem}
+                >
+                  <Text style={styles.pickerItemName}>{item.name}</Text>
+                  <Text style={styles.pickerItemMuscle}>{item.targetMuscleGroups.join(', ')}</Text>
+                </AnimatedPressable>
+              ))}
+            </View>
+          )}
         </>
       )}
     </ScrollView>
@@ -332,82 +406,172 @@ export function RoutineEditor({
 
 const styles = StyleSheet.create({
   actionButton: {
-    backgroundColor: '#d1d5db',
-    borderRadius: 6,
-    padding: 10,
+    backgroundColor: '#1e293b',
+    borderRadius: 8,
+    paddingHorizontal: spacing(1.5),
+    paddingVertical: spacing(0.75),
   },
-  backButton: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#374151',
-    borderRadius: 6,
-    padding: 10,
+  actionButtonText: {
+    color: colors.text,
+    fontSize: 12,
   },
-  backButtonText: {
+  addExerciseMainBtn: {
+    alignItems: 'center',
+    backgroundColor: colors.accentAlt,
+    borderRadius: 14,
+    flexDirection: 'row',
+    gap: spacing(1),
+    justifyContent: 'center',
+    marginTop: spacing(2),
+    paddingVertical: spacing(1.75),
+    width: '100%',
+  },
+  addExerciseMainBtnText: {
     color: '#ffffff',
+    fontSize: typography.body,
+    fontWeight: '700',
+  },
+  cancelText: {
+    color: colors.accentAlt,
+    fontSize: typography.body,
+    fontWeight: '600',
   },
   container: {
-    gap: 12,
-    padding: 24,
-  },
-  error: {
-    color: '#b91c1c',
+    gap: spacing(1.5),
+    padding: spacing(2.5),
+    paddingBottom: spacing(4),
   },
   deleteButton: {
-    backgroundColor: '#b91c1c',
-    borderRadius: 6,
-    padding: 10,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    borderRadius: 8,
+    paddingHorizontal: spacing(1.5),
+    paddingVertical: spacing(0.75),
   },
   deleteButtonText: {
-    color: '#ffffff',
-  },
-  exerciseName: {
-    fontSize: 17,
+    color: colors.danger,
+    fontSize: 12,
     fontWeight: '700',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    gap: spacing(2),
+    justifyContent: 'center',
+    paddingVertical: spacing(6),
+  },
+  emptyText: {
+    color: colors.muted,
+    fontSize: typography.body,
+    textAlign: 'center',
+    width: '80%',
+  },
+  error: {
+    color: colors.danger,
   },
   exerciseActions: {
     flexDirection: 'row',
     gap: 8,
+    marginTop: spacing(0.5),
+  },
+  exerciseName: {
+    color: colors.text,
+    fontSize: typography.h3,
+    fontWeight: '700',
   },
   input: {
-    backgroundColor: '#ffffff',
-    borderColor: '#9ca3af',
-    borderRadius: 6,
+    backgroundColor: '#111827',
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 10,
     borderWidth: 1,
-    padding: 10,
+    color: colors.text,
+    padding: spacing(1),
   },
-  libraryExercise: {
-    backgroundColor: '#e5e7eb',
-    borderRadius: 8,
-    gap: 4,
-    padding: 12,
+  inputGrid: {
+    gap: 8,
+  },
+  pickerContainer: {
+    backgroundColor: colors.surface,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: spacing(1),
+    marginTop: spacing(2),
+    padding: spacing(2),
+  },
+  pickerHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing(1),
+  },
+  pickerItem: {
+    backgroundColor: '#111827',
+    borderRadius: 10,
+    padding: spacing(1.5),
+  },
+  pickerItemMuscle: {
+    color: colors.muted,
+    fontSize: 12,
+  },
+  pickerItemName: {
+    color: colors.text,
+    fontSize: typography.body,
+    fontWeight: '600',
+  },
+  pickerTitle: {
+    color: colors.text,
+    fontSize: typography.h3,
+    fontWeight: '700',
   },
   routineExercise: {
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    gap: 8,
+    backgroundColor: colors.surface,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 10,
     padding: 16,
   },
-  routineActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+  routineTitleInput: {
+    color: colors.text,
+    fontSize: 24,
+    fontWeight: '700',
+    paddingVertical: spacing(1),
   },
-  saveButton: {
+  saveConfigButton: {
     alignItems: 'center',
-    backgroundColor: '#1d4ed8',
-    borderRadius: 6,
-    padding: 10,
+    backgroundColor: 'rgba(37, 99, 235, 0.2)',
+    borderColor: 'rgba(37, 99, 235, 0.4)',
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: spacing(1.25),
   },
-  saveButtonText: {
+  saveConfigButtonText: {
+    color: colors.accentAlt,
+    fontWeight: '700',
+  },
+  savePillBtn: {
+    backgroundColor: colors.accentAlt,
+    borderRadius: 999,
+    paddingHorizontal: spacing(2),
+    paddingVertical: spacing(0.75),
+  },
+  savePillBtnText: {
     color: '#ffffff',
+    fontSize: typography.body,
     fontWeight: '700',
   },
-  subtitle: {
-    fontSize: 20,
-    fontWeight: '700',
+  scroll: {
+    backgroundColor: colors.background,
+    flex: 1,
   },
-  title: {
-    fontSize: 26,
+  topBar: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: spacing(0.5),
+  },
+  topBarTitle: {
+    color: colors.text,
+    fontSize: typography.h3,
     fontWeight: '700',
   },
 });

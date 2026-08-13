@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text } from 'react-native';
+import { colors, typography, spacing } from '../../theme';
+import AnimatedPressable from '../../components/AnimatedPressable';
 
 import { ApiError } from '../../lib/api-client';
 import type { Tokens } from '../auth/auth.types';
@@ -54,17 +56,17 @@ export function WorkoutExercisePicker({
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Pressable onPress={onBack} style={styles.backButton}>
+      <AnimatedPressable onPress={onBack} style={styles.backButton}>
         <Text style={styles.backButtonText}>Volver al entrenamiento</Text>
-      </Pressable>
+      </AnimatedPressable>
       <Text style={styles.title}>Añadir ejercicio</Text>
-      {isLoading && <ActivityIndicator />}
+      {isLoading && <ActivityIndicator color={colors.accent} />}
       {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
       {exercises.map((exercise) => (
-        <Pressable disabled={addingExerciseId !== null} key={exercise.id} onPress={() => { void addExercise(exercise.id); }} style={styles.exercise}>
+        <AnimatedPressable disabled={addingExerciseId !== null} key={exercise.id} onPress={() => { void addExercise(exercise.id); }} style={styles.exercise}>
           <Text style={styles.exerciseName}>{exercise.name}</Text>
-          <Text>{addingExerciseId === exercise.id ? 'Añadiendo...' : exercise.targetMuscleGroups.join(', ')}</Text>
-        </Pressable>
+          <Text style={styles.helper}>{addingExerciseId === exercise.id ? 'Añadiendo...' : exercise.targetMuscleGroups.join(', ')}</Text>
+        </AnimatedPressable>
       ))}
     </ScrollView>
   );
@@ -73,32 +75,41 @@ export function WorkoutExercisePicker({
 const styles = StyleSheet.create({
   backButton: {
     alignSelf: 'flex-start',
-    backgroundColor: '#374151',
-    borderRadius: 6,
-    padding: 10,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 999,
+    paddingHorizontal: spacing(1.5),
+    paddingVertical: spacing(1),
   },
   backButtonText: {
-    color: '#ffffff',
+    color: colors.text,
   },
   container: {
-    gap: 12,
-    padding: 24,
+    backgroundColor: colors.background,
+    gap: spacing(1.5),
+    padding: spacing(2.5),
   },
   error: {
-    color: '#b91c1c',
+    color: '#ff7b7b',
   },
   exercise: {
-    backgroundColor: '#e5e7eb',
-    borderRadius: 8,
-    gap: 4,
-    padding: 16,
+    backgroundColor: colors.surface,
+    borderColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: spacing(0.5),
+    padding: spacing(2),
   },
   exerciseName: {
-    fontSize: 18,
+    color: colors.text,
+    fontSize: typography.h3,
     fontWeight: '700',
   },
+  helper: {
+    color: colors.muted,
+  },
   title: {
-    fontSize: 26,
+    color: colors.text,
+    fontSize: typography.h2,
     fontWeight: '700',
   },
 });

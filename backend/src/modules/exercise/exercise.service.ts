@@ -94,10 +94,29 @@ export async function listExercises(
         ? { name: { contains: input.query, mode: 'insensitive' } }
         : {},
       input.muscleGroup
-        ? { targetMuscleGroups: { has: input.muscleGroup } }
+        ? {
+            targetMuscleGroups: {
+              hasSome: Array.from(new Set([
+                input.muscleGroup,
+                input.muscleGroup.toLowerCase(),
+                input.muscleGroup.toUpperCase(),
+                input.muscleGroup.charAt(0).toUpperCase() + input.muscleGroup.slice(1).toLowerCase(),
+                input.muscleGroup.replace(/e/gi, 'é').replace(/i/gi, 'í').replace(/o/gi, 'ó').replace(/u/gi, 'ú'),
+                input.muscleGroup.normalize('NFD').replace(/[\u0300-\u036f]/g, ''),
+              ])),
+            },
+          }
         : {},
       input.equipment
-        ? { equipment: { equals: input.equipment, mode: 'insensitive' } }
+        ? input.equipment.toLowerCase() === 'ninguno'
+          ? {
+              OR: [
+                { equipment: { equals: 'Ninguno', mode: 'insensitive' } },
+                { equipment: null },
+                { equipment: '' },
+              ],
+            }
+          : { equipment: { equals: input.equipment, mode: 'insensitive' } }
         : {},
     ],
   };

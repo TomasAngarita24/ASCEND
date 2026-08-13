@@ -3,11 +3,11 @@ import { z } from 'zod';
 import { HttpError } from '../../errors/http-error';
 
 const listExercisesSchema = z.object({
-  equipment: z.string().trim().min(1).optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
-  muscleGroup: z.string().trim().min(1).optional(),
+  equipment: z.string().trim().optional().transform((val) => (val && val.length > 0 ? val : undefined)),
+  limit: z.coerce.number().int().min(1).max(200).default(20),
+  muscleGroup: z.string().trim().optional().transform((val) => (val && val.length > 0 ? val : undefined)),
   page: z.coerce.number().int().min(1).default(1),
-  query: z.string().trim().min(1).optional(),
+  query: z.string().trim().optional().transform((val) => (val && val.length > 0 ? val : undefined)),
 });
 
 const createExerciseSchema = z.object({
