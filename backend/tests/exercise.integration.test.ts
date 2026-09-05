@@ -25,7 +25,10 @@ function newCredentials(): { email: string; password: string } {
 
 async function request(path: string, options: RequestInit = {}): Promise<ApiResponse> {
   const response = await fetch(`${baseUrl}${path}`, options);
-  const body = await response.json() as Record<string, unknown>;
+  let body: Record<string, unknown> = {};
+  if (response.status !== 204) {
+    body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+  }
 
   return { body, status: response.status };
 }
@@ -135,4 +138,276 @@ describe('exercises', () => {
       'EXERCISE_NOT_FOUND',
     );
   });
+  it('does not expose progress data for a deleted custom exercise', async () => {
+  const accessToken = await registerAndGetAccessToken();
+  const headers = {
+    authorization: `Bearer ${accessToken}`,
+    'content-type': 'application/json',
+  };
+
+  const creation = await request('/exercises', {
+    body: JSON.stringify({
+      name: `Deleted progress exercise ${randomUUID()}`,
+      targetMuscleGroups: ['Chest'],
+    }),
+    headers,
+    method: 'POST',
+  });
+
+  assert.equal(creation.status, 201);
+
+  const exerciseId = (creation.body.exercise as Record<string, string>).id;
+
+  const deleted = await request(`/exercises/${exerciseId}`, {
+    headers,
+    method: 'DELETE',
+  });
+
+  assert.equal(deleted.status, 204);
+
+  const estimatedOneRepMax = await request(
+    `/progress/exercises/${exerciseId}/estimated-one-rep-max`,
+    {
+      headers: { authorization: `Bearer ${accessToken}` },
+    },
+  );
+
+  assert.equal(estimatedOneRepMax.status, 404);
+  assert.equal(
+    (estimatedOneRepMax.body.error as Record<string, string>).code,
+    'EXERCISE_NOT_FOUND',
+  );
+
+  const progression = await request(`/progress/exercises/${exerciseId}`, {
+    headers: { authorization: `Bearer ${accessToken}` },
+  });
+
+  assert.equal(progression.status, 404);
+  assert.equal(
+    (progression.body.error as Record<string, string>).code,
+    'EXERCISE_NOT_FOUND',
+  );
+
+  const chart = await request(
+    `/progress/charts?metric=volume&exerciseId=${exerciseId}`,
+    {
+      headers: { authorization: `Bearer ${accessToken}` },
+    },
+  );
+
+  assert.equal(chart.status, 404);
+  assert.equal(
+    (chart.body.error as Record<string, string>).code,
+    'EXERCISE_NOT_FOUND',
+  );
+});
+  it('updates and deletes a custom exercise for its owner', async () => {
+    const ownerToken = await registerAndGetAccessToken();
+    const headers = {
+      authorization: `Bearer ${ownerToken}`,
+      'content-type': 'application/json',
+    };
+
+    const creation = await request('/exercises', {
+      body: JSON.stringify({
+        name: `Original Exercise ${randomUUID()}`,
+        equipment: 'Mancuernas',
+        targetMuscleGroups: ['Biceps'],
+      }),
+      headers,
+      method: 'POST',
+    });
+
+    assert.equal(creation.status, 201);
+    const exerciseId = (creation.body.exercise as Record<string, string>).id;
+
+    // Update
+    const update = await request(`/exercises/${exerciseId}`, {
+      body: JSON.stringify({
+        name: 'Updated Exercise Name',
+        equipment: 'Barra',
+        targetMuscleGroups: ['Triceps'],
+      }),
+      headers,
+      method: 'PUT',
+    });
+
+    assert.equal(update.status, 200);
+    const updated = update.body.exercise as Record<string, unknown>;
+    assert.equal(updated.name, 'Updated Exercise Name');
+    assert.equal(updated.equipment, 'Barra');
+
+    const del = await request(`/exercises/${exerciseId}`, {
+      headers,
+      method: 'DELETE',
+    });
+
+    assert.equal(del.status, 204);
+
+    const verifyGet = await request(`/exercises/${exerciseId}`, {
+      headers,
+    });
+    assert.equal(verifyGet.status, 404);
+    const deletedExercise = await prisma.exercise.findUnique({
+      where: { id: exerciseId },
+      select: { id: true, deletedAt: true },
+    });
+
+    assert.ok(deletedExercise);
+    assert.ok(deletedExercise.deletedAt);
+    });
+    it('keeps previous performance available after deleting a custom exercise', async () => {
+  const accessToken = await registerAndGetAccessToken();
+  const headers = {
+    authorization: `Bearer ${accessToken}`,
+    'content-type': 'application/json',
+  };
+
+  const creation = await request('/exercises', {
+    body: JSON.stringify({
+      name: `Historical Exercise ${randomUUID()}`,
+      targetMuscleGroups: ['Chest'],
+    }),
+    headers,
+    method: 'POST',
+  });
+
+  assert.equal(creation.status, 201);
+
+  const exerciseId = (creation.body.exercise as Record<string, string>).id;
+
+  const started = await request('/workouts', {
+    body: '{}',
+    headers,
+    method: 'POST',
+  });
+
+  assert.equal(started.status, 201);
+
+  const workoutId = (started.body.workout as Record<string, string>).id;
+
+  const addedExercise = await request(`/workouts/${workoutId}/exercises`, {
+    body: JSON.stringify({ exerciseId }),
+    headers,
+    method: 'POST',
+  });
+
+  assert.equal(addedExercise.status, 201);
+
+  const workoutExerciseId = (
+    addedExercise.body.workoutExercise as Record<string, string>
+  ).id;
+
+  const createdSet = await request(
+    `/workouts/${workoutId}/exercises/${workoutExerciseId}/sets`,
+    {
+      body: JSON.stringify({
+        weight: 60,
+        repetitions: 10,
+        isCompleted: true,
+      }),
+      headers,
+      method: 'POST',
+    },
+  );
+  it('does not allow a deleted custom exercise to be added to a workout', async () => {
+  const accessToken = await registerAndGetAccessToken();
+  const headers = {
+    authorization: `Bearer ${accessToken}`,
+    'content-type': 'application/json',
+  };
+
+  // Create exercise
+  const creation = await request('/exercises', {
+    body: JSON.stringify({
+      name: `Deleted workout exercise ${randomUUID()}`,
+      targetMuscleGroups: ['Chest'],
+    }),
+    headers,
+    method: 'POST',
+  });
+
+  assert.equal(creation.status, 201);
+
+  const exerciseId = (creation.body.exercise as Record<string, string>).id;
+
+  // Delete exercise
+  const deleted = await request(`/exercises/${exerciseId}`, {
+    headers,
+    method: 'DELETE',
+  });
+
+  assert.equal(deleted.status, 204);
+
+  // Create workout
+  const workout = await request('/workouts', {
+    body: '{}',
+    headers,
+    method: 'POST',
+  });
+
+  assert.equal(workout.status, 201);
+
+  const workoutId = (workout.body.workout as Record<string, string>).id;
+
+  // Try to add deleted exercise
+  const addedExercise = await request(`/workouts/${workoutId}/exercises`, {
+    body: JSON.stringify({ exerciseId }),
+    headers,
+    method: 'POST',
+  });
+
+  assert.equal(addedExercise.status, 404);
+  assert.equal(
+    (addedExercise.body.error as Record<string, string>).code,
+    'EXERCISE_NOT_FOUND',
+  );
+});
+  assert.equal(createdSet.status, 201);
+
+  const completed = await request(`/workouts/${workoutId}/complete`, {
+    headers,
+    method: 'POST',
+  });
+
+  assert.equal(completed.status, 200);
+
+  const deleted = await request(`/exercises/${exerciseId}`, {
+    headers,
+    method: 'DELETE',
+  });
+
+  assert.equal(deleted.status, 204);
+
+  const verifyGet = await request(`/exercises/${exerciseId}`, {
+    headers: { authorization: `Bearer ${accessToken}` },
+  });
+
+  assert.equal(verifyGet.status, 404);
+
+  const previousPerformance = await request(
+    `/exercises/${exerciseId}/previous-performance`,
+    {
+      headers: { authorization: `Bearer ${accessToken}` },
+    },
+  );
+
+  assert.equal(previousPerformance.status, 200);
+
+  const previousWorkout =
+    previousPerformance.body.previousWorkout as Record<string, unknown>;
+
+  assert.equal(previousWorkout.id, workoutId);
+
+  assert.deepEqual(previousWorkout.sets, [
+    {
+      setNumber: 1,
+      weight: 60,
+      repetitions: 10,
+      rpe: null,
+      setType: 'normal',
+    },
+  ]);
+});
+  
 });

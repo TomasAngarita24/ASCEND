@@ -13,7 +13,7 @@
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
-    "test": "tsx --test tests/auth.integration.test.ts tests/exercise.integration.test.ts tests/routine.integration.test.ts tests/workout.integration.test.ts"
+    "test": "tsx --test tests/auth.integration.test.ts tests/google-auth.integration.test.ts tests/exercise.integration.test.ts tests/routine.integration.test.ts tests/workout.integration.test.ts"
   },
   "keywords": [
     "node",
@@ -25,9 +25,12 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
+    "@types/cors": "^2.8.19",
     "argon2": "^0.45.1",
+    "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^4.19.2",
+    "google-auth-library": "^11.0.2",
     "jsonwebtoken": "^9.0.3",
     "zod": "^4.4.3"
   },

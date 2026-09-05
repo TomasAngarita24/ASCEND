@@ -5,7 +5,8 @@ import AnimatedPressable from '../../components/AnimatedPressable';
 import { ApiError } from '../../lib/api-client';
 import { colors, spacing, typography } from '../../theme';
 import type { Tokens } from '../auth/auth.types';
-import { ExerciseService, type ExerciseSummary } from '../exercise/exercise.service';
+import { ExerciseService } from '../exercise/exercise.service';
+import { MultiExercisePicker } from '../exercise/multi-exercise-picker';
 import {
   RoutineService,
   type RoutineDetail,
@@ -85,6 +86,7 @@ function RoutineExerciseEditor({
   return (
     <View style={styles.routineExercise}>
       <Text style={styles.exerciseName}>{exercise.position}. {exercise.exercise.name}</Text>
+      <Text style={styles.configSubtitle}>Configurar series y repeticiones</Text>
       <View style={styles.inputGrid}>
         <TextInput
           keyboardType="number-pad"
@@ -162,7 +164,6 @@ export function RoutineEditor({
   tokens,
 }: RoutineEditorProps): React.JSX.Element {
   const [routine, setRoutine] = useState<RoutineDetail | null>(null);
-  const [exercises, setExercises] = useState<ExerciseSummary[]>([]);
   const [routineName, setRoutineName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSavingRoutine, setIsSavingRoutine] = useState(false);
@@ -172,36 +173,36 @@ export function RoutineEditor({
     const loadRoutine = async () => {
       try {
         const routineResult = await routineService.getDetail(tokens, routineId);
-        const exerciseResult = await exerciseService.list(routineResult.tokens, {});
         setRoutine(routineResult.routine);
         setRoutineName(routineResult.routine.name);
-        setExercises(exerciseResult.exercises);
-        if (exerciseResult.tokens.accessToken !== tokens.accessToken) {
-          onTokensChange(exerciseResult.tokens);
+        if (routineResult.tokens.accessToken !== tokens.accessToken) {
+          onTokensChange(routineResult.tokens);
         }
       } catch (requestError) {
         setError(requestError instanceof ApiError ? requestError.message : 'No fue posible cargar la rutina.');
       }
     };
     void loadRoutine();
-  }, [exerciseService, onTokensChange, routineId, routineService, tokens]);
+  }, [routineId, routineService, tokens, onTokensChange]);
 
-  const addExercise = async (exerciseId: string) => {
-    if (!routine) {
+  const addMultipleExercises = async (selectedExerciseIds: string[]) => {
+    if (!routine || selectedExerciseIds.length === 0) {
       return;
     }
+    let currentTokens = tokens;
     try {
-      const result = await routineService.addExercise(tokens, routine.id, exerciseId);
-      setRoutine((currentRoutine) => currentRoutine && {
-        ...currentRoutine,
-        exercises: [...currentRoutine.exercises, result.routineExercise],
-      });
-      setIsPickerVisible(false);
-      if (result.tokens.accessToken !== tokens.accessToken) {
-        onTokensChange(result.tokens);
+      for (const exerciseId of selectedExerciseIds) {
+        const result = await routineService.addExercise(currentTokens, routine.id, exerciseId);
+        currentTokens = result.tokens;
+        if (result.tokens.accessToken !== tokens.accessToken) {
+          onTokensChange(result.tokens);
+        }
       }
+      const reloaded = await routineService.getDetail(currentTokens, routine.id);
+      setRoutine(reloaded.routine);
+      setIsPickerVisible(false);
     } catch (requestError) {
-      setError(requestError instanceof ApiError ? requestError.message : 'No fue posible añadir el ejercicio.');
+      setError(requestError instanceof ApiError ? requestError.message : 'No fue posible añadir los ejercicios.');
     }
   };
 
@@ -297,7 +298,7 @@ export function RoutineEditor({
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
-      {/* Top Header Bar matching Image 2 */}
+      {/* Top Header Bar */}
       <View style={styles.topBar}>
         <AnimatedPressable
           accessibilityRole="button"
@@ -326,7 +327,7 @@ export function RoutineEditor({
 
       {routine && (
         <>
-          {/* Routine Title Input matching Image 2 */}
+          {/* Routine Title Input */}
           <TextInput
             onChangeText={setRoutineName}
             placeholder="Título de rutina"
@@ -335,7 +336,7 @@ export function RoutineEditor({
             value={routineName}
           />
 
-          {/* Empty State matching Image 2 when no exercises exist */}
+          {/* Empty State when no exercises exist */}
           {routine.exercises.length === 0 ? (
             <View style={styles.emptyContainer}>
               <MaterialIcons name="fitness-center" size={56} color={colors.muted} />
@@ -352,7 +353,7 @@ export function RoutineEditor({
             </View>
           ) : (
             <>
-              {/* Exercise Items List */}
+              {/* Exercise Items List with Series & Reps Config AFTER added */}
               {routine.exercises.map((item, index) => (
                 <RoutineExerciseEditor
                   canMoveDown={index < routine.exercises.length - 1}
@@ -366,7 +367,7 @@ export function RoutineEditor({
                 />
               ))}
 
-              {/* Add Exercise CTA Button at Bottom */}
+              {/* Centered Full Width Add Exercise CTA Button at Bottom */}
               <AnimatedPressable
                 onPress={() => setIsPickerVisible(true)}
                 style={styles.addExerciseMainBtn}
@@ -377,27 +378,15 @@ export function RoutineEditor({
             </>
           )}
 
-          {/* Exercise Picker Modal */}
-          {isPickerVisible && (
-            <View style={styles.pickerContainer}>
-              <View style={styles.pickerHeader}>
-                <Text style={styles.pickerTitle}>Seleccionar ejercicio</Text>
-                <AnimatedPressable onPress={() => setIsPickerVisible(false)}>
-                  <MaterialIcons name="close" size={24} color={colors.muted} />
-                </AnimatedPressable>
-              </View>
-              {exercises.map((item) => (
-                <AnimatedPressable
-                  key={item.id}
-                  onPress={() => { void addExercise(item.id); }}
-                  style={styles.pickerItem}
-                >
-                  <Text style={styles.pickerItemName}>{item.name}</Text>
-                  <Text style={styles.pickerItemMuscle}>{item.targetMuscleGroups.join(', ')}</Text>
-                </AnimatedPressable>
-              ))}
-            </View>
-          )}
+          {/* Multi Exercise Selection Modal */}
+          <MultiExercisePicker
+            exerciseService={exerciseService}
+            onCancel={() => setIsPickerVisible(false)}
+            onConfirm={addMultipleExercises}
+            onTokensChange={onTokensChange}
+            tokens={tokens}
+            visible={isPickerVisible}
+          />
         </>
       )}
     </ScrollView>
@@ -417,24 +406,32 @@ const styles = StyleSheet.create({
   },
   addExerciseMainBtn: {
     alignItems: 'center',
+    alignSelf: 'stretch',
     backgroundColor: colors.accentAlt,
     borderRadius: 14,
     flexDirection: 'row',
     gap: spacing(1),
+    height: 52,
     justifyContent: 'center',
     marginTop: spacing(2),
-    paddingVertical: spacing(1.75),
+    paddingHorizontal: spacing(2),
     width: '100%',
   },
   addExerciseMainBtnText: {
     color: '#ffffff',
-    fontSize: typography.body,
+    fontSize: 15,
     fontWeight: '700',
   },
   cancelText: {
     color: colors.accentAlt,
     fontSize: typography.body,
     fontWeight: '600',
+  },
+  configSubtitle: {
+    color: colors.muted,
+    fontSize: typography.caption,
+    fontWeight: '600',
+    marginBottom: 4,
   },
   container: {
     gap: spacing(1.5),
@@ -454,9 +451,11 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     alignItems: 'center',
+    alignSelf: 'stretch',
     gap: spacing(2),
     justifyContent: 'center',
     paddingVertical: spacing(6),
+    width: '100%',
   },
   emptyText: {
     color: colors.muted,
@@ -488,40 +487,6 @@ const styles = StyleSheet.create({
   inputGrid: {
     gap: 8,
   },
-  pickerContainer: {
-    backgroundColor: colors.surface,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 16,
-    borderWidth: 1,
-    gap: spacing(1),
-    marginTop: spacing(2),
-    padding: spacing(2),
-  },
-  pickerHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: spacing(1),
-  },
-  pickerItem: {
-    backgroundColor: '#111827',
-    borderRadius: 10,
-    padding: spacing(1.5),
-  },
-  pickerItemMuscle: {
-    color: colors.muted,
-    fontSize: 12,
-  },
-  pickerItemName: {
-    color: colors.text,
-    fontSize: typography.body,
-    fontWeight: '600',
-  },
-  pickerTitle: {
-    color: colors.text,
-    fontSize: typography.h3,
-    fontWeight: '700',
-  },
   routineExercise: {
     backgroundColor: colors.surface,
     borderColor: 'rgba(255, 255, 255, 0.08)',
@@ -547,6 +512,7 @@ const styles = StyleSheet.create({
   saveConfigButtonText: {
     color: colors.accentAlt,
     fontWeight: '700',
+    textAlign: 'center',
   },
   savePillBtn: {
     backgroundColor: colors.accentAlt,

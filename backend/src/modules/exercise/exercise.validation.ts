@@ -18,6 +18,15 @@ const createExerciseSchema = z.object({
   targetMuscleGroups: z.array(z.string().trim().min(1)).optional(),
 });
 
+const updateExerciseSchema = z.object({
+  description: z.string().trim().nullable().optional(),
+  equipment: z.string().trim().max(255).nullable().optional(),
+  instructions: z.string().trim().nullable().optional(),
+  mediaUrl: z.string().trim().nullable().optional(),
+  name: z.string().trim().min(1).max(255).optional(),
+  targetMuscleGroups: z.array(z.string().trim().min(1)).optional(),
+});
+
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);
 
@@ -30,6 +39,10 @@ function parse<T>(schema: z.ZodType<T>, value: unknown): T {
 
 export function validateCreateExercise(value: unknown): z.infer<typeof createExerciseSchema> {
   return parse(createExerciseSchema, value);
+}
+
+export function validateUpdateExercise(value: unknown): z.infer<typeof updateExerciseSchema> {
+  return parse(updateExerciseSchema, value);
 }
 
 export function validateExerciseId(value: unknown): string {

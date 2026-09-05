@@ -297,18 +297,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     flex: 1,
     flexDirection: 'row',
     gap: spacing(1.25),
+    height: 52,
     justifyContent: 'center',
     paddingHorizontal: spacing(1.5),
-    paddingVertical: spacing(2),
   },
   dashboardCardText: {
     color: colors.text,
-    fontSize: typography.body,
+    fontSize: 14,
     fontWeight: '600',
   },
   dashboardGrid: {
@@ -345,12 +345,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   metricPill: {
+    alignItems: 'center',
     backgroundColor: colors.surface,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 999,
     borderWidth: 1,
-    paddingHorizontal: spacing(2.5),
-    paddingVertical: spacing(1),
+    justifyContent: 'center',
+    paddingHorizontal: spacing(2),
+    paddingVertical: spacing(0.75),
   },
   metricPillActive: {
     backgroundColor: colors.accentAlt,
@@ -358,7 +360,7 @@ const styles = StyleSheet.create({
   },
   metricText: {
     color: colors.muted,
-    fontSize: typography.body,
+    fontSize: 13,
     fontWeight: '600',
   },
   metricTextActive: {
@@ -366,6 +368,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   metricsRow: {
+    alignItems: 'center',
     flexDirection: 'row',
     gap: spacing(1.25),
     marginBottom: spacing(1),

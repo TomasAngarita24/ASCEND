@@ -11,6 +11,10 @@ const refreshTokenSchema = z.object({
   refreshToken: z.string().min(1),
 });
 
+const googleAuthSchema = z.object({
+  idToken: z.string().min(1),
+});
+
 function validate<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);
 
@@ -27,4 +31,8 @@ export function validateCredentials(value: unknown): z.infer<typeof credentialsS
 
 export function validateRefreshToken(value: unknown): z.infer<typeof refreshTokenSchema> {
   return validate(refreshTokenSchema, value);
+}
+
+export function validateGoogleAuth(value: unknown): z.infer<typeof googleAuthSchema> {
+  return validate(googleAuthSchema, value);
 }

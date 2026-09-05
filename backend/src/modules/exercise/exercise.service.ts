@@ -11,6 +11,15 @@ interface CreateExerciseInput {
   targetMuscleGroups?: string[];
 }
 
+interface UpdateExerciseInput {
+  description?: string | null;
+  equipment?: string | null;
+  instructions?: string | null;
+  mediaUrl?: string | null;
+  name?: string;
+  targetMuscleGroups?: string[];
+}
+
 interface ListExerciseInput {
   equipment?: string;
   limit: number;
@@ -25,6 +34,8 @@ function toExerciseResponse(exercise: Exercise, includeDetails = false): Exercis
     name: exercise.name,
     targetMuscleGroups: exercise.targetMuscleGroups,
     equipment: exercise.equipment,
+    description: exercise.description,
+    mediaUrl: exercise.mediaUrl,
     isCustom: exercise.createdByUserId !== null,
   };
 
@@ -34,9 +45,7 @@ function toExerciseResponse(exercise: Exercise, includeDetails = false): Exercis
 
   return {
     ...baseResponse,
-    description: exercise.description,
     instructions: exercise.instructions,
-    mediaUrl: exercise.mediaUrl,
     createdAt: exercise.createdAt.toISOString(),
     updatedAt: exercise.updatedAt.toISOString(),
   };
@@ -44,9 +53,14 @@ function toExerciseResponse(exercise: Exercise, includeDetails = false): Exercis
 
 function visibleTo(userId: string): Prisma.ExerciseWhereInput {
   return {
-    OR: [
-      { createdByUserId: null },
-      { createdByUserId: userId },
+    AND: [
+      {
+        OR: [
+          { createdByUserId: null },
+          { createdByUserId: userId },
+        ],
+      },
+      { deletedAt: null },
     ],
   };
 }
@@ -67,6 +81,51 @@ export async function createCustomExercise(
   });
 
   return toExerciseResponse(exercise, true);
+}
+
+export async function updateCustomExercise(
+  userId: string,
+  exerciseId: string,
+  input: UpdateExerciseInput,
+): Promise<ExerciseResponse> {
+  const existing = await prisma.exercise.findFirst({
+    where: { id: exerciseId, createdByUserId: userId },
+  });
+
+  if (!existing) {
+    throw new HttpError(404, 'EXERCISE_NOT_FOUND', 'Exercise does not exist or you do not have permission to modify it.');
+  }
+
+  const updated = await prisma.exercise.update({
+    where: { id: exerciseId },
+    data: {
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.description !== undefined ? { description: input.description } : {}),
+      ...(input.equipment !== undefined ? { equipment: input.equipment } : {}),
+      ...(input.instructions !== undefined ? { instructions: input.instructions } : {}),
+      ...(input.mediaUrl !== undefined ? { mediaUrl: input.mediaUrl } : {}),
+      ...(input.targetMuscleGroups !== undefined ? { targetMuscleGroups: input.targetMuscleGroups } : {}),
+    },
+  });
+
+  return toExerciseResponse(updated, true);
+}
+export async function deleteCustomExercise(
+  userId: string,
+  exerciseId: string,
+): Promise<void> {
+  const existing = await prisma.exercise.findFirst({
+    where: { id: exerciseId, createdByUserId: userId },
+  });
+
+  if (!existing) {
+    throw new HttpError(404, 'EXERCISE_NOT_FOUND', 'Exercise does not exist or you do not have permission to delete it.');
+  }
+
+  await prisma.exercise.update({
+    where: { id: exerciseId },
+    data: { deletedAt: new Date() },
+  });
 }
 
 export async function getExercise(userId: string, exerciseId: string): Promise<ExerciseResponse> {
@@ -140,15 +199,21 @@ export async function listExercises(
     },
   };
 }
-
 export async function getPreviousPerformance(
   userId: string,
   exerciseId: string,
 ): Promise<PreviousPerformanceResponse> {
   const exercise = await prisma.exercise.findFirst({
-    where: { AND: [visibleTo(userId), { id: exerciseId }] },
+    where: {
+      id: exerciseId,
+      OR: [
+        { createdByUserId: null },
+        { createdByUserId: userId },
+      ],
+    },
     select: { id: true },
   });
+
   if (!exercise) {
     throw new HttpError(404, 'EXERCISE_NOT_FOUND', 'Exercise does not exist or is not accessible.');
   }
@@ -167,6 +232,7 @@ export async function getPreviousPerformance(
     },
     orderBy: { completedAt: 'desc' },
   });
+
   if (!workout?.completedAt) {
     return { previousWorkout: null };
   }
@@ -175,13 +241,15 @@ export async function getPreviousPerformance(
     previousWorkout: {
       id: workout.id,
       completedAt: workout.completedAt.toISOString(),
-      sets: workout.workoutExercises.flatMap((workoutExercise) => workoutExercise.sets.map((set) => ({
-        setNumber: set.setNumber,
-        weight: set.weight === null ? null : Number(set.weight),
-        repetitions: set.repetitions,
-        rpe: set.rpe === null ? null : Number(set.rpe),
-        setType: set.setType,
-      }))),
+      sets: workout.workoutExercises.flatMap((workoutExercise) =>
+        workoutExercise.sets.map((set) => ({
+          setNumber: set.setNumber,
+          weight: set.weight === null ? null : Number(set.weight),
+          repetitions: set.repetitions,
+          rpe: set.rpe === null ? null : Number(set.rpe),
+          setType: set.setType,
+        })),
+      ),
     },
   };
 }

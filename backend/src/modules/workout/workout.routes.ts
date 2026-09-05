@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { asyncHandler } from '../../lib/async-handler';
 import { authenticate } from '../auth/auth.middleware';
 import {
-  addWorkoutExercise, createSet, deleteWorkoutExercise, getWorkout, listWorkoutHistory, startWorkout, transitionWorkout, updateSet,
+  addWorkoutExercise, createSet, deleteSet, deleteWorkoutExercise, getWorkout, listWorkoutHistory, startWorkout, transitionWorkout, updateSet,
 } from './workout.service';
 import {
   validateAddWorkoutExercise, validateCreateSet, validateStartWorkout, validateUpdateSet, validateWorkoutHistory, validateWorkoutId,
@@ -55,4 +55,14 @@ workoutRouter.patch('/:workoutId/exercises/:workoutExerciseId/sets/:setId', asyn
     request.auth!.userId, validateWorkoutId(request.params.workoutId), validateWorkoutId(request.params.workoutExerciseId), validateWorkoutId(request.params.setId), input,
   );
   response.status(200).json({ set });
+}));
+
+workoutRouter.delete('/:workoutId/exercises/:workoutExerciseId/sets/:setId', asyncHandler(async (request, response) => {
+  await deleteSet(
+    request.auth!.userId,
+    validateWorkoutId(request.params.workoutId),
+    validateWorkoutId(request.params.workoutExerciseId),
+    validateWorkoutId(request.params.setId),
+  );
+  response.status(204).send();
 }));

@@ -4,7 +4,6 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import AnimatedPressable from '../../components/AnimatedPressable';
 import { EquipmentPickerModal } from '../../components/EquipmentPickerModal';
 import { MuscleGroupPickerModal } from '../../components/MuscleGroupPickerModal';
-import { ApiError } from '../../lib/api-client';
 import { colors, spacing, typography } from '../../theme';
 import type { Tokens } from '../auth/auth.types';
 import {
@@ -95,8 +94,8 @@ function CreateExerciseForm({
       };
       const result = await exerciseService.create(tokens, input);
       onCreated(result.exercise, result.tokens);
-    } catch (requestError) {
-      setError(requestError instanceof ApiError ? requestError.message : 'No fue posible crear el ejercicio.');
+    } catch {
+      setError('No fue posible crear el ejercicio.');
     } finally {
       setIsSaving(false);
     }
@@ -160,40 +159,65 @@ export function ExerciseLibrary({
   const [searchQuery, setSearchQuery] = useState('');
   const [rawExercises, setRawExercises] = useState<ExerciseSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedExercise, setSelectedExercise] = useState<ExerciseDetail | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
   const [showMusclePicker, setShowMusclePicker] = useState(false);
   const [showEquipmentPicker, setShowEquipmentPicker] = useState(false);
 
-  const loadExercises = useCallback(async (nextFilters: ExerciseFilters) => {
+  const loadExercises = useCallback(async () => {
     setIsLoading(true);
-    setError(null);
     try {
-      const result = await exerciseService.list(tokens, nextFilters);
+      const result = await exerciseService.list(tokens, {});
       setRawExercises(result.exercises);
       if (result.tokens.accessToken !== tokens.accessToken) {
         onTokensChange(result.tokens);
       }
-    } catch (requestError) {
-      setError(requestError instanceof ApiError ? requestError.message : 'No fue posible cargar los ejercicios.');
+    } catch {
+      // Fallback: keep current exercises
     } finally {
       setIsLoading(false);
     }
   }, [exerciseService, onTokensChange, tokens]);
 
   useEffect(() => {
-    void loadExercises(filters);
-  }, [filters, loadExercises]);
+    void loadExercises();
+  }, []);
 
   const filteredExercises = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return rawExercises;
-    }
-    const q = searchQuery.toLowerCase().trim();
-    return rawExercises.filter((e) => e.name.toLowerCase().includes(q));
-  }, [rawExercises, searchQuery]);
+    return rawExercises.filter((e) => {
+      // 1. Name query filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        if (!e.name.toLowerCase().includes(q)) {
+          return false;
+        }
+      }
+
+      // 2. Muscle group filter
+      if (filters.muscleGroup) {
+        const targetGroup = filters.muscleGroup.toLowerCase().trim();
+        const hasMuscle = e.targetMuscleGroups.some((g) => g.toLowerCase().trim() === targetGroup);
+        if (!hasMuscle) {
+          return false;
+        }
+      }
+
+      // 3. Equipment filter
+      if (filters.equipment) {
+        const targetEquip = filters.equipment.toLowerCase().trim();
+        if (targetEquip === 'ninguno') {
+          if (e.equipment && e.equipment.toLowerCase().trim() !== 'ninguno') {
+            return false;
+          }
+        } else if (!e.equipment || e.equipment.toLowerCase().trim() !== targetEquip) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [filters.equipment, filters.muscleGroup, rawExercises, searchQuery]);
 
   const handleMuscleGroupSelect = (muscleGroup: string | undefined) => {
     setShowMusclePicker(false);
@@ -207,15 +231,14 @@ export function ExerciseLibrary({
 
   const openExercise = async (exerciseId: string) => {
     setIsLoading(true);
-    setError(null);
     try {
       const result = await exerciseService.getDetail(tokens, exerciseId);
       setSelectedExercise(result.exercise);
       if (result.tokens.accessToken !== tokens.accessToken) {
         onTokensChange(result.tokens);
       }
-    } catch (requestError) {
-      setError(requestError instanceof ApiError ? requestError.message : 'No fue posible cargar el ejercicio.');
+    } catch {
+      // Ignore
     } finally {
       setIsLoading(false);
     }
@@ -245,7 +268,7 @@ export function ExerciseLibrary({
   return (
     <View style={styles.root}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
-        {/* Top Header Bar matching Image 3 */}
+        {/* Top Header Bar */}
         <View style={styles.topBar}>
           <AnimatedPressable onPress={onBack}>
             <MaterialIcons name="arrow-back" size={24} color={colors.text} />
@@ -256,30 +279,24 @@ export function ExerciseLibrary({
           </AnimatedPressable>
         </View>
 
-        {/* Search Input with Magnifying Glass Icon matching Image 3 */}
+        {/* Search Input with Magnifying Glass Icon */}
         <View style={styles.searchBarContainer}>
           <MaterialIcons name="search" size={20} color={colors.muted} />
           <TextInput
-            onChangeText={(text) => {
-              setSearchQuery(text);
-              setFilters((current) => ({ ...current, query: text.trim() ? text.trim() : undefined }));
-            }}
+            onChangeText={setSearchQuery}
             placeholder="Buscar ejercicio"
             placeholderTextColor={colors.muted}
             style={styles.searchInput}
             value={searchQuery}
           />
           {Boolean(searchQuery) && (
-            <AnimatedPressable onPress={() => {
-              setSearchQuery('');
-              setFilters((current) => ({ ...current, query: undefined }));
-            }}>
+            <AnimatedPressable onPress={() => setSearchQuery('')}>
               <MaterialIcons name="close" size={18} color={colors.muted} />
             </AnimatedPressable>
           )}
         </View>
 
-        {/* Side-by-side Selectors for Equipment and Muscle Groups matching Image 3 */}
+        {/* Side-by-side Selectors for Equipment and Muscle Groups */}
         <View style={styles.selectorRow}>
           <AnimatedPressable
             onPress={() => setShowEquipmentPicker(true)}
@@ -300,16 +317,15 @@ export function ExerciseLibrary({
           </AnimatedPressable>
         </View>
 
-        {/* Section Header matching Image 3 */}
-        <Text style={styles.sectionHeader}>Ejercicios populares</Text>
+        {/* Section Header */}
+        <Text style={styles.sectionHeader}>Todos los ejercicios</Text>
 
         {isLoading && <ActivityIndicator color={colors.accentAlt} style={{ marginVertical: 10 }} />}
-        {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
         {!isLoading && filteredExercises.length === 0 && (
           <Text style={styles.helper}>No se encontraron ejercicios.</Text>
         )}
 
-        {/* Exercise Rows matching Image 3 */}
+        {/* Exercise Rows */}
         {filteredExercises.map((exercise) => (
           <AnimatedPressable
             key={exercise.id}

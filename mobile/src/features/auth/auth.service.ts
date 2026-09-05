@@ -31,6 +31,20 @@ export class AuthService {
     return this.authenticate('/auth/register', credentials);
   }
 
+  async loginWithGoogle(idToken: string): Promise<AuthSession> {
+    const response = await this.apiClient.request<AuthenticationResponse>('/auth/google', {
+      body: JSON.stringify({ idToken }),
+      method: 'POST',
+    });
+    const tokens: Tokens = {
+      accessToken: response.accessToken,
+      accessTokenExpiresAt: response.accessTokenExpiresAt,
+      refreshToken: response.refreshToken,
+    };
+    await this.tokenStorage.save(tokens);
+    return { user: response.user, tokens };
+  }
+
   async restoreSession(): Promise<AuthSession | null> {
     const tokens = await this.tokenStorage.read();
     if (!tokens) {

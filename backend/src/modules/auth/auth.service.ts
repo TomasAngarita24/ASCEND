@@ -4,6 +4,7 @@ import { HttpError } from '../../errors/http-error';
 import type { AuthContext, AuthTokens, AuthenticatedUser } from './auth.types';
 import { hashPassword, verifyPassword } from './password.service';
 import { createAccessToken, createRefreshToken, hashRefreshToken } from './token.service';
+import { verifyGoogleIdToken } from './google.service';
 
 interface Credentials {
   email: string;
@@ -76,8 +77,38 @@ export async function register(credentials: Credentials): Promise<Authentication
 export async function login(credentials: Credentials): Promise<AuthenticationResult> {
   const user = await prisma.user.findUnique({ where: { email: credentials.email } });
 
-  if (!user || !(await verifyPassword(user.passwordHash, credentials.password))) {
+  if (!user || !user.passwordHash || !(await verifyPassword(user.passwordHash, credentials.password))) {
     throw invalidCredentials();
+  }
+
+  return {
+    user: toAuthenticatedUser(user),
+    ...(await createSessionTokens(user.id)),
+  };
+}
+
+export async function authenticateWithGoogle(idToken: string): Promise<AuthenticationResult> {
+  const { email, googleId } = await verifyGoogleIdToken(idToken);
+
+  let user = await prisma.user.findUnique({ where: { googleId } });
+
+  if (!user) {
+    const userByEmail = await prisma.user.findUnique({ where: { email } });
+
+    if (userByEmail) {
+      user = await prisma.user.update({
+        where: { id: userByEmail.id },
+        data: { googleId },
+      });
+    } else {
+      user = await prisma.user.create({
+        data: {
+          email,
+          googleId,
+          passwordHash: null,
+        },
+      });
+    }
   }
 
   return {

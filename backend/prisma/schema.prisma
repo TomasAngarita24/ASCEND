@@ -1,143 +1,145 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+provider = "prisma-client"
+output   = "../src/generated/prisma"
 }
 
 datasource db {
-  provider = "postgresql"
+provider = "postgresql"
 }
 
 model User {
-  id              String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email           String     @unique @db.VarChar(255)
-  passwordHash    String     @map("password_hash")
-  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  customExercises Exercise[] @relation("CustomExercises")
-  routines        Routine[]
-  workouts        Workout[]
-  sessions        Session[]
+id              String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+email           String     @unique @db.VarChar(255)
+passwordHash    String?    @map("password_hash")
+googleId        String?    @unique @map("google_id") @db.VarChar(255)
+createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+updatedAt       DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+customExercises Exercise[] @relation("CustomExercises")
+routines        Routine[]
+workouts        Workout[]
+sessions        Session[]
 
-  @@map("users")
+@@map("users")
 }
 
 model Exercise {
-  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name               String            @db.VarChar(255)
-  description        String?
-  targetMuscleGroups String[]          @default([]) @map("target_muscle_groups")
-  equipment          String?           @db.VarChar(255)
-  instructions       String?
-  mediaUrl           String?           @map("media_url")
-  createdByUserId    String?           @map("created_by_user_id") @db.Uuid
-  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  createdByUser      User?             @relation("CustomExercises", fields: [createdByUserId], references: [id], onDelete: Cascade)
-  routineExercises   RoutineExercise[]
-  workoutExercises   WorkoutExercise[]
+id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+name               String            @db.VarChar(255)
+description        String?
+targetMuscleGroups String[]          @default([]) @map("target_muscle_groups")
+equipment          String?           @db.VarChar(255)
+instructions       String?
+mediaUrl           String?           @map("media_url")
+createdByUserId    String?           @map("created_by_user_id") @db.Uuid
+createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+deletedAt          DateTime?         @map("deleted_at")
+updatedAt          DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+createdByUser      User?             @relation("CustomExercises", fields: [createdByUserId], references: [id], onDelete: Cascade)
+routineExercises   RoutineExercise[]
+workoutExercises   WorkoutExercise[]
 
-  @@index([equipment])
-  @@index([createdByUserId])
-  @@map("exercise")
+@@index([equipment])
+@@index([createdByUserId])
+@@map("exercise")
 }
 
 model Routine {
-  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId           String            @map("user_id") @db.Uuid
-  name             String            @db.VarChar(255)
-  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  routineExercises RoutineExercise[]
-  workouts         Workout[]
+id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+userId           String            @map("user_id") @db.Uuid
+name             String            @db.VarChar(255)
+createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+routineExercises RoutineExercise[]
+workouts         Workout[]
 
-  @@index([userId])
-  @@map("routine")
+@@index([userId])
+@@map("routine")
 }
 
 model RoutineExercise {
-  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  routineId            String   @map("routine_id") @db.Uuid
-  exerciseId           String   @map("exercise_id") @db.Uuid
-  position             Int
-  targetSets           Int?     @map("target_sets") @db.SmallInt
-  targetRepetitionsMin Int?     @map("target_repetitions_min") @db.SmallInt
-  targetRepetitionsMax Int?     @map("target_repetitions_max") @db.SmallInt
-  targetWeight         Decimal? @map("target_weight") @db.Decimal(8, 2)
-  restSeconds          Int?     @map("rest_seconds")
-  notes                String?
-  routine              Routine  @relation(fields: [routineId], references: [id], onDelete: Cascade)
-  exercise             Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+routineId            String   @map("routine_id") @db.Uuid
+exerciseId           String   @map("exercise_id") @db.Uuid
+position             Int
+targetSets           Int?     @map("target_sets") @db.SmallInt
+targetRepetitionsMin Int?     @map("target_repetitions_min") @db.SmallInt
+targetRepetitionsMax Int?     @map("target_repetitions_max") @db.SmallInt
+targetWeight         Decimal? @map("target_weight") @db.Decimal(8, 2)
+restSeconds          Int?     @map("rest_seconds")
+notes                String?
+routine              Routine  @relation(fields: [routineId], references: [id], onDelete: Cascade)
+exercise             Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
 
-  @@unique([routineId, position])
-  @@index([exerciseId])
-  @@map("routine_exercise")
+@@unique([routineId, position])
+@@index([exerciseId])
+@@map("routine_exercise")
 }
 
 model Workout {
-  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId           String            @map("user_id") @db.Uuid
-  routineId        String?           @map("routine_id") @db.Uuid
-  status           String            @default("active") @db.VarChar(20)
-  startedAt        DateTime          @default(now()) @map("started_at") @db.Timestamptz(6)
-  completedAt      DateTime?         @map("completed_at") @db.Timestamptz(6)
-  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  routine          Routine?          @relation(fields: [routineId], references: [id], onDelete: Cascade)
-  workoutExercises WorkoutExercise[]
+id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+userId           String            @map("user_id") @db.Uuid
+routineId        String?           @map("routine_id") @db.Uuid
+status           String            @default("active") @db.VarChar(20)
+startedAt        DateTime          @default(now()) @map("started_at") @db.Timestamptz(6)
+completedAt      DateTime?         @map("completed_at") @db.Timestamptz(6)
+createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+routine          Routine?          @relation(fields: [routineId], references: [id], onDelete: Cascade)
+workoutExercises WorkoutExercise[]
 
-  @@index([userId, startedAt(sort: Desc)])
-  @@index([userId, status])
-  @@index([routineId])
-  @@map("workout")
+@@index([userId, startedAt(sort: Desc)])
+@@index([userId, status])
+@@index([routineId])
+@@map("workout")
 }
 
 model WorkoutExercise {
-  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  workoutId  String       @map("workout_id") @db.Uuid
-  exerciseId String       @map("exercise_id") @db.Uuid
-  position   Int
-  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  workout    Workout      @relation(fields: [workoutId], references: [id], onDelete: Cascade)
-  exercise   Exercise     @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
-  sets       WorkoutSet[]
+id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+workoutId  String       @map("workout_id") @db.Uuid
+exerciseId String       @map("exercise_id") @db.Uuid
+position   Int
+createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+updatedAt  DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+workout    Workout      @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+exercise   Exercise     @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+sets       WorkoutSet[]
 
-  @@unique([workoutId, position])
-  @@index([exerciseId])
-  @@map("workout_exercise")
+@@unique([workoutId, position])
+@@index([exerciseId])
+@@map("workout_exercise")
 }
 
 model WorkoutSet {
-  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  workoutExerciseId String          @map("workout_exercise_id") @db.Uuid
-  setNumber         Int             @map("set_number") @db.SmallInt
-  weight            Decimal?        @db.Decimal(8, 2)
-  repetitions       Int?            @db.SmallInt
-  rpe               Decimal?        @db.Decimal(3, 1)
-  setType           String          @default("normal") @map("set_type") @db.VarChar(20)
-  notes             String?
-  isCompleted       Boolean         @default(false) @map("is_completed")
-  completedAt       DateTime?       @map("completed_at") @db.Timestamptz(6)
-  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  workoutExercise   WorkoutExercise @relation(fields: [workoutExerciseId], references: [id], onDelete: Cascade)
+id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+workoutExerciseId String          @map("workout_exercise_id") @db.Uuid
+setNumber         Int             @map("set_number") @db.SmallInt
+weight            Decimal?        @db.Decimal(8, 2)
+repetitions       Int?            @db.SmallInt
+rpe               Decimal?        @db.Decimal(3, 1)
+setType           String          @default("normal") @map("set_type") @db.VarChar(20)
+notes             String?
+isCompleted       Boolean         @default(false) @map("is_completed")
+completedAt       DateTime?       @map("completed_at") @db.Timestamptz(6)
+createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+updatedAt         DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+workoutExercise   WorkoutExercise @relation(fields: [workoutExerciseId], references: [id], onDelete: Cascade)
 
-  @@unique([workoutExerciseId, setNumber])
-  @@map("set")
+@@unique([workoutExerciseId, setNumber])
+@@map("set")
 }
 
 model Session {
-  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId           String   @map("user_id") @db.Uuid
-  refreshTokenHash String   @unique @map("refresh_token_hash")
-  expiresAt        DateTime @map("expires_at") @db.Timestamptz(6)
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+userId           String   @map("user_id") @db.Uuid
+refreshTokenHash String   @unique @map("refresh_token_hash")
+expiresAt        DateTime @map("expires_at") @db.Timestamptz(6)
+createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
-  @@index([expiresAt])
-  @@map("session")
+@@index([userId])
+@@index([expiresAt])
+@@map("session")
 }

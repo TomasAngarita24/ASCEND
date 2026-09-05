@@ -45,12 +45,25 @@ export async function getEstimatedOneRepMax(
   exerciseId: string,
 ): Promise<EstimatedOneRepMaxResponse> {
   const exercise = await prisma.exercise.findFirst({
-    where: { id: exerciseId, OR: [{ createdByUserId: null }, { createdByUserId: userId }] },
+    where: {
+      id: exerciseId,
+      deletedAt: null,
+      OR: [
+        { createdByUserId: null },
+        { createdByUserId: userId },
+      ],
+    },
     select: { id: true, name: true },
   });
+
   if (!exercise) {
-    throw new HttpError(404, 'EXERCISE_NOT_FOUND', 'Exercise does not exist or is not accessible.');
+    throw new HttpError(
+      404,
+      'EXERCISE_NOT_FOUND',
+      'Exercise does not exist or is not accessible.',
+    );
   }
+
   const sets = await prisma.workoutSet.findMany({
     where: {
       isCompleted: true,
@@ -63,26 +76,120 @@ export async function getEstimatedOneRepMax(
     },
     select: { repetitions: true, weight: true },
   });
-  const estimatedValues = sets.map((set) => estimateOneRepMax(Number(set.weight), set.repetitions!));
-  const maximum = estimatedValues.length === 0 ? null : Math.max(...estimatedValues);
+
+  const estimatedValues = sets.map((set) =>
+    estimateOneRepMax(Number(set.weight), set.repetitions!),
+  );
+
+  const maximum =
+    estimatedValues.length === 0 ? null : Math.max(...estimatedValues);
 
   return {
     exercise,
-    estimatedOneRepMax: maximum === null ? null : Number(maximum.toFixed(2)),
+    estimatedOneRepMax:
+      maximum === null ? null : Number(maximum.toFixed(2)),
   };
 }
 
-async function findAccessibleExercise(userId: string, exerciseId: string): Promise<{ id: string; name: string }> {
+async function findAccessibleExercise(
+  userId: string,
+  exerciseId: string,
+): Promise<{ id: string; name: string }> {
   const exercise = await prisma.exercise.findFirst({
-    where: { id: exerciseId, OR: [{ createdByUserId: null }, { createdByUserId: userId }] },
+    where: {
+      id: exerciseId,
+      deletedAt: null,
+      OR: [
+        { createdByUserId: null },
+        { createdByUserId: userId },
+      ],
+    },
     select: { id: true, name: true },
   });
+
   if (!exercise) {
-    throw new HttpError(404, 'EXERCISE_NOT_FOUND', 'Exercise does not exist or is not accessible.');
+    throw new HttpError(
+      404,
+      'EXERCISE_NOT_FOUND',
+      'Exercise does not exist or is not accessible.',
+    );
   }
+
   return exercise;
 }
+export async function getStatistics(
+  userId: string,
+  input: StatisticsInput,
+): Promise<ProgressStatisticsResponse> {
+  const startedAt: Prisma.DateTimeFilter = {};
 
+  if (input.dateFrom) {
+    startedAt.gte = input.dateFrom;
+  }
+
+  if (input.dateTo) {
+    startedAt.lte = input.dateTo;
+  }
+
+  const where: Prisma.WorkoutWhereInput = {
+    userId,
+    status: 'completed',
+    ...(Object.keys(startedAt).length > 0 ? { startedAt } : {}),
+  };
+
+  const workouts = await prisma.workout.findMany({
+    where,
+    select: {
+      startedAt: true,
+      workoutExercises: {
+        select: {
+          sets: {
+            where: { isCompleted: true },
+            select: { repetitions: true, weight: true },
+          },
+        },
+      },
+    },
+    orderBy: { startedAt: 'asc' },
+  });
+
+  const completedSets = workouts.flatMap((workout) =>
+    workout.workoutExercises.flatMap((exercise) => exercise.sets),
+  );
+
+  const totalRepetitions = completedSets.reduce(
+    (total, set) => total + (set.repetitions ?? 0),
+    0,
+  );
+
+  const totalVolume = completedSets.reduce(
+    (total, set) =>
+      total + Number(set.weight ?? 0) * (set.repetitions ?? 0),
+    0,
+  );
+
+  const periodStart =
+    input.dateFrom ?? workouts[0]?.startedAt ?? new Date();
+
+  const periodEnd = input.dateTo ?? new Date();
+
+  const personalRecords = await getPersonalRecords(userId);
+
+  return {
+    statistics: {
+      totalWorkouts: workouts.length,
+      workoutFrequency: Number(
+        (
+          workouts.length / getWeekCount(periodStart, periodEnd)
+        ).toFixed(2),
+      ),
+      totalVolume,
+      totalSets: completedSets.length,
+      totalRepetitions,
+      personalRecords: personalRecords.data.length,
+    },
+  };
+}
 export async function getExerciseProgression(
   userId: string,
   exerciseId: string,
@@ -276,55 +383,4 @@ export async function getMuscleGroupStatistics(userId: string): Promise<MuscleGr
   };
 }
 
-export async function getStatistics(
-  userId: string,
-  input: StatisticsInput,
-): Promise<ProgressStatisticsResponse> {
-  const startedAt: Prisma.DateTimeFilter = {};
-  if (input.dateFrom) {
-    startedAt.gte = input.dateFrom;
-  }
-  if (input.dateTo) {
-    startedAt.lte = input.dateTo;
-  }
-  const where: Prisma.WorkoutWhereInput = {
-    userId,
-    status: 'completed',
-    ...(Object.keys(startedAt).length > 0 ? { startedAt } : {}),
-  };
-  const workouts = await prisma.workout.findMany({
-    where,
-    select: {
-      startedAt: true,
-      workoutExercises: {
-        select: {
-          sets: {
-            where: { isCompleted: true },
-            select: { repetitions: true, weight: true },
-          },
-        },
-      },
-    },
-    orderBy: { startedAt: 'asc' },
-  });
-  const completedSets = workouts.flatMap((workout) => workout.workoutExercises.flatMap((exercise) => exercise.sets));
-  const totalRepetitions = completedSets.reduce((total, set) => total + (set.repetitions ?? 0), 0);
-  const totalVolume = completedSets.reduce(
-    (total, set) => total + Number(set.weight ?? 0) * (set.repetitions ?? 0),
-    0,
-  );
-  const periodStart = input.dateFrom ?? workouts[0]?.startedAt ?? new Date();
-  const periodEnd = input.dateTo ?? new Date();
-  const personalRecords = await getPersonalRecords(userId);
-
-  return {
-    statistics: {
-      totalWorkouts: workouts.length,
-      workoutFrequency: Number((workouts.length / getWeekCount(periodStart, periodEnd)).toFixed(2)),
-      totalVolume,
-      totalSets: completedSets.length,
-      totalRepetitions,
-      personalRecords: personalRecords.data.length,
-    },
-  };
-}
+ 

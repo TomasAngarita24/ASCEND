@@ -11,13 +11,15 @@ import { AuthService } from './auth.service';
 interface AuthScreenProps {
   authService: AuthService;
   onAuthenticated: (session: AuthSession) => void;
+  onGoogleSignIn?: () => Promise<string | null>;
 }
 
-export function AuthScreen({ authService, onAuthenticated }: AuthScreenProps): React.JSX.Element {
+export function AuthScreen({ authService, onAuthenticated, onGoogleSignIn }: AuthScreenProps): React.JSX.Element {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
@@ -32,6 +34,27 @@ export function AuthScreen({ authService, onAuthenticated }: AuthScreenProps): R
       setError(requestError instanceof ApiError ? requestError.message : 'No fue posible conectar con ASCEND.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    if (!onGoogleSignIn) {
+      setError('Google Sign-In no está configurado en este entorno.');
+      return;
+    }
+    setIsGoogleSubmitting(true);
+    setError(null);
+    try {
+      const idToken = await onGoogleSignIn();
+      if (!idToken) {
+        return;
+      }
+      const session = await authService.loginWithGoogle(idToken);
+      onAuthenticated(session);
+    } catch (requestError) {
+      setError(requestError instanceof ApiError ? requestError.message : 'No fue posible autenticar con Google.');
+    } finally {
+      setIsGoogleSubmitting(false);
     }
   };
 
@@ -78,12 +101,29 @@ export function AuthScreen({ authService, onAuthenticated }: AuthScreenProps): R
             {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
             <AnimatedPressable
               accessibilityRole="button"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isGoogleSubmitting}
               onPress={submit}
               style={styles.primaryButton}
             >
               <Text style={styles.primaryButtonText}>
                 {isSubmitting ? 'Procesando...' : isRegistering ? 'Crear cuenta' : 'Ingresar'}
+              </Text>
+            </AnimatedPressable>
+
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>o</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <AnimatedPressable
+              accessibilityRole="button"
+              disabled={isSubmitting || isGoogleSubmitting}
+              onPress={handleGoogleSignIn}
+              style={styles.googleButton}
+            >
+              <Text style={styles.googleButtonText}>
+                {isGoogleSubmitting ? 'Conectando con Google...' : 'Continuar con Google'}
               </Text>
             </AnimatedPressable>
           </View>
@@ -210,6 +250,35 @@ const styles = StyleSheet.create({
   title: {
     color: colors.text,
     fontSize: typography.h2,
+    fontWeight: '700',
+  },
+  dividerRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing(1.5),
+    marginVertical: spacing(0.5),
+  },
+  dividerLine: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  googleButton: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingVertical: spacing(1.75),
+  },
+  googleButtonText: {
+    color: colors.text,
+    fontSize: 15,
     fontWeight: '700',
   },
 });

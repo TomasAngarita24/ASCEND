@@ -91,14 +91,21 @@ function assertActive(workout: Workout): void {
 
 async function assertAccessibleExercise(userId: string, exerciseId: string): Promise<void> {
   const exercise = await prisma.exercise.findFirst({
-    where: { id: exerciseId, OR: [{ createdByUserId: null }, { createdByUserId: userId }] },
+    where: {
+      id: exerciseId,
+      OR: [
+        { createdByUserId: null },
+        { createdByUserId: userId },
+      ],
+      deletedAt: null,
+    },
     select: { id: true },
   });
+
   if (!exercise) {
     throw new HttpError(404, 'EXERCISE_NOT_FOUND', 'Exercise does not exist or is not accessible.');
   }
 }
-
 export async function startWorkout(userId: string, routineId?: string): Promise<WorkoutResponse> {
   let routineExercises: Array<{ exerciseId: string; position: number }> = [];
   if (routineId) {
@@ -278,4 +285,22 @@ export async function updateSet(userId: string, workoutId: string, workoutExerci
     },
   });
   return toSetResponse(item);
+}
+
+export async function deleteSet(userId: string, workoutId: string, workoutExerciseId: string, setId: string): Promise<void> {
+  const workout = await findWorkout(userId, workoutId);
+  assertActive(workout);
+  await prisma.$transaction(async (transaction) => {
+    const existing = await transaction.workoutSet.findFirst({
+      where: { id: setId, workoutExerciseId, workoutExercise: { workoutId } },
+    });
+    if (!existing) {
+      throw new HttpError(404, 'SET_NOT_FOUND', 'Set does not exist or is not accessible.');
+    }
+    await transaction.workoutSet.delete({ where: { id: setId } });
+    await transaction.workoutSet.updateMany({
+      where: { workoutExerciseId, setNumber: { gt: existing.setNumber } },
+      data: { setNumber: { decrement: 1 } },
+    });
+  });
 }

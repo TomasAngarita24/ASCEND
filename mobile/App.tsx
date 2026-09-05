@@ -360,6 +360,7 @@ function AppContent(): React.JSX.Element {
         <SafeAreaView style={styles.container}>
           <WorkoutHistory
             historyService={historyService}
+            onBack={() => setIsViewingHistory(false)}
             onSelectWorkout={setSelectedHistoryWorkoutId}
             onStartNewWorkout={() => setIsViewingHistory(false)}
             onTokensChange={(tokens) => {
