@@ -89,6 +89,12 @@ function assertActive(workout: Workout): void {
   }
 }
 
+function assertEditable(workout: Workout): void {
+  if (workout.status !== 'active' && workout.status !== 'completed') {
+    throw new HttpError(409, 'INVALID_WORKOUT_STATE', 'The requested operation requires an active or completed workout.');
+  }
+}
+
 async function assertAccessibleExercise(userId: string, exerciseId: string): Promise<void> {
   const exercise = await prisma.exercise.findFirst({
     where: {
@@ -111,7 +117,12 @@ export async function startWorkout(userId: string, routineId?: string): Promise<
   if (routineId) {
     const routine = await prisma.routine.findFirst({
       where: { id: routineId, userId },
-      include: { routineExercises: { orderBy: { position: 'asc' } } },
+      include: {
+        routineExercises: {
+          where: { exercise: { deletedAt: null } },
+          orderBy: { position: 'asc' },
+        },
+      },
     });
     if (!routine) {
       throw new HttpError(404, 'ROUTINE_NOT_FOUND', 'Routine does not exist or is not accessible.');
@@ -244,7 +255,7 @@ export async function deleteWorkoutExercise(userId: string, workoutId: string, w
 
 export async function createSet(userId: string, workoutId: string, workoutExerciseId: string, input: SetInput): Promise<SetResponse> {
   const workout = await findWorkout(userId, workoutId);
-  assertActive(workout);
+  assertEditable(workout);
   const item = await prisma.$transaction(async (transaction) => {
     const workoutExercise = await transaction.workoutExercise.findFirst({ where: { id: workoutExerciseId, workoutId } });
     if (!workoutExercise) {
@@ -270,7 +281,7 @@ export async function createSet(userId: string, workoutId: string, workoutExerci
 
 export async function updateSet(userId: string, workoutId: string, workoutExerciseId: string, setId: string, input: SetInput): Promise<SetResponse> {
   const workout = await findWorkout(userId, workoutId);
-  assertActive(workout);
+  assertEditable(workout);
   const existing = await prisma.workoutSet.findFirst({
     where: { id: setId, workoutExerciseId, workoutExercise: { workoutId } },
   });
@@ -289,7 +300,7 @@ export async function updateSet(userId: string, workoutId: string, workoutExerci
 
 export async function deleteSet(userId: string, workoutId: string, workoutExerciseId: string, setId: string): Promise<void> {
   const workout = await findWorkout(userId, workoutId);
-  assertActive(workout);
+  assertEditable(workout);
   await prisma.$transaction(async (transaction) => {
     const existing = await transaction.workoutSet.findFirst({
       where: { id: setId, workoutExerciseId, workoutExercise: { workoutId } },
@@ -303,4 +314,210 @@ export async function deleteSet(userId: string, workoutId: string, workoutExerci
       data: { setNumber: { decrement: 1 } },
     });
   });
+}
+
+export async function deleteWorkout(userId: string, workoutId: string): Promise<void> {
+  await findWorkout(userId, workoutId);
+  await prisma.workout.delete({ where: { id: workoutId } });
+}
+
+export async function exportWorkoutHistory(userId: string): Promise<ExportRow[]> {
+  const workouts = await prisma.workout.findMany({
+    where: { userId, status: 'completed' },
+    include: {
+      workoutExercises: {
+        include: { exercise: true, sets: true },
+        orderBy: { position: 'asc' },
+      },
+    },
+    orderBy: { startedAt: 'asc' },
+  });
+
+  const rows: ExportRow[] = [];
+  for (const workout of workouts) {
+    const durationSeconds = workout.completedAt
+      ? Math.floor((workout.completedAt.getTime() - workout.startedAt.getTime()) / 1000)
+      : null;
+
+    for (const we of workout.workoutExercises) {
+      const completedSets = we.sets
+        .filter((s) => s.isCompleted)
+        .sort((a, b) => a.setNumber - b.setNumber);
+
+      if (completedSets.length === 0) {
+        rows.push({
+          workoutId: workout.id,
+          date: workout.startedAt.toISOString().slice(0, 10),
+          startedAt: workout.startedAt.toISOString(),
+          completedAt: workout.completedAt?.toISOString() ?? null,
+          durationSeconds,
+          exercise: we.exercise.name,
+          setNumber: null,
+          weight: null,
+          repetitions: null,
+          rpe: null,
+          setType: null,
+          notes: null,
+          volume: null,
+        });
+      } else {
+        for (const set of completedSets) {
+          rows.push({
+            workoutId: workout.id,
+            date: workout.startedAt.toISOString().slice(0, 10),
+            startedAt: workout.startedAt.toISOString(),
+            completedAt: workout.completedAt?.toISOString() ?? null,
+            durationSeconds,
+            exercise: we.exercise.name,
+            setNumber: set.setNumber,
+            weight: set.weight === null ? null : Number(set.weight),
+            repetitions: set.repetitions,
+            rpe: set.rpe === null ? null : Number(set.rpe),
+            setType: set.setType,
+            notes: set.notes,
+            volume:
+              set.weight !== null && set.repetitions !== null
+                ? Number(set.weight) * set.repetitions
+                : null,
+          });
+        }
+      }
+    }
+  }
+
+  return rows;
+}
+
+export interface ExportRow {
+  workoutId: string;
+  date: string;
+  startedAt: string;
+  completedAt: string | null;
+  durationSeconds: number | null;
+  exercise: string;
+  setNumber: number | null;
+  weight: number | null;
+  repetitions: number | null;
+  rpe: number | null;
+  setType: string | null;
+  notes: string | null;
+  volume: number | null;
+}
+
+export async function reorderWorkoutExercises(userId: string, workoutId: string, orderedExerciseIds: string[]): Promise<WorkoutResponse> {
+  const workout = await findWorkout(userId, workoutId);
+  assertActive(workout);
+
+  await prisma.$transaction(
+    orderedExerciseIds.map((workoutExerciseId, index) =>
+      prisma.workoutExercise.update({
+        where: { id: workoutExerciseId },
+        data: { position: index + 1 },
+      })
+    )
+  );
+
+  return toWorkoutResponse(await findWorkout(userId, workoutId));
+}
+
+export interface ImportBackupPayload {
+  exportedAt?: string;
+  data: ExportRow[];
+}
+
+export async function importWorkoutHistory(userId: string, payload: ImportBackupPayload): Promise<{ importedWorkouts: number; importedSets: number }> {
+  if (!payload || !Array.isArray(payload.data) || payload.data.length === 0) {
+    throw new HttpError(400, 'INVALID_IMPORT_PAYLOAD', 'The backup file is empty or formatted incorrectly.');
+  }
+
+  // Group rows by original workoutId (or startedAt date if missing)
+  const workoutGroups = new Map<string, ExportRow[]>();
+  for (const row of payload.data) {
+    const key = row.workoutId || `${row.date}_${row.startedAt}`;
+    if (!workoutGroups.has(key)) {
+      workoutGroups.set(key, []);
+    }
+    workoutGroups.get(key)!.push(row);
+  }
+
+  let importedWorkouts = 0;
+  let importedSets = 0;
+
+  for (const [, rows] of workoutGroups) {
+    const firstRow = rows[0];
+    const startedAt = new Date(firstRow.startedAt || firstRow.date);
+    const completedAt = firstRow.completedAt ? new Date(firstRow.completedAt) : new Date(startedAt.getTime() + 3600000);
+
+    // Group rows within workout by exercise name
+    const exerciseGroups = new Map<string, ExportRow[]>();
+    for (const row of rows) {
+      const exName = row.exercise || 'Ejercicio Importado';
+      if (!exerciseGroups.has(exName)) {
+        exerciseGroups.set(exName, []);
+      }
+      exerciseGroups.get(exName)!.push(row);
+    }
+
+    // Create the workout
+    const newWorkout = await prisma.workout.create({
+      data: {
+        userId,
+        status: 'completed',
+        startedAt,
+        completedAt,
+      },
+    });
+    importedWorkouts++;
+
+    let exPosition = 1;
+    for (const [exerciseName, setRows] of exerciseGroups) {
+      // Find or create the exercise
+      let exercise = await prisma.exercise.findFirst({
+        where: {
+          name: { equals: exerciseName, mode: 'insensitive' },
+          OR: [{ createdByUserId: null }, { createdByUserId: userId }],
+          deletedAt: null,
+        },
+      });
+
+      if (!exercise) {
+        exercise = await prisma.exercise.create({
+          data: {
+            name: exerciseName,
+            createdByUserId: userId,
+            targetMuscleGroups: ['other'],
+            equipment: 'other',
+          },
+        });
+      }
+
+      const workoutExercise = await prisma.workoutExercise.create({
+        data: {
+          workoutId: newWorkout.id,
+          exerciseId: exercise.id,
+          position: exPosition++,
+        },
+      });
+
+      let setNum = 1;
+      for (const setRow of setRows) {
+        await prisma.workoutSet.create({
+          data: {
+            workoutExerciseId: workoutExercise.id,
+            setNumber: setRow.setNumber || setNum++,
+            weight: setRow.weight !== null && setRow.weight !== undefined ? Number(setRow.weight) : null,
+            repetitions: setRow.repetitions !== null && setRow.repetitions !== undefined ? Number(setRow.repetitions) : null,
+            rpe: setRow.rpe !== null && setRow.rpe !== undefined ? Number(setRow.rpe) : null,
+            setType: setRow.setType || 'normal',
+            notes: setRow.notes || null,
+            isCompleted: true,
+            completedAt,
+          },
+        });
+        importedSets++;
+      }
+    }
+  }
+
+  return { importedWorkouts, importedSets };
 }

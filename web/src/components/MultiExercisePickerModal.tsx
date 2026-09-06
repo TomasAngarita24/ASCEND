@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Search, Plus, X, CheckCircle, Circle } from 'lucide-react';
 import { api, type ExerciseSummary, type Tokens } from '../api/api';
+import { matchesSearch } from '../utils/text';
 
 interface MultiExercisePickerModalProps {
   tokens: Tokens;
@@ -82,13 +83,10 @@ export const MultiExercisePickerModal: React.FC<MultiExercisePickerModalProps> =
   const filteredExercises = useMemo(() => {
     return exercises.filter((ex) => {
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        if (!ex.name.toLowerCase().includes(q)) return false;
+        if (!matchesSearch(ex.name, searchQuery)) return false;
       }
       if (selectedMuscle !== 'Todos') {
-        const hasGroup = ex.targetMuscleGroups.some(
-          (m) => m.toLowerCase().trim() === selectedMuscle.toLowerCase().trim(),
-        );
+        const hasGroup = ex.targetMuscleGroups.some((m) => matchesSearch(m, selectedMuscle));
         if (!hasGroup) return false;
       }
       if (selectedEquipment !== 'Todos') {
@@ -141,10 +139,19 @@ export const MultiExercisePickerModal: React.FC<MultiExercisePickerModalProps> =
     }
   };
 
+  const handleOverlayClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      if (selectedIds.length > 0) {
+        return;
+      }
+      onClose();
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={handleOverlayClick}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()} style={styles.modalContent}>
         {/* Top Bar with Cancel Link */}
         <div style={styles.header}>

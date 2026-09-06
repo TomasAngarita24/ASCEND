@@ -4,6 +4,7 @@ import { asyncHandler } from '../../lib/async-handler';
 import { authenticate } from '../auth/auth.middleware';
 import {
   getEstimatedOneRepMax, getExerciseProgression, getMuscleGroupStatistics, getProgressChart, getStatistics,
+  getWeeklyMuscleSets,
 } from './progress.service';
 import { getPersonalRecords } from './personal-record.service';
 import { validateExerciseProgression, validateProgressChart, validateStatistics } from './progress.validation';
@@ -40,3 +41,8 @@ progressRouter.get('/charts', asyncHandler(async (request, response) => {
 progressRouter.get('/muscle-groups', asyncHandler(async (request, response) => {
   response.status(200).json(await getMuscleGroupStatistics(request.auth!.userId));
 }));
+
+progressRouter.get('/weekly-muscle-sets', asyncHandler(async (request, response) => {
+  response.status(200).json(await getWeeklyMuscleSets(request.auth!.userId));
+}));
+

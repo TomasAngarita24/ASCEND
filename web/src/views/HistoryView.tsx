@@ -1,9 +1,35 @@
 import React, { useEffect, useState } from 'react';
-import { History, Calendar, Clock, Award, Dumbbell, ChevronRight, X, CheckSquare, Zap, Target } from 'lucide-react';
+import {
+  History,
+  Calendar,
+  Clock,
+  ChevronRight,
+  X,
+  Zap,
+  Activity,
+  Layers,
+  Sparkles,
+  Trash2,
+  Edit3,
+  Plus,
+  FileText,
+  Check,
+} from 'lucide-react';
+import { toast } from 'sonner';
 import { api, type WorkoutHistoryEntry, type WorkoutDetailEntry, type Tokens } from '../api/api';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 interface HistoryViewProps {
   tokens: Tokens;
+}
+
+interface ConfirmState {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  confirmLabel: string;
+  variant: 'danger' | 'warning';
+  onConfirm: () => void;
 }
 
 export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
@@ -12,6 +38,18 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [workoutDetail, setWorkoutDetail] = useState<WorkoutDetailEntry | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+
+  const [confirmState, setConfirmState] = useState<ConfirmState>({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmLabel: 'Confirmar',
+    variant: 'danger',
+    onConfirm: () => {},
+  });
+  const showConfirm = (cfg: Omit<ConfirmState, 'isOpen'>) => setConfirmState({ ...cfg, isOpen: true });
+  const closeConfirm = () => setConfirmState((s) => ({ ...s, isOpen: false }));
 
   useEffect(() => {
     loadHistory();
@@ -33,7 +71,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
       const detail = await api.getWorkout(tokens.accessToken, workoutId);
       setWorkoutDetail(detail);
     } catch {
-      alert('Error al cargar el detalle del entrenamiento.');
+      toast.error('Error al cargar el detalle del entrenamiento.');
       setSelectedWorkoutId(null);
     } finally {
       setDetailLoading(false);
@@ -43,6 +81,131 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
   const handleCloseDetail = () => {
     setSelectedWorkoutId(null);
     setWorkoutDetail(null);
+    setIsEditing(false);
+  };
+
+  const handleDeleteWorkout = (workoutId: string, startedAt?: string) => {
+    const dateLabel = startedAt ? formatDate(startedAt) : 'esta sesión';
+    showConfirm({
+      title: 'Eliminar entrenamiento',
+      message: `¿Estás seguro de que deseas eliminar el entrenamiento del ${dateLabel}? Esta acción borrará todas sus series registradas de forma permanente.`,
+      confirmLabel: 'Eliminar',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await api.deleteWorkout(tokens.accessToken, workoutId);
+          setWorkouts((prev) => prev.filter((w) => w.id !== workoutId));
+          if (selectedWorkoutId === workoutId) {
+            handleCloseDetail();
+          }
+          toast.success('Entrenamiento eliminado del historial.');
+        } catch {
+          toast.error('No fue posible eliminar el entrenamiento.');
+        }
+      },
+    });
+  };
+
+  const handleUpdateHistoricalSet = async (
+    exerciseId: string,
+    setId: string,
+    fields: { weight?: number | null; repetitions?: number | null; notes?: string }
+  ) => {
+    if (!selectedWorkoutId || !workoutDetail) return;
+
+    setWorkoutDetail((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        exercises: prev.exercises.map((ex) => {
+          if (ex.id !== exerciseId) return ex;
+          return {
+            ...ex,
+            sets: ex.sets.map((s) => (s.id === setId ? { ...s, ...fields } : s)),
+          };
+        }),
+      };
+    });
+
+    try {
+      await api.recordWorkoutSet(tokens.accessToken, selectedWorkoutId, exerciseId, setId, {
+        ...(fields.weight !== undefined ? { weight: fields.weight ?? 0 } : {}),
+        ...(fields.repetitions !== undefined ? { repetitions: fields.repetitions ?? 0 } : {}),
+        ...(fields.notes !== undefined ? { notes: fields.notes } : {}),
+      });
+
+      // Update totalVolume in workouts list
+      setWorkouts((prev) =>
+        prev.map((w) => {
+          if (w.id !== selectedWorkoutId) return w;
+          const currentExs = workoutDetail.exercises.map((ex) =>
+            ex.id === exerciseId
+              ? { ...ex, sets: ex.sets.map((s) => (s.id === setId ? { ...s, ...fields } : s)) }
+              : ex
+          );
+          const newTotalVol = currentExs
+            .flatMap((e) => e.sets)
+            .reduce((acc, s) => acc + (s.weight ?? 0) * (s.repetitions ?? 0), 0);
+          return { ...w, totalVolume: newTotalVol };
+        })
+      );
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Error al actualizar la serie.');
+    }
+  };
+
+  const handleDeleteHistoricalSet = async (exerciseId: string, setId: string) => {
+    if (!selectedWorkoutId || !workoutDetail) return;
+    try {
+      await api.deleteWorkoutSet(tokens.accessToken, selectedWorkoutId, exerciseId, setId);
+      setWorkoutDetail((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          exercises: prev.exercises.map((ex) => {
+            if (ex.id !== exerciseId) return ex;
+            const remaining = ex.sets.filter((s) => s.id !== setId);
+            return {
+              ...ex,
+              sets: remaining.map((s, idx) => ({ ...s, setNumber: idx + 1 })),
+            };
+          }),
+        };
+      });
+      toast.success('Serie eliminada.');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Error al eliminar la serie.');
+    }
+  };
+
+  const handleAddHistoricalSet = async (exerciseId: string) => {
+    if (!selectedWorkoutId || !workoutDetail) return;
+    const targetEx = workoutDetail.exercises.find((e) => e.id === exerciseId);
+    const lastSet = targetEx?.sets[targetEx.sets.length - 1];
+
+    try {
+      const newSet = await api.createWorkoutSet(tokens.accessToken, selectedWorkoutId, exerciseId, {
+        weight: lastSet?.weight ?? 0,
+        repetitions: lastSet?.repetitions ?? 10,
+        setType: 'normal',
+      });
+      setWorkoutDetail((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          exercises: prev.exercises.map((ex) => {
+            if (ex.id !== exerciseId) return ex;
+            return {
+              ...ex,
+              sets: [...ex.sets, newSet],
+            };
+          }),
+        };
+      });
+      toast.success('Serie añadida.');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Error al añadir la serie.');
+    }
   };
 
   const formatDuration = (seconds: number | null) => {
@@ -74,26 +237,34 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
     return weight;
   };
 
-  // Find summary stats for selected workout if open
   const selectedSummary = workouts.find((w) => w.id === selectedWorkoutId);
 
   return (
     <div style={styles.container}>
       {/* Header */}
-      <div style={styles.header}>
+      <div style={styles.headerHero}>
         <div>
+          <div style={styles.eyebrow}>REGISTRO DE SESIONES</div>
           <h1 style={styles.title}>Historial de Entrenamientos</h1>
-          <p style={styles.subtitle}>Revisa cada sesión, ejercicios realizados y récords de tus entrenamientos pasados.</p>
+          <p style={styles.subtitle}>Inspecciona todas tus sesiones completadas, series registradas y marcas estimadas.</p>
         </div>
-        <span style={styles.countBadge}>{workouts.length} completados</span>
+        <div style={styles.countBadge}>
+          <Sparkles size={14} color="var(--accent-teal)" />
+          <span>{workouts.length} entrenamientos</span>
+        </div>
       </div>
 
       {loading ? (
-        <div style={styles.loadingText}>Cargando historial...</div>
+        <div style={styles.loadingBox}>Cargando historial...</div>
       ) : workouts.length === 0 ? (
         <div style={styles.emptyCard}>
-          <History size={48} color="var(--text-muted)" />
-          <p style={styles.emptyText}>Aún no hay entrenamientos completados en tu historial.</p>
+          <History size={44} color="var(--text-dim)" style={{ marginBottom: '1rem' }} />
+          <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.4rem' }}>
+            Aún no tienes sesiones registradas
+          </h3>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+            Completa tu primer entrenamiento para revisar el historial detallado de series y volumen.
+          </p>
         </div>
       ) : (
         <div style={styles.list}>
@@ -102,240 +273,377 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
               key={item.id}
               style={styles.card}
               onClick={() => handleOpenDetail(item.id)}
-              role="button"
-              tabIndex={0}
             >
-              <div style={styles.cardHeader}>
-                <div style={styles.dateCol}>
+              <div style={styles.cardLeft}>
+                <div style={styles.dateBadgeWrap}>
                   <Calendar size={18} color="var(--accent-teal)" />
                   <span style={styles.dateText}>{formatDate(item.startedAt)}</span>
-                  <span style={styles.timeTag}>{formatTime(item.startedAt)}</span>
+                  <span style={styles.timeText}>• {formatTime(item.startedAt)}</span>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <div style={styles.durationBadge}>
-                    <Clock size={15} color="var(--text-muted)" />
-                    <span>{formatDuration(item.durationSeconds)}</span>
+                <div style={styles.metricsPillsRow}>
+                  <div style={styles.pillItem}>
+                    <Zap size={14} color="var(--accent-teal)" />
+                    <span style={styles.pillValue}>{item.totalVolume.toLocaleString()} kg</span>
+                    <span style={styles.pillLabel}>volumen</span>
                   </div>
-                  <div style={styles.detailBtnHint}>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-teal)' }}>Ver detalle</span>
-                    <ChevronRight size={18} color="var(--accent-teal)" />
+
+                  <div style={styles.pillItem}>
+                    <Activity size={14} color="#38bdf8" />
+                    <span style={styles.pillValue}>{item.setsCompleted}</span>
+                    <span style={styles.pillLabel}>series</span>
+                  </div>
+
+                  <div style={styles.pillItem}>
+                    <Layers size={14} color="#f59e0b" />
+                    <span style={styles.pillValue}>{item.exerciseCount}</span>
+                    <span style={styles.pillLabel}>ejercicios</span>
+                  </div>
+
+                  <div style={styles.pillItem}>
+                    <Clock size={14} color="var(--text-muted)" />
+                    <span style={styles.pillValue}>{formatDuration(item.durationSeconds)}</span>
                   </div>
                 </div>
               </div>
 
-              <div style={styles.statsGrid}>
-                <div style={styles.statBox}>
-                  <Dumbbell size={16} color="var(--accent-teal)" />
-                  <span style={styles.statVal}>{item.exerciseCount}</span>
-                  <span style={styles.statLabel}>Ejercicios</span>
-                </div>
-
-                <div style={styles.statBox}>
-                  <Award size={16} color="var(--accent-green)" />
-                  <span style={styles.statVal}>{item.setsCompleted}</span>
-                  <span style={styles.statLabel}>Series</span>
-                </div>
-
-                <div style={styles.statBox}>
-                  <Target size={16} color="#38bdf8" />
-                  <span style={styles.statVal}>{item.totalRepetitions}</span>
-                  <span style={styles.statLabel}>Repeticiones</span>
-                </div>
-
-                <div style={styles.statBox}>
-                  <Zap size={16} color="#eab308" />
-                  <span style={styles.statVal}>{item.totalVolume} kg</span>
-                  <span style={styles.statLabel}>Volumen Total</span>
-                </div>
+              <div style={styles.cardRight}>
+                <span style={styles.inspectText}>Ver detalle</span>
+                <ChevronRight size={18} color="var(--accent-teal)" />
+                <button
+                  style={styles.deleteCardBtn}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteWorkout(item.id, item.startedAt);
+                  }}
+                  title="Eliminar sesión del historial"
+                >
+                  <Trash2 size={16} color="var(--text-dim)" />
+                </button>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Workout Detail Modal (FR-HIST-002) */}
+      {/* Workout Detail Inspector Modal */}
       {selectedWorkoutId && (
-        <div style={styles.modalOverlay} onClick={handleCloseDetail}>
-          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={handleCloseDetail}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '820px' }}>
             <div style={styles.modalHeader}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <div style={styles.modalIconBadge}>
-                  <History size={22} color="var(--accent-teal)" />
-                </div>
-                <div>
-                  <h2 style={styles.modalTitle}>
-                    {selectedSummary ? formatDate(selectedSummary.startedAt) : 'Detalle de Entrenamiento'}
-                  </h2>
-                  <span style={styles.modalSubtitle}>
-                    {selectedSummary ? `${formatTime(selectedSummary.startedAt)} • ${formatDuration(selectedSummary.durationSeconds)}` : ''}
-                  </span>
-                </div>
+              <div>
+                <div style={styles.eyebrow}>DETALLE DEL ENTRENAMIENTO</div>
+                <h2 style={styles.modalTitle}>
+                  {selectedSummary ? formatDate(selectedSummary.startedAt) : 'Entrenamiento'}
+                </h2>
               </div>
-              <button style={styles.closeBtn} onClick={handleCloseDetail} title="Cerrar">
-                <X size={20} color="var(--text-muted)" />
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <button
+                  style={isEditing ? styles.editDoneBtn : styles.editToggleBtn}
+                  onClick={() => setIsEditing((v) => !v)}
+                  title={isEditing ? 'Terminar edición' : 'Editar series, pesos y notas'}
+                >
+                  {isEditing ? <Check size={16} /> : <Edit3 size={15} />}
+                  <span>{isEditing ? 'Listo' : 'Editar series'}</span>
+                </button>
+                <button
+                  style={styles.deleteModalBtn}
+                  onClick={() => handleDeleteWorkout(selectedWorkoutId!, selectedSummary?.startedAt)}
+                  title="Eliminar este entrenamiento"
+                >
+                  <Trash2 size={16} color="var(--danger-color)" />
+                </button>
+                <button style={styles.closeBtn} onClick={handleCloseDetail}>
+                  <X size={20} color="var(--text-muted)" />
+                </button>
+              </div>
             </div>
 
-            {/* Quick Metrics Bar */}
-            {selectedSummary && (
-              <div style={styles.modalStatsBar}>
-                <div style={styles.modalStatItem}>
-                  <span style={styles.modalStatLabel}>Ejercicios</span>
-                  <span style={styles.modalStatValue}>{selectedSummary.exerciseCount}</span>
+            {detailLoading ? (
+              <div style={styles.modalLoading}>Cargando ejercicios y series...</div>
+            ) : workoutDetail ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                {/* Workout Summary Bar */}
+                <div style={styles.modalStatsBar}>
+                  <div style={styles.modalStatCol}>
+                    <span style={styles.modalStatVal}>{workoutDetail.exercises.length}</span>
+                    <span style={styles.modalStatLabel}>Ejercicios</span>
+                  </div>
+                  <div style={styles.modalStatCol}>
+                    <span style={styles.modalStatVal}>
+                      {workoutDetail.exercises.reduce((acc, ex) => acc + ex.sets.length, 0)}
+                    </span>
+                    <span style={styles.modalStatLabel}>Series totales</span>
+                  </div>
+                  <div style={styles.modalStatCol}>
+                    <span style={styles.modalStatVal}>
+                      {workoutDetail.exercises
+                        .flatMap((e) => e.sets)
+                        .reduce((acc, s) => acc + (s.weight ?? 0) * (s.repetitions ?? 0), 0)
+                        .toLocaleString()}{' '}
+                      kg
+                    </span>
+                    <span style={styles.modalStatLabel}>Volumen total</span>
+                  </div>
                 </div>
-                <div style={styles.modalStatItem}>
-                  <span style={styles.modalStatLabel}>Series totales</span>
-                  <span style={styles.modalStatValue}>{selectedSummary.setsCompleted}</span>
-                </div>
-                <div style={styles.modalStatItem}>
-                  <span style={styles.modalStatLabel}>Repeticiones</span>
-                  <span style={styles.modalStatValue}>{selectedSummary.totalRepetitions}</span>
-                </div>
-                <div style={styles.modalStatItem}>
-                  <span style={styles.modalStatLabel}>Volumen total</span>
-                  <span style={{ ...styles.modalStatValue, color: 'var(--accent-teal)' }}>{selectedSummary.totalVolume} kg</span>
-                </div>
-              </div>
-            )}
 
-            {/* Detail Body */}
-            <div style={styles.modalBody}>
-              {detailLoading ? (
-                <div style={styles.detailLoadingBox}>
-                  <div className="spinner" style={{ width: '32px', height: '32px', border: '3px solid var(--border-color)', borderTopColor: 'var(--accent-teal)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>Cargando detalles de los ejercicios...</span>
-                </div>
-              ) : workoutDetail && workoutDetail.exercises && workoutDetail.exercises.length > 0 ? (
-                <div style={styles.exerciseDetailList}>
+                {/* Exercises & Sets Breakdown */}
+                <div style={styles.detailExercisesList}>
                   {workoutDetail.exercises.map((exItem, idx) => (
-                    <div key={exItem.id || idx} style={styles.detailExerciseCard}>
+                    <div key={exItem.id} style={styles.detailExCard}>
                       <div style={styles.detailExHeader}>
-                        <h3 style={styles.detailExTitle}>
-                          {idx + 1}. {exItem.exercise?.name || 'Ejercicio'}
-                        </h3>
-                        <span style={styles.detailSetCountBadge}>
-                          {exItem.sets?.length || 0} series registradas
-                        </span>
+                        <div style={styles.detailIndexBadge}>{idx + 1}</div>
+                        <h3 style={styles.detailExName}>{exItem.exercise.name}</h3>
+                        <span style={styles.detailSetsCount}>{exItem.sets.length} series</span>
                       </div>
 
-                      <div style={styles.tableWrapper}>
-                        <table style={styles.detailTable}>
-                          <thead>
-                            <tr>
-                              <th style={styles.th}>Serie</th>
-                              <th style={styles.th}>Tipo</th>
-                              <th style={styles.th}>Peso</th>
-                              <th style={styles.th}>Reps</th>
-                              <th style={styles.th}>1RM Est.</th>
-                              <th style={styles.th}>Estado</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {exItem.sets?.map((s) => {
-                              const est = (s.weight && s.repetitions) ? estimate1RM(s.weight, s.repetitions) : null;
-                              return (
-                                <tr key={s.id} style={styles.tr}>
-                                  <td style={styles.tdBold}>#{s.setNumber}</td>
-                                  <td style={styles.td}>
-                                    <span style={{
-                                      ...styles.setTypeBadge,
-                                      backgroundColor: s.setType === 'warmup' ? 'rgba(234, 179, 8, 0.15)' : s.setType === 'drop' ? 'rgba(168, 85, 247, 0.15)' : s.setType === 'failure' ? 'rgba(239, 68, 68, 0.15)' : 'var(--input-bg)',
-                                      color: s.setType === 'warmup' ? '#eab308' : s.setType === 'drop' ? '#c084fc' : s.setType === 'failure' ? '#ef4444' : 'var(--text-muted)',
-                                    }}>
-                                      {s.setType === 'warmup' ? 'Calentamiento' : s.setType === 'drop' ? 'Drop set' : s.setType === 'failure' ? 'Fallo' : 'Normal'}
-                                    </span>
-                                  </td>
-                                  <td style={styles.td}>{s.weight !== null ? `${s.weight} kg` : '-'}</td>
-                                  <td style={styles.td}>{s.repetitions !== null ? s.repetitions : '-'}</td>
-                                  <td style={styles.tdAccent}>{est ? `${est} kg` : '-'}</td>
-                                  <td style={styles.td}>
-                                    {s.isCompleted ? (
-                                      <span style={styles.completedStatus}>
-                                        <CheckSquare size={16} color="var(--accent-teal)" />
-                                        <span>Completada</span>
-                                      </span>
-                                    ) : (
-                                      <span style={styles.incompleteStatus}>Incompleta</span>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                      <div style={styles.detailTable}>
+                        <div style={isEditing ? styles.detailTableHeaderEditing : styles.detailTableHeader}>
+                          <span>Serie</span>
+                          <span>Peso</span>
+                          <span>Reps</span>
+                          {isEditing ? (
+                            <>
+                              <span>Notas</span>
+                              <span style={{ textAlign: 'center' }}>Quitar</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>1RM Estimado</span>
+                              <span>Notas / Estado</span>
+                            </>
+                          )}
+                        </div>
+
+                        {exItem.sets.map((s) => {
+                          const isDone = s.isCompleted;
+                          const est1RM =
+                            s.weight && s.repetitions ? estimate1RM(s.weight, s.repetitions) : null;
+
+                          if (isEditing) {
+                            return (
+                              <div key={s.id} style={styles.detailTableRowEditing}>
+                                <span style={{ fontWeight: 800, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                                  #{s.setNumber}
+                                </span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <input
+                                    type="number"
+                                    step="0.5"
+                                    min="0"
+                                    style={styles.editInput}
+                                    value={s.weight === null ? '' : s.weight}
+                                    onChange={(e) =>
+                                      handleUpdateHistoricalSet(exItem.id, s.id, {
+                                        weight: e.target.value === '' ? null : Number(e.target.value),
+                                      })
+                                    }
+                                  />
+                                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>kg</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    style={styles.editInput}
+                                    value={s.repetitions === null ? '' : s.repetitions}
+                                    onChange={(e) =>
+                                      handleUpdateHistoricalSet(exItem.id, s.id, {
+                                        repetitions: e.target.value === '' ? null : Number(e.target.value),
+                                      })
+                                    }
+                                  />
+                                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>reps</span>
+                                </div>
+                                <input
+                                  type="text"
+                                  placeholder="Añadir nota..."
+                                  style={styles.editNoteInput}
+                                  value={s.notes || ''}
+                                  onChange={(e) =>
+                                    handleUpdateHistoricalSet(exItem.id, s.id, {
+                                      notes: e.target.value,
+                                    })
+                                  }
+                                />
+                                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                  <button
+                                    style={styles.deleteHistoricalSetBtn}
+                                    onClick={() => handleDeleteHistoricalSet(exItem.id, s.id)}
+                                    title="Eliminar serie"
+                                  >
+                                    <Trash2 size={15} color="var(--danger-color)" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div key={s.id} style={styles.detailTableRow}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span style={{ fontWeight: 800, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                                  #{s.setNumber}
+                                </span>
+                                {s.setType && s.setType !== 'normal' && (
+                                  <span
+                                    style={{
+                                      fontSize: '0.68rem',
+                                      fontWeight: 800,
+                                      padding: '1px 5px',
+                                      borderRadius: '4px',
+                                      backgroundColor:
+                                        s.setType === 'warmup'
+                                          ? 'rgba(6, 182, 212, 0.15)'
+                                          : s.setType === 'drop'
+                                          ? 'rgba(168, 85, 247, 0.15)'
+                                          : 'rgba(239, 68, 68, 0.15)',
+                                      color:
+                                        s.setType === 'warmup'
+                                          ? 'var(--accent-teal)'
+                                          : s.setType === 'drop'
+                                          ? '#a855f7'
+                                          : '#ef4444',
+                                    }}
+                                    title={
+                                      s.setType === 'warmup'
+                                        ? 'Serie de Calentamiento'
+                                        : s.setType === 'drop'
+                                        ? 'Drop Set'
+                                        : 'Serie al Fallo'
+                                    }
+                                  >
+                                    {s.setType === 'warmup' ? 'W' : s.setType === 'drop' ? 'D' : 'F'}
+                                  </span>
+                                )}
+                              </div>
+                              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                                {s.weight ?? 0} kg
+                              </span>
+                              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                                {s.repetitions ?? 0}
+                              </span>
+                              <span style={{ color: 'var(--accent-teal)', fontWeight: 700 }}>
+                                {est1RM ? `${est1RM} kg` : '—'}
+                              </span>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                {isDone ? (
+                                  <span style={styles.statusDoneBadge}>Completada</span>
+                                ) : (
+                                  <span style={styles.statusSkipBadge}>Incompleta</span>
+                                )}
+                                {s.notes && (
+                                  <span style={styles.noteBadge} title={s.notes}>
+                                    <FileText size={11} />
+                                    <span>{s.notes}</span>
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
+
+                      {isEditing && (
+                        <button
+                          style={styles.addHistoricalSetBtn}
+                          onClick={() => handleAddHistoricalSet(exItem.id)}
+                        >
+                          <Plus size={14} />
+                          <span>Agregar serie</span>
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div style={styles.emptyDetailBox}>
-                  <p style={{ color: 'var(--text-muted)' }}>No hay ejercicios registrados en esta sesión.</p>
-                </div>
-              )}
-            </div>
+              </div>
+            ) : null}
           </div>
         </div>
       )}
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        confirmLabel={confirmState.confirmLabel}
+        variant={confirmState.variant}
+        onConfirm={() => {
+          confirmState.onConfirm();
+          closeConfirm();
+        }}
+        onCancel={closeConfirm}
+      />
     </div>
   );
 };
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    width: '100%',
     padding: '2.5rem 3rem',
     display: 'flex',
     flexDirection: 'column',
     gap: '2rem',
+    maxWidth: '1200px',
+    margin: '0 auto',
     boxSizing: 'border-box',
   },
-  header: {
+  headerHero: {
+    backgroundColor: 'var(--surface-color)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '24px',
+    padding: '2rem 2.5rem',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
     flexWrap: 'wrap',
-    gap: '1rem',
+    gap: '1.25rem',
+  },
+  eyebrow: {
+    fontSize: '0.72rem',
+    fontWeight: 800,
+    color: 'var(--accent-teal)',
+    letterSpacing: '0.08em',
+    marginBottom: '0.2rem',
   },
   title: {
-    fontSize: '2.4rem',
+    fontSize: '2.2rem',
     fontWeight: 800,
     color: 'var(--text-primary)',
-    letterSpacing: '-0.5px',
+    letterSpacing: '-0.03em',
   },
   subtitle: {
     color: 'var(--text-muted)',
     fontSize: '0.95rem',
-    marginTop: '0.35rem',
+    marginTop: '0.25rem',
   },
   countBadge: {
-    backgroundColor: 'rgba(34, 240, 197, 0.12)',
-    color: 'var(--accent-teal)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.45rem',
+    backgroundColor: 'rgba(34, 240, 197, 0.1)',
     border: '1px solid rgba(34, 240, 197, 0.25)',
-    padding: '0.45rem 1rem',
+    color: 'var(--accent-teal)',
+    padding: '0.45rem 0.95rem',
     borderRadius: '999px',
-    fontSize: '0.9rem',
+    fontSize: '0.82rem',
     fontWeight: 700,
   },
-  loadingText: {
+  loadingBox: {
+    padding: '4rem',
     textAlign: 'center',
     color: 'var(--text-muted)',
-    padding: '3rem',
   },
   emptyCard: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '20px',
-    padding: '3.5rem 2rem',
+    borderRadius: '24px',
+    padding: '4rem 2rem',
+    textAlign: 'center',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    gap: '1rem',
-    textAlign: 'center',
-  },
-  emptyText: {
-    color: 'var(--text-muted)',
-    fontSize: '1rem',
   },
   list: {
     display: 'flex',
@@ -345,280 +653,329 @@ const styles: Record<string, React.CSSProperties> = {
   card: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '18px',
-    padding: '1.5rem 1.75rem',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '1.25rem',
-    cursor: 'pointer',
-    transition: 'transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease',
-  },
-  cardHeader: {
+    borderRadius: '20px',
+    padding: '1.35rem 1.75rem',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    flexWrap: 'wrap',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+  },
+  cardLeft: {
+    display: 'flex',
+    flexDirection: 'column',
     gap: '0.75rem',
   },
-  dateCol: {
+  dateBadgeWrap: {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.6rem',
-    flexWrap: 'wrap',
+    gap: '0.5rem',
   },
   dateText: {
-    fontSize: '1.15rem',
-    fontWeight: 700,
+    fontSize: '1.05rem',
+    fontWeight: 800,
     color: 'var(--text-primary)',
     textTransform: 'capitalize',
   },
-  timeTag: {
-    fontSize: '0.82rem',
+  timeText: {
+    fontSize: '0.85rem',
     color: 'var(--text-muted)',
-    backgroundColor: 'var(--input-bg)',
-    padding: '0.15rem 0.55rem',
-    borderRadius: '6px',
-    border: '1px solid var(--border-color)',
+    fontWeight: 600,
   },
-  durationBadge: {
+  metricsPillsRow: {
+    display: 'flex',
+    gap: '0.75rem',
+    flexWrap: 'wrap',
+  },
+  pillItem: {
     display: 'flex',
     alignItems: 'center',
     gap: '0.4rem',
     backgroundColor: 'var(--input-bg)',
-    border: '1px solid var(--border-color)',
     padding: '0.35rem 0.75rem',
-    borderRadius: '10px',
+    borderRadius: '8px',
+    border: '1px solid var(--border-subtle)',
+  },
+  pillValue: {
     fontSize: '0.85rem',
-    color: 'var(--text-muted)',
-    fontWeight: 600,
-  },
-  detailBtnHint: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.2rem',
-  },
-  statsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-    gap: '0.75rem',
-  },
-  statBox: {
-    backgroundColor: 'var(--input-bg)',
-    border: '1px solid var(--border-color)',
-    borderRadius: '12px',
-    padding: '0.85rem 1rem',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '0.3rem',
-  },
-  statVal: {
-    fontSize: '1.15rem',
     fontWeight: 800,
     color: 'var(--text-primary)',
+    fontFamily: 'var(--font-mono)',
   },
-  statLabel: {
-    fontSize: '0.75rem',
-    fontWeight: 600,
+  pillLabel: {
+    fontSize: '0.72rem',
     color: 'var(--text-muted)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
   },
-
-  // Modal Styles (FR-HIST-002)
-  modalOverlay: {
-    position: 'fixed',
-    inset: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    backdropFilter: 'blur(6px)',
+  cardRight: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-    padding: '1.5rem',
-    boxSizing: 'border-box',
+    gap: '0.35rem',
   },
-  modalContent: {
-    backgroundColor: 'var(--surface-color)',
-    border: '1px solid var(--border-color)',
-    borderRadius: '24px',
-    width: '100%',
-    maxWidth: '750px',
-    maxHeight: '90vh',
-    display: 'flex',
-    flexDirection: 'column',
-    boxShadow: '0 25px 60px -12px rgba(0, 0, 0, 0.6)',
-    overflow: 'hidden',
+  inspectText: {
+    fontSize: '0.85rem',
+    fontWeight: 700,
+    color: 'var(--accent-teal)',
   },
   modalHeader: {
-    padding: '1.5rem 2rem',
-    borderBottom: '1px solid var(--border-color)',
     display: 'flex',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-  },
-  modalIconBadge: {
-    width: '44px',
-    height: '44px',
-    borderRadius: '12px',
-    backgroundColor: 'rgba(34, 240, 197, 0.12)',
-    border: '1px solid rgba(34, 240, 197, 0.2)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
+    marginBottom: '1.25rem',
   },
   modalTitle: {
-    fontSize: '1.3rem',
+    fontSize: '1.4rem',
     fontWeight: 800,
     color: 'var(--text-primary)',
     textTransform: 'capitalize',
   },
-  modalSubtitle: {
-    fontSize: '0.85rem',
-    color: 'var(--text-muted)',
-    marginTop: '0.2rem',
-    display: 'block',
-  },
   closeBtn: {
-    width: '36px',
-    height: '36px',
-    borderRadius: '10px',
-    backgroundColor: 'var(--input-bg)',
-    border: '1px solid var(--border-color)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
+    padding: '0.25rem',
+  },
+  modalLoading: {
+    padding: '3rem',
+    textAlign: 'center',
+    color: 'var(--text-muted)',
   },
   modalStatsBar: {
-    padding: '1rem 2rem',
-    backgroundColor: 'var(--input-bg)',
-    borderBottom: '1px solid var(--border-color)',
     display: 'grid',
-    gridTemplateColumns: 'repeat(4, 1fr)',
+    gridTemplateColumns: 'repeat(3, 1fr)',
     gap: '1rem',
+    backgroundColor: 'var(--input-bg)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '16px',
+    padding: '1.1rem',
     textAlign: 'center',
   },
-  modalStatItem: {
+  modalStatCol: {
     display: 'flex',
     flexDirection: 'column',
     gap: '0.2rem',
   },
-  modalStatLabel: {
-    fontSize: '0.72rem',
-    fontWeight: 600,
-    color: 'var(--text-muted)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
-  },
-  modalStatValue: {
-    fontSize: '1.1rem',
+  modalStatVal: {
+    fontSize: '1.35rem',
     fontWeight: 800,
     color: 'var(--text-primary)',
+    fontFamily: 'var(--font-mono)',
   },
-  modalBody: {
-    padding: '1.5rem 2rem',
-    overflowY: 'auto',
-    flex: 1,
+  modalStatLabel: {
+    fontSize: '0.75rem',
+    color: 'var(--text-muted)',
+    fontWeight: 600,
+  },
+  detailExercisesList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '1.25rem',
-  },
-  detailLoadingBox: {
-    padding: '3rem',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
     gap: '1rem',
+    maxHeight: '400px',
+    overflowY: 'auto',
+    paddingRight: '0.35rem',
   },
-  emptyDetailBox: {
-    padding: '2.5rem',
-    textAlign: 'center',
-  },
-  exerciseDetailList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '1.25rem',
-  },
-  detailExerciseCard: {
+  detailExCard: {
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
     borderRadius: '16px',
-    padding: '1.25rem',
+    padding: '1rem 1.25rem',
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.85rem',
+    gap: '0.75rem',
   },
   detailExHeader: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: '0.65rem',
   },
-  detailExTitle: {
-    fontSize: '1.05rem',
-    fontWeight: 700,
+  detailIndexBadge: {
+    width: '26px',
+    height: '26px',
+    borderRadius: '7px',
+    backgroundColor: 'rgba(34, 240, 197, 0.12)',
+    color: 'var(--accent-teal)',
+    fontSize: '0.78rem',
+    fontWeight: 800,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailExName: {
+    fontSize: '1rem',
+    fontWeight: 800,
     color: 'var(--text-primary)',
+    flex: 1,
   },
-  detailSetCountBadge: {
+  detailSetsCount: {
     fontSize: '0.78rem',
     color: 'var(--text-muted)',
     fontWeight: 600,
-    backgroundColor: 'var(--surface-color)',
-    border: '1px solid var(--border-color)',
-    padding: '0.2rem 0.6rem',
-    borderRadius: '8px',
-  },
-  tableWrapper: {
-    overflowX: 'auto',
   },
   detailTable: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    fontSize: '0.88rem',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.35rem',
   },
-  th: {
-    textAlign: 'left',
-    padding: '0.5rem 0.6rem',
-    color: 'var(--text-muted)',
-    fontWeight: 600,
-    fontSize: '0.78rem',
-    borderBottom: '1px solid var(--border-color)',
+  detailTableHeader: {
+    display: 'grid',
+    gridTemplateColumns: '60px 1fr 1fr 1.2fr 100px',
+    padding: '0.35rem 0.5rem',
+    fontSize: '0.7rem',
+    fontWeight: 800,
+    color: 'var(--text-dim)',
     textTransform: 'uppercase',
   },
-  tr: {
-    borderBottom: '1px solid var(--border-color)',
+  detailTableRow: {
+    display: 'grid',
+    gridTemplateColumns: '60px 1fr 1fr 1.2fr 100px',
+    alignItems: 'center',
+    padding: '0.45rem 0.5rem',
+    borderRadius: '8px',
+    backgroundColor: 'var(--surface-color)',
+    fontSize: '0.85rem',
   },
-  tdBold: {
-    padding: '0.65rem 0.6rem',
+  statusDoneBadge: {
+    fontSize: '0.7rem',
+    color: '#22c55e',
+    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    padding: '0.15rem 0.45rem',
+    borderRadius: '4px',
     fontWeight: 700,
-    color: 'var(--text-primary)',
   },
-  td: {
-    padding: '0.65rem 0.6rem',
-    color: 'var(--text-secondary)',
-  },
-  tdAccent: {
-    padding: '0.65rem 0.6rem',
-    color: 'var(--accent-teal)',
-    fontWeight: 700,
-  },
-  setTypeBadge: {
-    fontSize: '0.72rem',
+  statusSkipBadge: {
+    fontSize: '0.7rem',
+    color: 'var(--text-muted)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: '0.15rem 0.45rem',
+    borderRadius: '4px',
     fontWeight: 600,
-    padding: '0.15rem 0.5rem',
-    borderRadius: '6px',
-    border: '1px solid var(--border-color)',
   },
-  completedStatus: {
-    display: 'inline-flex',
+  deleteCardBtn: {
+    padding: '0.45rem',
+    borderRadius: '8px',
+    backgroundColor: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: '0.5rem',
+    transition: 'all 0.15s ease',
+  },
+  deleteModalBtn: {
+    padding: '0.45rem',
+    borderRadius: '8px',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    border: '1px solid rgba(239, 68, 68, 0.25)',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'all 0.15s ease',
+  },
+  editToggleBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.4rem',
+    padding: '0.45rem 0.85rem',
+    borderRadius: '10px',
+    backgroundColor: 'var(--input-bg)',
+    border: '1px solid var(--border-color)',
+    color: 'var(--text-primary)',
+    fontSize: '0.82rem',
+    fontWeight: 700,
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  },
+  editDoneBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.4rem',
+    padding: '0.45rem 0.85rem',
+    borderRadius: '10px',
+    backgroundColor: 'rgba(6, 182, 212, 0.15)',
+    border: '1px solid var(--accent-teal)',
+    color: 'var(--accent-teal)',
+    fontSize: '0.82rem',
+    fontWeight: 800,
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  },
+  detailTableHeaderEditing: {
+    display: 'grid',
+    gridTemplateColumns: '55px 95px 95px 1fr 40px',
+    padding: '0.35rem 0.5rem',
+    fontSize: '0.7rem',
+    fontWeight: 800,
+    color: 'var(--text-dim)',
+    textTransform: 'uppercase',
+  },
+  detailTableRowEditing: {
+    display: 'grid',
+    gridTemplateColumns: '55px 95px 95px 1fr 40px',
+    alignItems: 'center',
+    gap: '0.5rem',
+    padding: '0.4rem 0.5rem',
+    borderRadius: '8px',
+    backgroundColor: 'var(--surface-color)',
+    fontSize: '0.85rem',
+  },
+  editInput: {
+    width: '58px',
+    padding: '0.3rem 0.4rem',
+    borderRadius: '6px',
+    backgroundColor: 'var(--input-bg)',
+    border: '1px solid var(--border-color)',
+    color: 'var(--text-primary)',
+    fontWeight: 700,
+    fontSize: '0.88rem',
+    textAlign: 'center',
+  },
+  editNoteInput: {
+    width: '100%',
+    padding: '0.3rem 0.6rem',
+    borderRadius: '6px',
+    backgroundColor: 'var(--input-bg)',
+    border: '1px solid var(--border-color)',
+    color: 'var(--text-primary)',
+    fontSize: '0.82rem',
+    boxSizing: 'border-box',
+  },
+  deleteHistoricalSetBtn: {
+    padding: '0.35rem',
+    borderRadius: '6px',
+    backgroundColor: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addHistoricalSetBtn: {
+    alignSelf: 'flex-start',
+    display: 'flex',
     alignItems: 'center',
     gap: '0.35rem',
+    marginTop: '0.4rem',
+    padding: '0.35rem 0.75rem',
+    borderRadius: '8px',
+    backgroundColor: 'transparent',
+    border: '1px dashed var(--border-color)',
     color: 'var(--accent-teal)',
     fontSize: '0.8rem',
-    fontWeight: 600,
+    fontWeight: 700,
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
   },
-  incompleteStatus: {
+  noteBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '3px',
+    fontSize: '0.72rem',
     color: 'var(--text-muted)',
-    fontSize: '0.8rem',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    padding: '0.15rem 0.45rem',
+    borderRadius: '4px',
+    maxWidth: '180px',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
 };

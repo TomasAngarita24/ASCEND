@@ -2,13 +2,13 @@
 
 ## What ASCEND Is
 
-ASCEND is a mobile workout tracking and training management application designed to help users plan their workouts, record training sessions in real time, and analyze their physical performance over time.
+ASCEND is a workout tracking and training management application designed to help users plan their workouts, record training sessions in real time, and analyze their physical performance over time. It runs on desktop and mobile through a progressive web app.
 
 ## Product Overview
 
 The application allows users to create personalized workout routines, manage exercises, track sets and repetitions, record training data, and visualize their progression through statistics and charts.
 
-ASCEND will be developed as a full-stack mobile application with a dedicated backend API and database.
+ASCEND is developed as a full-stack application with a dedicated backend API, a PostgreSQL database, and a PWA frontend.
 
 ## Product Goals
 

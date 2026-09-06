@@ -1,17 +1,44 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Timer, Square, CheckSquare, Trophy, X, Flame, Trash2 } from 'lucide-react';
+import {
+  Plus,
+  Timer,
+  Check,
+  Trophy,
+  X,
+  Trash2,
+  ChevronRight,
+  Search,
+  Volume2,
+  VolumeX,
+  ChevronUp,
+  ChevronDown,
+} from 'lucide-react';
+import { toast } from 'sonner';
 import { api, type ActiveWorkout, type ExerciseSummary, type Tokens } from '../api/api';
+import { ConfirmModal } from '../components/ConfirmModal';
+import { matchesSearch } from '../utils/text';
+import { soundManager } from '../utils/audio';
+import type { WorkoutSummaryData } from '../components/WorkoutSummaryModal';
 
 interface ActiveWorkoutViewProps {
   tokens: Tokens;
   workout: ActiveWorkout;
-  onFinished: () => void;
+  onFinished: (summary?: WorkoutSummaryData) => void;
 }
 
 interface PrevSetData {
   setNumber: number;
   weight: number | null;
   repetitions: number | null;
+}
+
+interface ConfirmState {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  confirmLabel: string;
+  variant: 'danger' | 'warning';
+  onConfirm: () => void;
 }
 
 export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
@@ -25,15 +52,34 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
   // Rest Timer State
   const [restSecondsLeft, setRestSecondsLeft] = useState<number | null>(null);
   const [isRestTimerActive, setIsRestTimerActive] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
   // Previous performance map: exerciseId -> array of previous sets (FR-WORK-004)
   const [prevPerformanceMap, setPrevPerformanceMap] = useState<Record<string, PrevSetData[]>>({});
+
+  // Baseline Personal Records map: exerciseId -> { maxWeight, max1RM }
+  const [baselinePRMap, setBaselinePRMap] = useState<Record<string, { maxWeight: number; max1RM: number }>>({});
 
   // Add exercise modal
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [allExercises, setAllExercises] = useState<ExerciseSummary[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [completing, setCompleting] = useState(false);
+
+  // Confirm modal state (replaces window.confirm)
+  const [confirmState, setConfirmState] = useState<ConfirmState>({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmLabel: 'Confirmar',
+    variant: 'danger',
+    onConfirm: () => {},
+  });
+
+  const showConfirm = (cfg: Omit<ConfirmState, 'isOpen'>) => {
+    setConfirmState({ ...cfg, isOpen: true });
+  };
+  const closeConfirm = () => setConfirmState((s) => ({ ...s, isOpen: false }));
 
   // Workout duration timer
   useEffect(() => {
@@ -45,58 +91,132 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
     return () => clearInterval(interval);
   }, [workout.startedAt]);
 
-  // Rest countdown timer
+  // Rest countdown timer with Web Audio chime notification
   useEffect(() => {
     if (!isRestTimerActive || restSecondsLeft === null) return;
     if (restSecondsLeft <= 0) {
       setIsRestTimerActive(false);
       setRestSecondsLeft(null);
+      if (soundEnabled) {
+        soundManager.playRestFinishedChime();
+      }
+      toast.info('⏰ ¡Tiempo de descanso completado! A por la siguiente serie.');
       return;
     }
     const timer = setInterval(() => {
       setRestSecondsLeft((prev) => (prev !== null && prev > 0 ? prev - 1 : 0));
     }, 1000);
     return () => clearInterval(timer);
-  }, [isRestTimerActive, restSecondsLeft]);
+  }, [isRestTimerActive, restSecondsLeft, soundEnabled]);
 
-  // Load previous workout performance (FR-WORK-004)
+  // Load previous workout performance
   useEffect(() => {
     const fetchPreviousPerformance = async () => {
       try {
         const history = await api.listWorkoutHistory(tokens.accessToken);
         if (!history || history.length === 0) return;
 
-        const perfMap: Record<string, PrevSetData[]> = {};
+        // Fetch recent workout details in parallel
+        const recentIds = history.slice(0, 5).map((e) => e.id);
+        const details = await Promise.all(
+          recentIds.map((id) => api.getWorkout(tokens.accessToken, id).catch(() => null))
+        );
 
-        // Fetch detail for recent workouts to find previous performance for exercises
-        for (const entry of history.slice(0, 5)) {
-          const detail = await api.getWorkout(tokens.accessToken, entry.id);
-          if (detail && detail.exercises) {
-            for (const wex of detail.exercises) {
-              const exId = wex.exercise?.id;
-              if (exId && !perfMap[exId] && wex.sets && wex.sets.length > 0) {
-                const recordedSets = wex.sets
-                  .filter((s) => s.isCompleted || s.weight !== null || s.repetitions !== null)
-                  .map((s) => ({
-                    setNumber: s.setNumber,
-                    weight: s.weight,
-                    repetitions: s.repetitions,
-                  }));
-                if (recordedSets.length > 0) {
-                  perfMap[exId] = recordedSets;
-                }
+        const perfMap: Record<string, PrevSetData[]> = {};
+        for (const detail of details) {
+          if (!detail?.exercises) continue;
+          for (const wex of detail.exercises) {
+            const exId = wex.exercise?.id;
+            if (exId && !perfMap[exId] && wex.sets && wex.sets.length > 0) {
+              const recordedSets = wex.sets
+                .filter((s) => s.isCompleted || s.weight !== null || s.repetitions !== null)
+                .map((s) => ({
+                  setNumber: s.setNumber,
+                  weight: s.weight,
+                  repetitions: s.repetitions,
+                }));
+              if (recordedSets.length > 0) {
+                perfMap[exId] = recordedSets;
               }
             }
           }
         }
         setPrevPerformanceMap(perfMap);
       } catch {
-        // Silently ignore if previous history can't be fetched
+        // Silently ignore
       }
     };
 
     fetchPreviousPerformance();
   }, [tokens]);
+
+  // Load all-time Personal Records (PR) baseline for all exercises in current workout
+  const exerciseIdsKey = workout.exercises.map((e) => e.exercise.id).join(',');
+
+  useEffect(() => {
+    const fetchBaselines = async () => {
+      const map: Record<string, { maxWeight: number; max1RM: number }> = {};
+      await Promise.all(
+        workout.exercises.map(async (wex) => {
+          const rawId = wex.exercise?.id;
+          if (!rawId) return;
+          try {
+            const prog = await api.getExerciseProgression(tokens.accessToken, rawId);
+            if (prog && Array.isArray(prog.data) && prog.data.length > 0) {
+              let maxW = 0;
+              let max1 = 0;
+              for (const pt of prog.data) {
+                if (pt.weight !== null && pt.weight !== undefined && pt.weight > maxW) {
+                  maxW = pt.weight;
+                }
+                if (pt.estimatedOneRepMax !== null && pt.estimatedOneRepMax !== undefined && pt.estimatedOneRepMax > max1) {
+                  max1 = pt.estimatedOneRepMax;
+                }
+              }
+              map[rawId] = { maxWeight: maxW, max1RM: max1 };
+            } else {
+              map[rawId] = { maxWeight: 0, max1RM: 0 };
+            }
+          } catch {
+            map[rawId] = { maxWeight: 0, max1RM: 0 };
+          }
+        })
+      );
+      setBaselinePRMap((prev) => ({ ...prev, ...map }));
+    };
+
+    if (workout.exercises.length > 0) {
+      fetchBaselines();
+    }
+  }, [tokens, exerciseIdsKey]);
+
+  const checkIsPR = (exerciseId: string, weight: number | null, reps: number | null) => {
+    if (!weight || !reps || weight <= 0 || reps <= 0) return { isPR: false, reason: '', est1RM: 0 };
+    const baseline = baselinePRMap[exerciseId];
+    const est1RM = reps === 1 ? weight : Math.round(weight * (1 + reps / 30) * 10) / 10;
+
+    if (!baseline || (baseline.maxWeight === 0 && baseline.max1RM === 0)) {
+      return { isPR: false, reason: '', est1RM };
+    }
+
+    if (weight > baseline.maxWeight && baseline.maxWeight > 0) {
+      return {
+        isPR: true,
+        reason: `¡Superaste tu récord de peso de ${baseline.maxWeight} kg!`,
+        est1RM,
+      };
+    }
+
+    if (est1RM > baseline.max1RM && baseline.max1RM > 0) {
+      return {
+        isPR: true,
+        reason: `¡Nuevo 1RM récord de ${est1RM} kg (anterior: ${baseline.max1RM} kg)!`,
+        est1RM,
+      };
+    }
+
+    return { isPR: false, reason: '', est1RM };
+  };
 
   const startRestTimer = (seconds: number = 90) => {
     setRestSecondsLeft(seconds);
@@ -130,10 +250,24 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
       }));
 
       if (nextCompleted) {
+        const rawExId = targetExercise?.exercise.id || exerciseId;
+        const exName = targetExercise?.exercise.name || 'Ejercicio';
+        const prCheck = checkIsPR(rawExId, targetSet.weight, targetSet.repetitions);
+
+        if (prCheck.isPR) {
+          if (soundEnabled) {
+            soundManager.playPRCelebrationFanfare();
+          }
+          toast.success(`🏆 ¡NUEVO RÉCORD PERSONAL!`, {
+            description: `${exName}: ${targetSet.weight} kg × ${targetSet.repetitions} reps. ${prCheck.reason}`,
+            duration: 5000,
+          });
+        }
+
         startRestTimer(90);
       }
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error al registrar serie.');
+      toast.error(err instanceof Error ? err.message : 'Error al registrar serie.');
     }
   };
 
@@ -182,7 +316,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
         )),
       }));
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error al añadir serie.');
+      toast.error(err instanceof Error ? err.message : 'Error al añadir serie.');
     }
   };
 
@@ -194,7 +328,6 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
         exercises: prev.exercises.map((ex) => {
           if (ex.id !== exerciseId) return ex;
           const remaining = ex.sets.filter((s) => s.id !== setId);
-          // Renumber sets sequentially
           return {
             ...ex,
             sets: remaining.map((s, idx) => ({ ...s, setNumber: idx + 1 })),
@@ -202,45 +335,171 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
         }),
       }));
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error al eliminar serie.');
+      toast.error(err instanceof Error ? err.message : 'Error al eliminar serie.');
     }
   };
 
-  const handleDeleteExercise = async (exerciseId: string, exerciseName: string) => {
-    if (!window.confirm(`¿Quitar "${exerciseName}" del entrenamiento actual?`)) return;
-    try {
-      await api.deleteWorkoutExercise(tokens.accessToken, workout.id, exerciseId);
-      setWorkout((prev) => ({
-        ...prev,
-        exercises: prev.exercises
-          .filter((ex) => ex.id !== exerciseId)
-          .map((ex, idx) => ({ ...ex, position: idx + 1 })),
-      }));
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error al quitar ejercicio.');
-    }
-  };
+  const handleMoveExercise = async (currentIndex: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= workout.exercises.length) return;
 
-  const handleFinishWorkout = async () => {
-    if (!window.confirm('¿Deseas finalizar y guardar este entrenamiento?')) return;
-    setCompleting(true);
-    try {
-      await api.finishWorkout(tokens.accessToken, workout.id, 'complete');
-      onFinished();
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error al finalizar entrenamiento.');
-      setCompleting(false);
-    }
-  };
+    const reordered = [...workout.exercises];
+    const [moved] = reordered.splice(currentIndex, 1);
+    reordered.splice(targetIndex, 0, moved);
 
-  const handleCancelWorkout = async () => {
-    if (!window.confirm('¿Seguro que deseas cancelar el entrenamiento? Se descartarán los cambios no guardados.')) return;
+    const updated = reordered.map((ex, idx) => ({ ...ex, position: idx + 1 }));
+    setWorkout((prev) => ({ ...prev, exercises: updated }));
+
     try {
-      await api.finishWorkout(tokens.accessToken, workout.id, 'cancel');
-      onFinished();
+      await api.reorderWorkoutExercises(
+        tokens.accessToken,
+        workout.id,
+        updated.map((e) => e.id)
+      );
     } catch {
-      onFinished();
+      // Revert if failed
+      setWorkout((prev) => ({ ...prev, exercises: workout.exercises }));
+      toast.error('Error al reordenar los ejercicios');
     }
+  };
+
+  const handleCycleSetType = async (exerciseId: string, setId: string, currentType?: string) => {
+    const cycle: Record<string, 'normal' | 'warmup' | 'drop' | 'failure'> = {
+      normal: 'warmup',
+      warmup: 'drop',
+      drop: 'failure',
+      failure: 'normal',
+    };
+    const nextType = cycle[currentType || 'normal'] || 'normal';
+
+    setWorkout((prev) => ({
+      ...prev,
+      exercises: prev.exercises.map((ex) =>
+        ex.id === exerciseId
+          ? {
+              ...ex,
+              sets: ex.sets.map((s) => (s.id === setId ? { ...s, setType: nextType } : s)),
+            }
+          : ex
+      ),
+    }));
+
+    try {
+      await api.recordWorkoutSet(tokens.accessToken, workout.id, exerciseId, setId, {
+        setType: nextType,
+      } as Parameters<typeof api.recordWorkoutSet>[4]);
+    } catch {
+      // Background / offline will sync
+    }
+  };
+
+  const handleDeleteExercise = (exerciseId: string, exerciseName: string) => {
+    showConfirm({
+      title: 'Quitar ejercicio',
+      message: `¿Quitar "${exerciseName}" del entrenamiento actual?`,
+      confirmLabel: 'Quitar',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await api.deleteWorkoutExercise(tokens.accessToken, workout.id, exerciseId);
+          setWorkout((prev) => ({
+            ...prev,
+            exercises: prev.exercises
+              .filter((ex) => ex.id !== exerciseId)
+              .map((ex, idx) => ({ ...ex, position: idx + 1 })),
+          }));
+        } catch (err: unknown) {
+          toast.error(err instanceof Error ? err.message : 'Error al quitar ejercicio.');
+        }
+      },
+    });
+  };
+
+
+  const handleFinishWorkout = () => {
+    showConfirm({
+      title: 'Finalizar entrenamiento',
+      message: '¿Deseas finalizar y guardar esta sesión?',
+      confirmLabel: 'Finalizar',
+      variant: 'warning',
+      onConfirm: async () => {
+        setCompleting(true);
+        try {
+          await api.finishWorkout(tokens.accessToken, workout.id, 'complete');
+
+          // Compute summary metrics
+          let totalVolume = 0;
+          let totalReps = 0;
+          let completedSetsCount = 0;
+          const prsAchieved: WorkoutSummaryData['prsAchieved'] = [];
+          const exercisesSummary: WorkoutSummaryData['exercisesSummary'] = [];
+
+          for (const ex of workout.exercises) {
+            const rawExId = ex.exercise.id || ex.id;
+            let exCompletedCount = 0;
+
+            for (const s of ex.sets) {
+              if (s.isCompleted) {
+                completedSetsCount++;
+                exCompletedCount++;
+                const w = s.weight ?? 0;
+                const r = s.repetitions ?? 0;
+                totalVolume += w * r;
+                totalReps += r;
+
+                const pr = checkIsPR(rawExId, s.weight, s.repetitions);
+                if (pr.isPR) {
+                  prsAchieved.push({
+                    exerciseName: ex.exercise.name,
+                    weight: w,
+                    repetitions: r,
+                    reason: pr.reason,
+                  });
+                }
+              }
+            }
+
+            if (exCompletedCount > 0) {
+              exercisesSummary.push({
+                name: ex.exercise.name,
+                setsCompleted: exCompletedCount,
+              });
+            }
+          }
+
+          const summary: WorkoutSummaryData = {
+            durationSeconds: elapsedSeconds,
+            totalVolume,
+            completedSetsCount,
+            totalReps,
+            prsAchieved,
+            exercisesSummary,
+          };
+
+          onFinished(summary);
+        } catch (err: unknown) {
+          toast.error(err instanceof Error ? err.message : 'Error al finalizar entrenamiento.');
+          setCompleting(false);
+        }
+      },
+    });
+  };
+
+  const handleCancelWorkout = () => {
+    showConfirm({
+      title: 'Cancelar sesión',
+      message: '¿Seguro que deseas cancelar el entrenamiento? Se descartarán los cambios no guardados.',
+      confirmLabel: 'Cancelar sesión',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await api.finishWorkout(tokens.accessToken, workout.id, 'cancel');
+          onFinished();
+        } catch {
+          onFinished();
+        }
+      },
+    });
   };
 
   const openAddModal = async () => {
@@ -274,7 +533,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
       }));
       setIsAddModalOpen(false);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error al añadir ejercicio al entrenamiento.');
+      toast.error(err instanceof Error ? err.message : 'Error al añadir ejercicio al entrenamiento.');
     }
   };
 
@@ -289,8 +548,8 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
   };
 
   const filteredAddExercises = allExercises.filter((ex) =>
-    ex.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    ex.targetMuscleGroups.some((m) => m.toLowerCase().includes(searchQuery.toLowerCase()))
+    matchesSearch(ex.name, searchQuery) ||
+    ex.targetMuscleGroups.some((m) => matchesSearch(m, searchQuery))
   );
 
   return (
@@ -298,13 +557,16 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
       {/* Top Header Card */}
       <div style={styles.topCard}>
         <div>
-          <span style={styles.eyebrow}>ENTRENAMIENTO EN CURSO</span>
-          <h1 style={styles.workoutName}>Sesión Activa</h1>
+          <div style={styles.eyebrowWrap}>
+            <span style={styles.livePulseDot} />
+            <span style={styles.eyebrow}>SESIÓN EN CURSO</span>
+          </div>
+          <h1 style={styles.workoutName}>Entrenamiento Activo</h1>
         </div>
 
         <div style={styles.topRight}>
           <div style={styles.timerBadge}>
-            <Timer size={20} color="var(--accent-teal)" />
+            <Timer size={18} color="var(--accent-teal)" />
             <span style={styles.timerText}>{formatElapsed(elapsedSeconds)}</span>
           </div>
 
@@ -313,8 +575,8 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
             onClick={handleFinishWorkout}
             disabled={completing}
           >
-            <Trophy size={18} />
-            <span>{completing ? 'Guardando...' : 'Finalizar'}</span>
+            <Trophy size={16} />
+            <span>{completing ? 'Guardando...' : 'Finalizar sesión'}</span>
           </button>
 
           <button
@@ -327,11 +589,13 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
         </div>
       </div>
 
-      {/* Rest Banner */}
+      {/* Rest Countdown Bar Widget */}
       {isRestTimerActive && restSecondsLeft !== null && (
         <div style={styles.restBanner}>
           <div style={styles.restLeft}>
-            <Timer size={24} color="var(--accent-teal)" />
+            <div style={styles.restIconRing}>
+              <Timer size={20} color="var(--accent-teal)" />
+            </div>
             <div>
               <div style={styles.restTitle}>TIEMPO DE DESCANSO</div>
               <div style={styles.restTime}>
@@ -340,39 +604,83 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
             </div>
           </div>
           <div style={styles.restControls}>
-            <button style={styles.restBtn} onClick={() => setRestSecondsLeft((r) => (r !== null ? r + 30 : 30))}>+30s</button>
-            <button style={styles.restBtnDismiss} onClick={() => setIsRestTimerActive(false)}>Omitir</button>
+            <button
+              style={styles.restBtnMute}
+              onClick={() => setSoundEnabled((v) => !v)}
+              title={soundEnabled ? 'Aviso sonoro activado (clic para silenciar)' : 'Aviso sonoro silenciado (clic para activar)'}
+            >
+              {soundEnabled ? (
+                <Volume2 size={16} color="var(--accent-teal)" />
+              ) : (
+                <VolumeX size={16} color="var(--text-muted)" />
+              )}
+            </button>
+            <button style={styles.restBtn} onClick={() => setRestSecondsLeft((r) => (r !== null ? r + 30 : 30))}>
+              +30s
+            </button>
+            <button style={styles.restBtnDismiss} onClick={() => setIsRestTimerActive(false)}>
+              Omitir
+            </button>
           </div>
         </div>
       )}
 
       {/* Exercises List */}
       <div style={styles.exercisesList}>
-        {workout.exercises.map((exItem) => {
+        {workout.exercises.map((exItem, exIdx) => {
           const prevSets = prevPerformanceMap[exItem.exercise.id] || [];
 
           return (
             <div key={exItem.id} style={styles.exerciseCard}>
               <div style={styles.exHeader}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  <h3 style={styles.exName}>{exItem.position}. {exItem.exercise.name}</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                  {/* Reordering Controls */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <button
+                      style={{
+                        ...styles.reorderBtn,
+                        opacity: exIdx === 0 ? 0.3 : 1,
+                        cursor: exIdx === 0 ? 'default' : 'pointer',
+                      }}
+                      onClick={() => handleMoveExercise(exIdx, 'up')}
+                      disabled={exIdx === 0}
+                      title="Mover arriba"
+                    >
+                      <ChevronUp size={14} />
+                    </button>
+                    <button
+                      style={{
+                        ...styles.reorderBtn,
+                        opacity: exIdx === workout.exercises.length - 1 ? 0.3 : 1,
+                        cursor: exIdx === workout.exercises.length - 1 ? 'default' : 'pointer',
+                      }}
+                      onClick={() => handleMoveExercise(exIdx, 'down')}
+                      disabled={exIdx === workout.exercises.length - 1}
+                      title="Mover abajo"
+                    >
+                      <ChevronDown size={14} />
+                    </button>
+                  </div>
+
+                  <div style={styles.exNumberBadge}>{exItem.position}</div>
+                  <h3 style={styles.exName}>{exItem.exercise.name}</h3>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <span style={styles.restInfoBadge}>Descanso recomendado: 90s</span>
+                  <span style={styles.restInfoBadge}>Descanso: 90s</span>
                   <button
                     style={styles.deleteExIconBtn}
                     onClick={() => handleDeleteExercise(exItem.id, exItem.exercise.name)}
                     title="Quitar ejercicio"
                   >
-                    <Trash2 size={16} color="#ef4444" />
+                    <Trash2 size={16} color="var(--text-dim)" />
                   </button>
                 </div>
               </div>
 
-              {/* Set Table with Previous Performance (FR-WORK-004) and Delete Set */}
+              {/* Set Table */}
               <div style={styles.setTable}>
                 <div style={styles.tableHeader}>
-                  <span>Serie</span>
+                  <span>Serie / Tipo</span>
                   <span>Anterior</span>
                   <span>Peso (kg)</span>
                   <span>Reps</span>
@@ -387,6 +695,19 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
                     ? `${prevSet.weight ?? 0} kg × ${prevSet.repetitions ?? 0}`
                     : '—';
 
+                  const rawExId = exItem.exercise?.id;
+                  const prInfo = checkIsPR(rawExId, set.weight, set.repetitions);
+                  const setType = set.setType || 'normal';
+
+                  // Styling for setType
+                  const setTypeConfig: Record<string, { label: string; color: string; bg: string; title: string }> = {
+                    normal: { label: `${set.setNumber}`, color: 'var(--text-primary)', bg: 'transparent', title: 'Serie Normal (clic para cambiar a Calentamiento)' },
+                    warmup: { label: 'W', color: 'var(--accent-teal)', bg: 'rgba(6, 182, 212, 0.15)', title: 'Calentamiento (W) - no cuenta en series pesadas (clic para Drop set)' },
+                    drop: { label: 'D', color: '#a855f7', bg: 'rgba(168, 85, 247, 0.15)', title: 'Drop Set (D) - serie descendente (clic para Fallo)' },
+                    failure: { label: 'F', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)', title: 'Fallo muscular (F) - RPE 10 (clic para Normal)' },
+                  };
+                  const currentConfig = setTypeConfig[setType] || setTypeConfig.normal;
+
                   return (
                     <div
                       key={set.id}
@@ -395,64 +716,108 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
                         ...(set.isCompleted ? styles.tableRowCompleted : {}),
                       }}
                     >
-                      <span style={styles.setNumber}>#{set.setNumber}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleCycleSetType(exItem.id, set.id, setType)}
+                          style={{
+                            ...styles.setTypeBtn,
+                            color: currentConfig.color,
+                            backgroundColor: currentConfig.bg,
+                          }}
+                          title={currentConfig.title}
+                        >
+                          {currentConfig.label}
+                        </button>
+                        {prInfo.isPR && (
+                          <span style={styles.prBadge} title={prInfo.reason}>
+                            <Trophy size={11} color="#f59e0b" />
+                            <span>PR</span>
+                          </span>
+                        )}
+                      </div>
 
-                      {/* Previous Performance Column (FR-WORK-004) */}
-                      <span style={styles.prevPerfCell} title={hasPrev ? 'Rendimiento en la última sesión' : 'Sin registro previo'}>
-                        {prevDisplay}
-                      </span>
+                      {/* Previous Performance Column */}
+                      <span style={styles.prevSetText}>{prevDisplay}</span>
 
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder={prevSet?.weight != null ? String(prevSet.weight) : '0'}
-                        defaultValue={set.weight ?? ''}
-                        onBlur={(e) => handleUpdateSetField(exItem.id, set.id, 'weight', e.target.value)}
-                        style={styles.setCellInput}
-                      />
+                      {/* Weight Input */}
+                      <div>
+                        <input
+                          type="number"
+                          step="0.5"
+                          placeholder={prevSet?.weight?.toString() || '0'}
+                          value={set.weight === null ? '' : set.weight}
+                          onChange={(e) => handleUpdateSetField(exItem.id, set.id, 'weight', e.target.value)}
+                          style={{
+                            ...styles.inputField,
+                            ...(set.isCompleted ? styles.inputFieldCompleted : {}),
+                          }}
+                        />
+                      </div>
 
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder={prevSet?.repetitions != null ? String(prevSet.repetitions) : '0'}
-                        defaultValue={set.repetitions ?? ''}
-                        onBlur={(e) => handleUpdateSetField(exItem.id, set.id, 'repetitions', e.target.value)}
-                        style={styles.setCellInput}
-                      />
+                      {/* Reps Input */}
+                      <div>
+                        <input
+                          type="number"
+                          placeholder={prevSet?.repetitions?.toString() || '10'}
+                          value={set.repetitions === null ? '' : set.repetitions}
+                          onChange={(e) => handleUpdateSetField(exItem.id, set.id, 'repetitions', e.target.value)}
+                          style={{
+                            ...styles.inputField,
+                            ...(set.isCompleted ? styles.inputFieldCompleted : {}),
+                          }}
+                        />
+                      </div>
 
-                      <button
-                        style={{ ...styles.checkBtn, ...(set.isCompleted ? styles.checkBtnCompleted : {}) }}
-                        onClick={() => handleToggleSet(exItem.id, set.id, set.isCompleted)}
-                        title={set.isCompleted ? 'Desmarcar serie' : 'Completar serie'}
-                      >
-                        {set.isCompleted ? <CheckSquare size={20} color="#ffffff" /> : <Square size={20} color="var(--text-muted)" />}
-                      </button>
+                      {/* Completion Checkbox Button */}
+                      <div style={{ display: 'flex', justifyContent: 'center' }}>
+                        <button
+                          style={{
+                            ...styles.checkBtn,
+                            ...(set.isCompleted ? styles.checkBtnCompleted : styles.checkBtnPending),
+                          }}
+                          onClick={() => handleToggleSet(exItem.id, set.id, set.isCompleted)}
+                        >
+                          <Check size={16} strokeWidth={3} />
+                        </button>
+                      </div>
 
-                      <button
-                        style={styles.trashSetBtn}
-                        onClick={() => handleDeleteSet(exItem.id, set.id)}
-                        title="Eliminar serie"
-                      >
-                        <Trash2 size={15} color="#ef4444" />
-                      </button>
+                      {/* Delete Set Button */}
+                      <div style={{ display: 'flex', justifyContent: 'center' }}>
+                        {exItem.sets.length > 1 && (
+                          <button
+                            style={styles.deleteSetBtn}
+                            onClick={() => handleDeleteSet(exItem.id, set.id)}
+                            title="Eliminar serie"
+                          >
+                            <Trash2 size={15} color="var(--text-dim)" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
-
-                <button style={styles.addSetBtn} onClick={() => handleAddSetToExercise(exItem.id)}>
-                  <Plus size={16} />
-                  <span>Añadir serie</span>
-                </button>
               </div>
+
+              {/* Add Set Button */}
+              <button
+                style={styles.addSetBtn}
+                onClick={() => handleAddSetToExercise(exItem.id)}
+              >
+                <Plus size={16} />
+                <span>Agregar serie</span>
+              </button>
             </div>
           );
         })}
       </div>
 
-      {/* Add Extra Exercise Button */}
-      <button style={styles.addExBtn} onClick={openAddModal}>
-        <Plus size={20} />
-        <span>Añadir ejercicio al entrenamiento</span>
+      {/* Add Exercise Floating / Bottom Button */}
+      <button style={styles.addExerciseMainBtn} onClick={openAddModal}>
+        <div style={styles.addIconCircle}>
+          <Plus size={18} color="var(--bg-color)" />
+        </div>
+        <span>Agregar Ejercicio a la Sesión</span>
       </button>
 
       {/* Add Exercise Modal */}
@@ -460,69 +825,111 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
         <div className="modal-overlay" onClick={() => setIsAddModalOpen(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
-              <h2 style={styles.modalTitle}>Añadir ejercicio</h2>
-              <button style={styles.modalCloseBtn} onClick={() => setIsAddModalOpen(false)}>✕</button>
+              <h2 style={styles.modalTitle}>Agregar Ejercicio</h2>
+              <button style={styles.closeBtn} onClick={() => setIsAddModalOpen(false)}>
+                <X size={20} color="var(--text-muted)" />
+              </button>
             </div>
 
-            <input
-              type="text"
-              placeholder="Buscar ejercicio..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={styles.modalSearchInput}
-            />
+            <div style={styles.modalSearchWrapper}>
+              <Search size={18} color="var(--text-muted)" style={styles.modalSearchIcon} />
+              <input
+                type="text"
+                placeholder="Buscar ejercicio..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={styles.modalSearchInput}
+                autoFocus
+              />
+            </div>
 
             <div style={styles.modalExList}>
               {filteredAddExercises.map((ex) => (
-                <div key={ex.id} style={styles.modalExItem} onClick={() => handleAddExerciseToWorkout(ex.id)}>
-                  <div>
-                    <div style={styles.modalExName}>{ex.name}</div>
-                    <div style={styles.modalExMuscle}>{ex.targetMuscleGroups.join(', ')}</div>
+                <div
+                  key={ex.id}
+                  style={styles.modalExItem}
+                  onClick={() => handleAddExerciseToWorkout(ex.id)}
+                >
+                  <div style={{ flex: 1 }}>
+                    <h4 style={styles.modalExName}>{ex.name}</h4>
+                    <div style={styles.modalExTags}>
+                      {ex.targetMuscleGroups.map((m) => (
+                        <span key={m} style={styles.modalTagM}>{m}</span>
+                      ))}
+                      {ex.equipment && (
+                        <span style={styles.modalTagE}>{ex.equipment}</span>
+                      )}
+                    </div>
                   </div>
-                  <Plus size={18} color="var(--accent-teal)" />
+                  <ChevronRight size={18} color="var(--text-muted)" />
                 </div>
               ))}
             </div>
           </div>
         </div>
       )}
+
+      {/* Confirm Modal (replaces window.confirm) */}
+      <ConfirmModal
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        confirmLabel={confirmState.confirmLabel}
+        variant={confirmState.variant}
+        onConfirm={() => { confirmState.onConfirm(); closeConfirm(); }}
+        onCancel={closeConfirm}
+      />
     </div>
   );
 };
 
+
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    width: '100%',
     padding: '2.5rem 3rem',
     display: 'flex',
     flexDirection: 'column',
-    gap: '2rem',
+    gap: '1.75rem',
+    maxWidth: '1100px',
+    margin: '0 auto',
     boxSizing: 'border-box',
   },
   topCard: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '20px',
-    padding: '2rem 2.25rem',
+    borderRadius: '24px',
+    padding: '1.75rem 2.25rem',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    width: '100%',
-    boxSizing: 'border-box',
     flexWrap: 'wrap',
     gap: '1rem',
+    boxShadow: '0 8px 30px rgba(0, 0, 0, 0.15)',
+  },
+  eyebrowWrap: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.45rem',
+    marginBottom: '0.2rem',
+  },
+  livePulseDot: {
+    width: '7px',
+    height: '7px',
+    borderRadius: '50%',
+    backgroundColor: 'var(--accent-teal)',
+    boxShadow: '0 0 8px var(--accent-teal)',
   },
   eyebrow: {
-    fontSize: '0.75rem',
-    fontWeight: 700,
+    fontSize: '0.72rem',
+    fontWeight: 800,
     color: 'var(--accent-teal)',
-    letterSpacing: '1px',
+    letterSpacing: '0.08em',
   },
   workoutName: {
-    fontSize: '1.6rem',
+    fontSize: '2rem',
     fontWeight: 800,
     color: 'var(--text-primary)',
-    marginTop: '0.25rem',
+    letterSpacing: '-0.03em',
   },
   topRight: {
     display: 'flex',
@@ -531,100 +938,123 @@ const styles: Record<string, React.CSSProperties> = {
     flexWrap: 'wrap',
   },
   timerBadge: {
-    backgroundColor: 'var(--input-bg)',
-    border: '1px solid var(--border-color)',
-    borderRadius: '12px',
-    padding: '0.5rem 1rem',
     display: 'flex',
     alignItems: 'center',
     gap: '0.5rem',
+    backgroundColor: 'var(--input-bg)',
+    border: '1px solid var(--border-color)',
+    padding: '0.65rem 1rem',
+    borderRadius: '12px',
   },
   timerText: {
-    fontSize: '1.1rem',
-    fontWeight: 700,
+    fontSize: '1.15rem',
+    fontWeight: 800,
+    fontFamily: 'var(--font-mono)',
     color: 'var(--text-primary)',
   },
   finishBtn: {
-    backgroundColor: 'var(--accent-teal)',
-    color: '#000000',
-    padding: '0.65rem 1.25rem',
-    borderRadius: '12px',
-    fontWeight: 700,
-    fontSize: '0.95rem',
     display: 'flex',
     alignItems: 'center',
     gap: '0.5rem',
+    backgroundColor: 'var(--accent-teal)',
+    color: 'var(--bg-color)',
+    padding: '0.7rem 1.25rem',
+    borderRadius: '12px',
+    fontWeight: 800,
+    fontSize: '0.9rem',
+    boxShadow: '0 4px 16px var(--accent-teal-glow)',
   },
   cancelBtn: {
-    backgroundColor: 'var(--input-bg)',
-    border: '1px solid var(--border-color)',
-    color: 'var(--text-muted)',
-    padding: '0.65rem',
+    padding: '0.7rem',
     borderRadius: '12px',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    border: '1px solid rgba(239, 68, 68, 0.25)',
+    color: '#ef4444',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    cursor: 'pointer',
   },
   restBanner: {
-    backgroundColor: 'rgba(34, 240, 197, 0.12)',
-    border: '1px solid rgba(34, 240, 197, 0.25)',
-    borderRadius: '14px',
-    padding: '1rem 1.25rem',
+    backgroundColor: 'var(--surface-color)',
+    border: '1px solid var(--border-highlight)',
+    borderRadius: '18px',
+    padding: '1.1rem 1.75rem',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: '1rem',
+    boxShadow: '0 4px 20px var(--accent-teal-glow)',
   },
   restLeft: {
     display: 'flex',
     alignItems: 'center',
     gap: '1rem',
   },
+  restIconRing: {
+    width: '42px',
+    height: '42px',
+    borderRadius: '12px',
+    backgroundColor: 'rgba(6, 182, 212, 0.12)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   restTitle: {
-    fontSize: '0.75rem',
+    fontSize: '0.72rem',
+    fontWeight: 800,
     color: 'var(--accent-teal)',
-    fontWeight: 700,
-    letterSpacing: '0.5px',
+    letterSpacing: '0.06em',
   },
   restTime: {
-    fontSize: '1.35rem',
+    fontSize: '1.4rem',
     fontWeight: 800,
+    fontFamily: 'var(--font-mono)',
     color: 'var(--text-primary)',
   },
   restControls: {
     display: 'flex',
-    gap: '0.5rem',
+    gap: '0.65rem',
   },
   restBtn: {
-    backgroundColor: 'var(--surface-color)',
+    backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
     color: 'var(--text-primary)',
-    padding: '0.4rem 0.75rem',
-    borderRadius: '8px',
+    padding: '0.5rem 0.9rem',
+    borderRadius: '10px',
+    fontWeight: 700,
     fontSize: '0.85rem',
-    fontWeight: 600,
+  },
+  restBtnMute: {
+    backgroundColor: 'var(--input-bg)',
+    border: '1px solid var(--border-color)',
+    padding: '0.45rem 0.65rem',
+    borderRadius: '10px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
   },
   restBtnDismiss: {
     backgroundColor: 'transparent',
     color: 'var(--text-muted)',
-    padding: '0.4rem 0.75rem',
+    padding: '0.5rem 0.9rem',
+    borderRadius: '10px',
+    fontWeight: 600,
     fontSize: '0.85rem',
   },
   exercisesList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '1.25rem',
+    gap: '1.5rem',
   },
   exerciseCard: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '18px',
-    padding: '1.25rem 1.5rem',
+    borderRadius: '22px',
+    padding: '1.5rem 1.75rem',
     display: 'flex',
     flexDirection: 'column',
-    gap: '1rem',
+    gap: '1.25rem',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
   },
   exHeader: {
     display: 'flex',
@@ -633,194 +1063,268 @@ const styles: Record<string, React.CSSProperties> = {
     flexWrap: 'wrap',
     gap: '0.5rem',
   },
+  exNumberBadge: {
+    width: '28px',
+    height: '28px',
+    borderRadius: '8px',
+    backgroundColor: 'rgba(6, 182, 212, 0.12)',
+    color: 'var(--accent-teal)',
+    fontSize: '0.85rem',
+    fontWeight: 800,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   exName: {
-    fontSize: '1.15rem',
-    fontWeight: 700,
+    fontSize: '1.2rem',
+    fontWeight: 800,
     color: 'var(--text-primary)',
+    letterSpacing: '-0.02em',
   },
   restInfoBadge: {
     fontSize: '0.75rem',
     color: 'var(--text-muted)',
     backgroundColor: 'var(--input-bg)',
-    border: '1px solid var(--border-color)',
-    padding: '0.25rem 0.6rem',
+    padding: '0.25rem 0.65rem',
     borderRadius: '6px',
+    fontWeight: 600,
   },
   deleteExIconBtn: {
+    padding: '0.45rem',
+    borderRadius: '8px',
     backgroundColor: 'transparent',
-    border: 'none',
-    cursor: 'pointer',
-    padding: '0.25rem',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    opacity: 0.8,
   },
   setTable: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.5rem',
+    gap: '0.45rem',
   },
   tableHeader: {
     display: 'grid',
-    gridTemplateColumns: '45px 110px 1fr 1fr 45px 36px',
-    gap: '0.65rem',
-    fontSize: '0.78rem',
-    fontWeight: 700,
+    gridTemplateColumns: '74px 1.4fr 1fr 1fr 60px 40px',
+    padding: '0.4rem 0.75rem',
+    fontSize: '0.72rem',
+    fontWeight: 800,
     color: 'var(--text-muted)',
-    padding: '0 0.5rem',
     textTransform: 'uppercase',
-    letterSpacing: '0.3px',
+    letterSpacing: '0.05em',
   },
   tableRow: {
     display: 'grid',
-    gridTemplateColumns: '45px 110px 1fr 1fr 45px 36px',
-    gap: '0.65rem',
+    gridTemplateColumns: '74px 1.4fr 1fr 1fr 60px 40px',
     alignItems: 'center',
-    backgroundColor: 'var(--input-bg)',
-    padding: '0.5rem',
+    padding: '0.45rem 0.75rem',
     borderRadius: '12px',
-    border: '1px solid var(--border-color)',
-    transition: 'background-color 0.15s ease, border-color 0.15s ease',
+    backgroundColor: 'var(--input-bg)',
+    border: '1px solid var(--border-subtle)',
+    transition: 'all 0.18s ease',
   },
-  trashSetBtn: {
+  tableRowCompleted: {
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+    borderColor: 'rgba(34, 197, 94, 0.25)',
+  },
+  setNumber: {
+    fontSize: '0.88rem',
+    fontWeight: 800,
+    color: 'var(--text-muted)',
+    fontFamily: 'var(--font-mono)',
+  },
+  prBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '2px',
+    padding: '1px 5px',
+    borderRadius: '6px',
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    border: '1px solid rgba(245, 158, 11, 0.45)',
+    color: '#f59e0b',
+    fontSize: '0.68rem',
+    fontWeight: 800,
+    letterSpacing: '0.02em',
+    userSelect: 'none',
+  },
+  reorderBtn: {
+    background: 'none',
+    border: 'none',
+    padding: '1px',
+    cursor: 'pointer',
+    color: 'var(--text-muted)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
-    border: 'none',
-    cursor: 'pointer',
-    padding: '0.35rem',
-    opacity: 0.75,
+    lineHeight: 1,
+    transition: 'color 0.15s ease',
+  },
+  setTypeBtn: {
+    minWidth: '26px',
+    height: '24px',
     borderRadius: '6px',
-  },
-  tableRowCompleted: {
-    backgroundColor: 'rgba(34, 240, 197, 0.08)',
-    borderColor: 'rgba(34, 240, 197, 0.25)',
-  },
-  setNumber: {
-    fontWeight: 700,
-    color: 'var(--text-muted)',
-    paddingLeft: '0.35rem',
-    fontSize: '0.9rem',
-  },
-  prevPerfCell: {
-    fontSize: '0.82rem',
-    fontWeight: 600,
-    color: 'var(--text-muted)',
-    backgroundColor: 'var(--surface-color)',
-    padding: '0.35rem 0.5rem',
-    borderRadius: '8px',
     border: '1px solid var(--border-color)',
-    textAlign: 'center',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
+    fontSize: '0.78rem',
+    fontWeight: 800,
+    fontFamily: 'var(--font-mono)',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '0 4px',
+    transition: 'all 0.15s ease',
   },
-  setCellInput: {
+  prevSetText: {
+    fontSize: '0.82rem',
+    color: 'var(--text-muted)',
+    fontFamily: 'var(--font-mono)',
+  },
+  inputField: {
+    width: '85%',
     padding: '0.45rem 0.65rem',
-    fontSize: '0.92rem',
     borderRadius: '8px',
+    fontSize: '0.92rem',
+    fontWeight: 700,
+    textAlign: 'center',
+  },
+  inputFieldCompleted: {
+    color: '#22c55e',
+  },
+  checkBtn: {
+    width: '34px',
+    height: '34px',
+    borderRadius: '9px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  },
+  checkBtnPending: {
+    backgroundColor: 'var(--surface-color)',
+    border: '1px solid var(--border-color)',
+    color: 'var(--text-dim)',
+  },
+  checkBtnCompleted: {
+    backgroundColor: '#22c55e',
+    color: 'var(--bg-color)',
+    boxShadow: '0 0 12px rgba(34, 197, 94, 0.4)',
+  },
+  deleteSetBtn: {
+    padding: '0.35rem',
+    borderRadius: '6px',
+    backgroundColor: 'transparent',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addSetBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '0.45rem',
+    padding: '0.65rem',
+    borderRadius: '12px',
+    backgroundColor: 'var(--input-bg)',
+    border: '1px dashed var(--border-color)',
+    color: 'var(--text-secondary)',
+    fontSize: '0.85rem',
+    fontWeight: 700,
+    marginTop: '0.25rem',
+  },
+  addExerciseMainBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '0.75rem',
+    padding: '1rem',
+    borderRadius: '18px',
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
     color: 'var(--text-primary)',
-    textAlign: 'center',
-  },
-  checkBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '0.45rem',
-    borderRadius: '8px',
-    backgroundColor: 'transparent',
+    fontWeight: 800,
+    fontSize: '1rem',
     cursor: 'pointer',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
   },
-  checkBtnCompleted: {
+  addIconCircle: {
+    width: '30px',
+    height: '30px',
+    borderRadius: '50%',
     backgroundColor: 'var(--accent-teal)',
-    borderRadius: '8px',
-    color: '#000000',
-  },
-  addSetBtn: {
-    backgroundColor: 'var(--input-bg)',
-    border: '1px solid var(--border-color)',
-    color: 'var(--accent-teal)',
-    padding: '0.55rem',
-    borderRadius: '10px',
-    fontWeight: 600,
-    fontSize: '0.85rem',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '0.35rem',
-    marginTop: '0.25rem',
-    cursor: 'pointer',
-  },
-  addExBtn: {
-    backgroundColor: 'var(--surface-color)',
-    border: '1px dashed var(--border-color)',
-    color: 'var(--accent-teal)',
-    padding: '1rem',
-    borderRadius: '16px',
-    fontWeight: 700,
-    fontSize: '0.95rem',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '0.5rem',
-    cursor: 'pointer',
   },
   modalHeader: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: '1rem',
+    marginBottom: '1.25rem',
   },
   modalTitle: {
-    fontSize: '1.2rem',
+    fontSize: '1.3rem',
     fontWeight: 800,
     color: 'var(--text-primary)',
   },
-  modalCloseBtn: {
-    padding: '0.35rem',
-    fontSize: '1.1rem',
-    color: 'var(--text-muted)',
-    cursor: 'pointer',
+  closeBtn: {
+    padding: '0.25rem',
+  },
+  modalSearchWrapper: {
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    marginBottom: '1rem',
+  },
+  modalSearchIcon: {
+    position: 'absolute',
+    left: '12px',
   },
   modalSearchInput: {
     width: '100%',
-    marginBottom: '1rem',
-    boxSizing: 'border-box',
-    padding: '0.75rem 1rem',
-    borderRadius: '12px',
-    backgroundColor: 'var(--input-bg)',
-    border: '1px solid var(--border-color)',
-    color: 'var(--text-primary)',
+    paddingLeft: '2.5rem',
   },
   modalExList: {
     display: 'flex',
     flexDirection: 'column',
     gap: '0.5rem',
-    maxHeight: '350px',
+    maxHeight: '380px',
     overflowY: 'auto',
   },
   modalExItem: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
+    padding: '0.85rem 1rem',
+    borderRadius: '12px',
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
-    padding: '0.75rem 1rem',
-    borderRadius: '12px',
     cursor: 'pointer',
+    transition: 'all 0.15s ease',
   },
   modalExName: {
-    fontWeight: 700,
     fontSize: '0.92rem',
+    fontWeight: 700,
     color: 'var(--text-primary)',
+    marginBottom: '0.25rem',
   },
-  modalExMuscle: {
-    fontSize: '0.75rem',
-    color: 'var(--text-muted)',
-    marginTop: '0.15rem',
+  modalExTags: {
+    display: 'flex',
+    gap: '0.35rem',
+  },
+  modalTagM: {
+    fontSize: '0.7rem',
+    backgroundColor: 'rgba(52, 211, 153, 0.15)',
+    color: '#10b981',
+    padding: '0.1rem 0.4rem',
+    borderRadius: '4px',
+    fontWeight: 600,
+  },
+  modalTagE: {
+    fontSize: '0.7rem',
+    backgroundColor: 'rgba(96, 165, 250, 0.15)',
+    color: '#3b82f6',
+    padding: '0.1rem 0.4rem',
+    borderRadius: '4px',
+    fontWeight: 600,
   },
 };

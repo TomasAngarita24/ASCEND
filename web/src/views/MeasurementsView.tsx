@@ -1,5 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Scale, Plus, Trash2, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { toast } from 'sonner';
+import { api, type Tokens } from '../api/api';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -19,20 +21,11 @@ export interface MeasurementEntry {
   [key: string]: string | number | null; // index signature for dynamic access
 }
 
+export interface MeasurementsViewProps {
+  tokens: Tokens;
+}
+
 const STORAGE_KEY = 'ascend_measurements';
-
-function loadEntries(): MeasurementEntry[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveEntries(entries: MeasurementEntry[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-}
 
 // ─── SVG Line Chart ───────────────────────────────────────────────────────────
 
@@ -167,7 +160,7 @@ const badgeStyles: Record<string, React.CSSProperties> = {
 interface FieldDef { key: string; label: string; unit: string; color: string; lowerIsBetter?: boolean }
 
 const FIELDS: FieldDef[] = [
-  { key: 'weight', label: 'Peso corporal', unit: 'kg', color: '#22f0c5', lowerIsBetter: false },
+  { key: 'weight', label: 'Peso corporal', unit: 'kg', color: '#06b6d4', lowerIsBetter: false },
   { key: 'bodyFat', label: 'Grasa corporal', unit: '%', color: '#f97316', lowerIsBetter: true },
   { key: 'neck', label: 'Cuello', unit: 'cm', color: '#a78bfa', lowerIsBetter: false },
   { key: 'shoulders', label: 'Hombros', unit: 'cm', color: '#60a5fa', lowerIsBetter: false },
@@ -191,13 +184,74 @@ function emptyForm() {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export const MeasurementsView: React.FC = () => {
-  const [entries, setEntries] = useState<MeasurementEntry[]>(loadEntries);
+export const MeasurementsView: React.FC<MeasurementsViewProps> = ({ tokens }) => {
+  const [entries, setEntries] = useState<MeasurementEntry[]>([]);
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [activeChart, setActiveChart] = useState<string>('weight');
   const [showForm, setShowForm] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  const loadMeasurements = async () => {
+    setLoading(true);
+    try {
+      // 1. Check if localStorage has old measurements that need migration
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        try {
+          const localList = JSON.parse(raw);
+          if (Array.isArray(localList) && localList.length > 0) {
+            for (const item of localList) {
+              if (item && item.date) {
+                await api.saveMeasurement(tokens.accessToken, {
+                  date: item.date,
+                  weight: item.weight !== null && item.weight !== undefined ? Number(item.weight) : null,
+                  neck: item.neck !== null && item.neck !== undefined ? Number(item.neck) : null,
+                  shoulders: item.shoulders !== null && item.shoulders !== undefined ? Number(item.shoulders) : null,
+                  chest: item.chest !== null && item.chest !== undefined ? Number(item.chest) : null,
+                  waist: item.waist !== null && item.waist !== undefined ? Number(item.waist) : null,
+                  hips: item.hips !== null && item.hips !== undefined ? Number(item.hips) : null,
+                  bicep: item.bicep !== null && item.bicep !== undefined ? Number(item.bicep) : null,
+                  thigh: item.thigh !== null && item.thigh !== undefined ? Number(item.thigh) : null,
+                  calf: item.calf !== null && item.calf !== undefined ? Number(item.calf) : null,
+                  bodyFat: item.bodyFat !== null && item.bodyFat !== undefined ? Number(item.bodyFat) : null,
+                });
+              }
+            }
+          }
+          localStorage.removeItem(STORAGE_KEY);
+        } catch (e) {
+          console.error('Error migrating local measurements:', e);
+        }
+      }
+
+      // 2. Fetch measurements from backend
+      const data = await api.listMeasurements(tokens.accessToken);
+      setEntries(data.map((m) => ({
+        id: m.id,
+        date: m.date.slice(0, 10),
+        weight: m.weight,
+        neck: m.neck,
+        shoulders: m.shoulders,
+        chest: m.chest,
+        waist: m.waist,
+        hips: m.hips,
+        bicep: m.bicep,
+        thigh: m.thigh,
+        calf: m.calf,
+        bodyFat: m.bodyFat,
+      })));
+    } catch {
+      // Ignore
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMeasurements();
+  }, [tokens]);
 
   const sortedEntries = useMemo(
     () => [...entries].sort((a, b) => a.date.localeCompare(b.date)),
@@ -219,38 +273,68 @@ export const MeasurementsView: React.FC = () => {
     setForm((f) => ({ ...f, [key]: val }));
   }
 
-  function handleSave(e: React.FormEvent) {
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+    try {
+      const saved = await api.saveMeasurement(tokens.accessToken, {
+        date: form.date,
+        weight: form.weight ? parseFloat(form.weight) : null,
+        neck: form.neck ? parseFloat(form.neck) : null,
+        shoulders: form.shoulders ? parseFloat(form.shoulders) : null,
+        chest: form.chest ? parseFloat(form.chest) : null,
+        waist: form.waist ? parseFloat(form.waist) : null,
+        hips: form.hips ? parseFloat(form.hips) : null,
+        bicep: form.bicep ? parseFloat(form.bicep) : null,
+        thigh: form.thigh ? parseFloat(form.thigh) : null,
+        calf: form.calf ? parseFloat(form.calf) : null,
+        bodyFat: form.bodyFat ? parseFloat(form.bodyFat) : null,
+      });
 
-    const entry: MeasurementEntry = {
-      id: `m-${Date.now()}`,
-      date: form.date,
-      weight: form.weight ? parseFloat(form.weight) : null,
-      neck: form.neck ? parseFloat(form.neck) : null,
-      shoulders: form.shoulders ? parseFloat(form.shoulders) : null,
-      chest: form.chest ? parseFloat(form.chest) : null,
-      waist: form.waist ? parseFloat(form.waist) : null,
-      hips: form.hips ? parseFloat(form.hips) : null,
-      bicep: form.bicep ? parseFloat(form.bicep) : null,
-      thigh: form.thigh ? parseFloat(form.thigh) : null,
-      calf: form.calf ? parseFloat(form.calf) : null,
-      bodyFat: form.bodyFat ? parseFloat(form.bodyFat) : null,
-    };
+      const entry: MeasurementEntry = {
+        id: saved.id,
+        date: saved.date.slice(0, 10),
+        weight: saved.weight,
+        neck: saved.neck,
+        shoulders: saved.shoulders,
+        chest: saved.chest,
+        waist: saved.waist,
+        hips: saved.hips,
+        bicep: saved.bicep,
+        thigh: saved.thigh,
+        calf: saved.calf,
+        bodyFat: saved.bodyFat,
+      };
 
-    const updated = [...entries, entry];
-    saveEntries(updated);
-    setEntries(updated);
-    setForm(emptyForm());
-    setShowForm(false);
-    setSaving(false);
+      setEntries((prevEntries) => {
+        const existingIdx = prevEntries.findIndex((item) => item.date === entry.date);
+        if (existingIdx >= 0) {
+          const updated = [...prevEntries];
+          updated[existingIdx] = entry;
+          return updated;
+        }
+        return [...prevEntries, entry];
+      });
+
+      setForm(emptyForm());
+      setShowForm(false);
+      toast.success('Medidas sincronizadas en la nube');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al guardar medidas');
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function handleDelete(id: string) {
-    const updated = entries.filter((e) => e.id !== id);
-    saveEntries(updated);
-    setEntries(updated);
-    setConfirmDelete(null);
+  async function handleDelete(id: string) {
+    try {
+      await api.deleteMeasurement(tokens.accessToken, id);
+      setEntries((prevEntries) => prevEntries.filter((e) => e.id !== id));
+      setConfirmDelete(null);
+      toast.success('Medida eliminada');
+    } catch {
+      toast.error('Error al eliminar la medida');
+    }
   }
 
   return (
@@ -302,13 +386,13 @@ export const MeasurementsView: React.FC = () => {
         <div style={styles.leftPanel}>
           <div style={styles.card}>
             <div style={styles.cardHeader}>
-              <Scale size={22} color="#22f0c5" />
+              <Scale size={22} color="var(--accent-teal)" />
               <h2 style={styles.cardTitle}>Medidas actuales</h2>
             </div>
 
             {latest === null ? (
               <div style={styles.emptyText}>
-                Registra tu primera entrada para ver tus medidas aquí.
+                {loading ? 'Cargando medidas sincronizadas...' : 'Registra tu primera entrada para ver tus medidas aquí.'}
               </div>
             ) : (
               <>

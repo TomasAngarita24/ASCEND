@@ -69,6 +69,7 @@ export async function createCustomExercise(
   userId: string,
   input: CreateExerciseInput,
 ): Promise<ExerciseResponse> {
+  const targetGroups = input.targetMuscleGroups ?? [];
   const exercise = await prisma.exercise.create({
     data: {
       createdByUserId: userId,
@@ -76,7 +77,8 @@ export async function createCustomExercise(
       equipment: input.equipment,
       instructions: input.instructions,
       name: input.name,
-      targetMuscleGroups: input.targetMuscleGroups ?? [],
+      targetMuscleGroups: targetGroups,
+      primaryMuscleGroups: targetGroups.length > 0 ? [targetGroups[0]] : [],
     },
   });
 
@@ -89,7 +91,7 @@ export async function updateCustomExercise(
   input: UpdateExerciseInput,
 ): Promise<ExerciseResponse> {
   const existing = await prisma.exercise.findFirst({
-    where: { id: exerciseId, createdByUserId: userId },
+    where: { id: exerciseId, createdByUserId: userId, deletedAt: null },
   });
 
   if (!existing) {
@@ -104,18 +106,24 @@ export async function updateCustomExercise(
       ...(input.equipment !== undefined ? { equipment: input.equipment } : {}),
       ...(input.instructions !== undefined ? { instructions: input.instructions } : {}),
       ...(input.mediaUrl !== undefined ? { mediaUrl: input.mediaUrl } : {}),
-      ...(input.targetMuscleGroups !== undefined ? { targetMuscleGroups: input.targetMuscleGroups } : {}),
+      ...(input.targetMuscleGroups !== undefined
+        ? {
+            targetMuscleGroups: input.targetMuscleGroups,
+            primaryMuscleGroups: input.targetMuscleGroups.length > 0 ? [input.targetMuscleGroups[0]] : [],
+          }
+        : {}),
     },
   });
 
   return toExerciseResponse(updated, true);
 }
+
 export async function deleteCustomExercise(
   userId: string,
   exerciseId: string,
 ): Promise<void> {
   const existing = await prisma.exercise.findFirst({
-    where: { id: exerciseId, createdByUserId: userId },
+    where: { id: exerciseId, createdByUserId: userId, deletedAt: null },
   });
 
   if (!existing) {

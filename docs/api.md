@@ -124,7 +124,7 @@ Exchanges a valid refresh token for a new access token and a new refresh token. 
 
 ### `POST /auth/logout`
 
-Permanently deletes the session associated with the supplied refresh token. The mobile application must remove both tokens from secure device storage.
+Permanently deletes the session associated with the supplied refresh token. The web client must call this endpoint on logout so the backend clears the session and the browser removes the session cookies.
 
 #### Request body
 
@@ -201,8 +201,8 @@ The initial authentication error codes are:
 - Refresh tokens are stored only as hashes in the `session` table.
 - Every refresh token is single-use: refresh-token rotation creates a new session and permanently deletes the previous session.
 - Access tokens must include the user identifier, session identifier, issued-at time, expiration time, issuer, and audience. The backend must validate these values and only accept its configured signing algorithm.
-- The backend stores signing secrets in environment variables; the mobile application must never contain backend secrets.
-- The mobile application must store tokens only in platform-secure storage, such as the iOS Keychain or Android Keystore. It must not store tokens in AsyncStorage.
+- The backend stores signing secrets in environment variables; the web client must never contain backend secrets.
+- The web client never stores tokens in localStorage: access and refresh tokens are set by the backend as httpOnly cookies (`ascend_access` / `ascend_refresh`), with `SameSite=Lax` and `Secure` in production.
 
 ## Password Policy
 
@@ -1058,11 +1058,11 @@ Muscle-balance visualizations and the heatmap remain future features; this endpo
 
 ### Rest Timer
 
-The rest timer is an active-workout user-interface feature. Its configured rest duration is read from `routine_exercise.rest_seconds`; automatic start, manual start, pause, skip, adjustment, and visibility while navigating are handled by the mobile application. No standalone backend endpoint is required.
+The rest timer is an active-workout user-interface feature. Its configured rest duration is read from `routine_exercise.rest_seconds`; automatic start, manual start, pause, skip, adjustment, and visibility while navigating are handled by the web client. No standalone backend endpoint is required.
 
 ### Plate Calculator
 
-The plate calculator is a stateless calculation based on target weight, barbell weight, and available plates. It is performed locally in the mobile application and does not require a backend endpoint.
+The plate calculator is a stateless calculation based on target weight, barbell weight, and available plates. It is performed locally in the web client and does not require a backend endpoint.
 
 ## Post-MVP API Surface
 

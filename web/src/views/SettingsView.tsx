@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
-import { User as UserIcon, Camera, LogOut, Trash2, Check, AlertTriangle, Shield, KeyRound, Mail, Sun, Moon } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { User as UserIcon, Camera, LogOut, Trash2, Check, AlertTriangle, Shield, KeyRound, Mail, Sun, Moon, Download, FileJson, FileText, Upload } from 'lucide-react';
+import { toast } from 'sonner';
 import type { User as UserType, Tokens } from '../api/api';
+import { api } from '../api/api';
 import { useTheme } from '../context/ThemeContext';
 
 export interface UserProfileCustomData {
@@ -20,6 +22,7 @@ interface SettingsViewProps {
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   user,
+  tokens,
   profileData,
   onUpdateProfileData,
   onLogout,
@@ -39,58 +42,142 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [secError, setSecError] = useState<string | null>(null);
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [isSavingSecurity, setIsSavingSecurity] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSaveProfile = (e: React.FormEvent) => {
-    e.preventDefault();
-    onUpdateProfileData({
-      fullName: fullName.trim(),
-      email: email.trim(),
-      bio: bio.trim(),
-      avatarUrl,
-    });
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3000);
+  const handleExport = async (format: 'csv' | 'json') => {
+    setIsExporting(true);
+    try {
+      await api.exportWorkouts(tokens.accessToken, format);
+      toast.success(`Historial exportado como ${format.toUpperCase()} ✓`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al exportar los datos.');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
-  const handleSaveSecurity = (e: React.FormEvent) => {
+  const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
+      const res = await api.importWorkouts(tokens.accessToken, json);
+      toast.success(`¡Backup restaurado!`, {
+        description: `Se importaron ${res.importedWorkouts} entrenamientos y ${res.importedSets} series exitosamente.`,
+        duration: 5000,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al procesar el archivo de backup JSON.');
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.updateProfile(tokens.accessToken, {
+        fullName: fullName.trim(),
+        bio: bio.trim(),
+        avatarUrl,
+      });
+      onUpdateProfileData({
+        fullName: fullName.trim(),
+        email: email.trim(),
+        bio: bio.trim(),
+        avatarUrl,
+      });
+      setSavedSuccess(true);
+      toast.success('Perfil actualizado en la nube');
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al guardar el perfil');
+    }
+  };
+
+  const handleSaveSecurity = async (e: React.FormEvent) => {
     e.preventDefault();
     setSecError(null);
 
-    if (newPassword || confirmPassword) {
-      if (newPassword.length < 6) {
-        setSecError('La nueva contraseña debe tener al menos 6 caracteres.');
-        return;
-      }
-      if (newPassword !== confirmPassword) {
-        setSecError('La confirmación de la contraseña no coincide.');
-        return;
-      }
+    if (!newPassword) {
+      setSecSuccess(true);
+      setTimeout(() => setSecSuccess(false), 3000);
+      return;
     }
 
-    onUpdateProfileData({ email: secEmail.trim() });
-    setSecSuccess(true);
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setTimeout(() => setSecSuccess(false), 3000);
+    if (newPassword.length < 8) {
+      setSecError('La nueva contraseña debe tener al menos 8 caracteres.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setSecError('La confirmación de la contraseña no coincide.');
+      return;
+    }
+    if (!currentPassword) {
+      setSecError('Ingresa tu contraseña actual para confirmar el cambio.');
+      return;
+    }
+
+    setIsSavingSecurity(true);
+    try {
+      await api.changePassword(tokens.accessToken, currentPassword, newPassword);
+      setSecSuccess(true);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      // Changing the password revokes every active session on the server, so
+      // re-authentication is required and the current UI session is discarded.
+      toast.success('Contraseña actualizada. Inicia sesión nuevamente.');
+      onLogout();
+    } catch (err) {
+      setSecError(err instanceof Error ? err.message : 'No fue posible actualizar la contraseña.');
+    } finally {
+      setIsSavingSecurity(false);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        setAvatarUrl(result);
-        onUpdateProfileData({ avatarUrl: result });
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Solo se permiten archivos de imagen.');
+      e.target.value = '';
+      return;
     }
+    if (file.size > 250 * 1024) {
+      toast.error('La imagen debe pesar menos de 250 KB.');
+      e.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      setAvatarUrl(result);
+      onUpdateProfileData({ avatarUrl: result });
+    };
+    reader.readAsDataURL(file);
   };
 
-  const handleDeleteAccount = () => {
-    alert('Cuenta eliminada. Gracias por usar ASCEND.');
-    onLogout();
+  const handleDeleteAccount = async () => {
+    setIsDeletingAccount(true);
+    try {
+      await api.deleteAccount(tokens.accessToken);
+      toast.success('Cuenta eliminada. Gracias por usar ASCEND.');
+      onLogout();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No fue posible eliminar la cuenta.');
+      setIsDeletingAccount(false);
+    }
   };
 
   const { theme, toggleTheme } = useTheme();
@@ -188,7 +275,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <span>Cambiar foto</span>
               <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
             </label>
-            <span style={styles.uploadHint}>JPG, GIF o PNG. Máx. 1 MB.</span>
+            <span style={styles.uploadHint}>PNG o JPEG. Máx. 250 KB.</span>
           </div>
         </div>
 
@@ -203,6 +290,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 onChange={(e) => setFullName(e.target.value)}
                 style={styles.input}
                 placeholder="Tu nombre completo"
+                maxLength={255}
               />
             </div>
 
@@ -214,6 +302,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 onChange={(e) => setEmail(e.target.value)}
                 style={styles.input}
                 placeholder="tu@email.com"
+                readOnly
               />
             </div>
           </div>
@@ -226,6 +315,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               onChange={(e) => setBio(e.target.value)}
               placeholder="Cuéntales a tus clientes sobre ti..."
               style={styles.textarea}
+              maxLength={2000}
             />
           </div>
 
@@ -258,7 +348,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div style={styles.inputGroup}>
             <label style={styles.label}>
               <Mail size={16} style={{ display: 'inline', marginRight: '6px' }} />
-              Nuevo correo electrónico
+              Correo electrónico
             </label>
             <input
               type="email"
@@ -266,7 +356,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               onChange={(e) => setSecEmail(e.target.value)}
               style={styles.input}
               placeholder="tu@email.com"
-              required
+              readOnly
             />
           </div>
 
@@ -326,11 +416,70 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           )}
 
           <div style={styles.saveRow}>
-            <button type="submit" style={styles.secSaveBtn}>
-              Actualizar seguridad
+            <button type="submit" style={styles.secSaveBtn} disabled={isSavingSecurity}>
+              {isSavingSecurity ? 'Actualizando...' : 'Actualizar seguridad'}
             </button>
           </div>
         </form>
+      </div>
+
+      {/* Export & Backup Card */}
+      <div style={styles.card}>
+        <div style={styles.cardHeader}>
+          <div style={styles.titleRow}>
+            <Download size={24} color="var(--accent-teal)" />
+            <h2 style={styles.cardTitle}>Exportación y copia de seguridad</h2>
+          </div>
+          <p style={styles.subtitle}>
+            Descarga todo tu historial de entrenamientos, series, pesos y repeticiones. Tus datos te pertenecen.
+          </p>
+        </div>
+
+        <div style={styles.exportContainer}>
+          <div style={styles.exportInfoBox}>
+            <span style={styles.exportInfoTitle}>¿Qué incluye la exportación?</span>
+            <span style={styles.exportInfoDesc}>
+              Fechas, horas de inicio y fin, duración, ejercicios realizados, número de serie, pesos en kg, repeticiones, RPE, notas y volumen total por serie de todos tus entrenamientos completados.
+            </span>
+          </div>
+
+          <div style={styles.exportBtnGroup}>
+            <button
+              style={styles.exportCsvBtn}
+              onClick={() => handleExport('csv')}
+              disabled={isExporting}
+            >
+              <FileText size={18} />
+              <span>{isExporting ? 'Exportando...' : 'Descargar Excel / CSV (.csv)'}</span>
+            </button>
+
+            <button
+              style={styles.exportJsonBtn}
+              onClick={() => handleExport('json')}
+              disabled={isExporting || isImporting}
+            >
+              <FileJson size={18} />
+              <span>{isExporting ? 'Exportando...' : 'Descargar Archivo JSON (.json)'}</span>
+            </button>
+
+            <button
+              style={styles.importBtn}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isExporting || isImporting}
+            >
+              <Upload size={18} />
+              <span>{isImporting ? 'Restaurando...' : 'Restaurar Backup (.json)'}</span>
+            </button>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              style={{ display: 'none' }}
+              onChange={handleImportBackup}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Danger Zone / Account Management Card */}
@@ -366,8 +515,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <button style={styles.cancelModalBtn} onClick={() => setIsDeleteModalOpen(false)}>
                 Cancelar
               </button>
-              <button style={styles.confirmDeleteBtn} onClick={handleDeleteAccount}>
-                Sí, eliminar cuenta
+              <button style={styles.confirmDeleteBtn} onClick={handleDeleteAccount} disabled={isDeletingAccount}>
+                {isDeletingAccount ? 'Eliminando...' : 'Sí, eliminar cuenta'}
               </button>
             </div>
           </div>
@@ -431,7 +580,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: '96px',
     height: '96px',
     borderRadius: '50%',
-    backgroundColor: '#22f0c5',
+    backgroundColor: 'var(--accent-teal)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -446,7 +595,7 @@ const styles: Record<string, React.CSSProperties> = {
   avatarInitial: {
     fontSize: '2.2rem',
     fontWeight: 800,
-    color: '#0f1417',
+    color: 'var(--bg-color)',
   },
   uploadControls: {
     display: 'flex',
@@ -542,14 +691,14 @@ const styles: Record<string, React.CSSProperties> = {
   },
   saveBtn: {
     backgroundColor: 'var(--accent-teal)',
-    color: '#0b0f19',
+    color: 'var(--bg-color)',
     padding: '0.75rem 2rem',
     borderRadius: '12px',
     fontWeight: 700,
     fontSize: '1.05rem',
   },
   secSaveBtn: {
-    backgroundColor: '#2563eb',
+    backgroundColor: 'var(--accent-blue)',
     color: '#ffffff',
     padding: '0.75rem 2rem',
     borderRadius: '12px',
@@ -616,10 +765,10 @@ const styles: Record<string, React.CSSProperties> = {
   modalTitle: {
     fontSize: '1.4rem',
     fontWeight: 800,
-    color: '#E6EEF3',
+    color: 'var(--text-primary)',
   },
   modalText: {
-    color: '#94a3b8',
+    color: 'var(--text-muted)',
     fontSize: '1rem',
     textAlign: 'center',
     lineHeight: 1.5,
@@ -633,7 +782,7 @@ const styles: Record<string, React.CSSProperties> = {
   cancelModalBtn: {
     padding: '0.85rem 1.5rem',
     borderRadius: '12px',
-    color: '#94a3b8',
+    color: 'var(--text-muted)',
     fontWeight: 600,
     fontSize: '1rem',
   },
@@ -644,5 +793,76 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '12px',
     fontWeight: 700,
     fontSize: '1rem',
+  },
+  exportContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1.25rem',
+  },
+  exportInfoBox: {
+    backgroundColor: 'var(--input-bg)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '12px',
+    padding: '1rem 1.25rem',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.35rem',
+  },
+  exportInfoTitle: {
+    fontSize: '0.85rem',
+    fontWeight: 700,
+    color: 'var(--text-primary)',
+  },
+  exportInfoDesc: {
+    fontSize: '0.82rem',
+    color: 'var(--text-muted)',
+    lineHeight: 1.5,
+  },
+  exportBtnGroup: {
+    display: 'flex',
+    gap: '1rem',
+    flexWrap: 'wrap',
+  },
+  exportCsvBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.6rem',
+    padding: '0.85rem 1.5rem',
+    borderRadius: '12px',
+    backgroundColor: 'rgba(6, 182, 212, 0.12)',
+    border: '1px solid var(--accent-teal)',
+    color: 'var(--accent-teal)',
+    fontWeight: 700,
+    fontSize: '0.92rem',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  },
+  exportJsonBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.6rem',
+    padding: '0.85rem 1.5rem',
+    borderRadius: '12px',
+    backgroundColor: 'var(--input-bg)',
+    border: '1px solid var(--border-color)',
+    color: 'var(--text-primary)',
+    fontWeight: 700,
+    fontSize: '0.92rem',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  },
+  importBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.6rem',
+    padding: '0.85rem 1.5rem',
+    borderRadius: '12px',
+    backgroundColor: 'rgba(37, 99, 235, 0.12)',
+    border: '1px solid var(--accent-blue)',
+    color: 'var(--accent-blue)',
+    fontWeight: 700,
+    fontSize: '0.92rem',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
   },
 };

@@ -55,6 +55,11 @@ const EQUIPMENT_MAP: Record<string, string> = {
   machine: 'Maquinas',
 };
 
+function mapPrimaryMuscles(primary: ApiMuscle[]): string[] {
+  const mapped = primary.map((m) => MUSCLE_MAP[m.id] ?? m.es);
+  return [...new Set(mapped)];
+}
+
 function mapMuscles(primary: ApiMuscle[], secondary: ApiMuscle[]): string[] {
   const all = [...primary, ...secondary];
   const mapped = all.map((m) => MUSCLE_MAP[m.id] ?? m.es);
@@ -103,6 +108,7 @@ async function seed(): Promise<void> {
       mediaUrl: exercise.images.male,
       name,
       targetMuscleGroups: mapMuscles(exercise.primaryMuscles, exercise.secondaryMuscles),
+      primaryMuscleGroups: mapPrimaryMuscles(exercise.primaryMuscles),
     };
 
     seededNames.add(name);

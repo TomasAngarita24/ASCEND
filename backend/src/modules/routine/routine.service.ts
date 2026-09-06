@@ -1,7 +1,7 @@
 import type { Prisma, Routine, RoutineExercise } from '../../generated/prisma/client';
 import { prisma } from '../../database/prisma';
 import { HttpError } from '../../errors/http-error';
-import type { RoutineExerciseResponse, RoutineResponse, RoutineSummary } from './routine.types';
+import type { RoutineExerciseResponse, RoutineResponse, RoutineSummary, RoutineFolderResponse } from './routine.types';
 
 type RoutineWithExercises = Prisma.RoutineGetPayload<{
   include: { routineExercises: { include: { exercise: true }; orderBy: { position: 'asc' } } };
@@ -35,6 +35,7 @@ function toRoutineResponse(routine: RoutineWithExercises): RoutineResponse {
   return {
     id: routine.id,
     name: routine.name,
+    folderId: routine.folderId,
     exercises: routine.routineExercises.map(toRoutineExerciseResponse),
     createdAt: routine.createdAt.toISOString(),
     updatedAt: routine.updatedAt.toISOString(),
@@ -56,7 +57,11 @@ async function findRoutine(userId: string, routineId: string): Promise<RoutineWi
 
 async function assertAccessibleExercise(userId: string, exerciseId: string): Promise<void> {
   const exercise = await prisma.exercise.findFirst({
-    where: { id: exerciseId, OR: [{ createdByUserId: null }, { createdByUserId: userId }] },
+    where: {
+      id: exerciseId,
+      OR: [{ createdByUserId: null }, { createdByUserId: userId }],
+      deletedAt: null,
+    },
     select: { id: true },
   });
 
@@ -68,18 +73,59 @@ async function assertAccessibleExercise(userId: string, exerciseId: string): Pro
 export async function listRoutines(userId: string): Promise<{ data: RoutineSummary[] }> {
   const routines = await prisma.routine.findMany({
     where: { userId },
-    include: { _count: { select: { routineExercises: true } } },
+    include: {
+      _count: { select: { routineExercises: true } },
+      routineExercises: {
+        select: {
+          targetSets: true,
+          exercise: {
+            select: {
+              primaryMuscleGroups: true,
+              targetMuscleGroups: true,
+            },
+          },
+        },
+      },
+    },
     orderBy: { updatedAt: 'desc' },
   });
 
   return {
-    data: routines.map((routine) => ({
-      id: routine.id,
-      name: routine.name,
-      exerciseCount: routine._count.routineExercises,
-      createdAt: routine.createdAt.toISOString(),
-      updatedAt: routine.updatedAt.toISOString(),
-    })),
+    data: routines.map((routine) => {
+      const muscleMap = new Map<string, number>();
+      let totalSets = 0;
+
+      for (const item of routine.routineExercises) {
+        const sets = item.targetSets ?? 0;
+        totalSets += sets;
+
+        const primaryMuscle =
+          (item.exercise.primaryMuscleGroups && item.exercise.primaryMuscleGroups.length > 0)
+            ? item.exercise.primaryMuscleGroups[0]
+            : (item.exercise.targetMuscleGroups && item.exercise.targetMuscleGroups.length > 0)
+            ? item.exercise.targetMuscleGroups[0]
+            : 'Otros';
+
+        if (primaryMuscle && sets > 0) {
+          muscleMap.set(primaryMuscle, (muscleMap.get(primaryMuscle) ?? 0) + sets);
+        }
+      }
+
+      const muscleSets = Array.from(muscleMap.entries())
+        .map(([muscleGroup, sets]) => ({ muscleGroup, sets }))
+        .sort((a, b) => b.sets - a.sets);
+
+      return {
+        id: routine.id,
+        name: routine.name,
+        folderId: routine.folderId,
+        exerciseCount: routine._count.routineExercises,
+        totalSets,
+        muscleSets,
+        createdAt: routine.createdAt.toISOString(),
+        updatedAt: routine.updatedAt.toISOString(),
+      };
+    }),
   };
 }
 
@@ -260,4 +306,88 @@ export async function reorderRoutineExercises(userId: string, routineId: string,
   });
 
   return getRoutine(userId, routineId);
+}
+
+export async function listRoutineFolders(userId: string): Promise<{ data: RoutineFolderResponse[] }> {
+  const folders = await prisma.routineFolder.findMany({
+    where: { userId },
+    include: {
+      routines: { select: { id: true } },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  return {
+    data: folders.map((f) => ({
+      id: f.id,
+      name: f.name,
+      routineIds: f.routines.map((r) => r.id),
+      createdAt: f.createdAt.toISOString(),
+      updatedAt: f.updatedAt.toISOString(),
+    })),
+  };
+}
+
+export async function createRoutineFolder(userId: string, name: string): Promise<RoutineFolderResponse> {
+  const folder = await prisma.routineFolder.create({
+    data: { userId, name: name.trim() },
+    include: { routines: { select: { id: true } } },
+  });
+
+  return {
+    id: folder.id,
+    name: folder.name,
+    routineIds: folder.routines.map((r) => r.id),
+    createdAt: folder.createdAt.toISOString(),
+    updatedAt: folder.updatedAt.toISOString(),
+  };
+}
+
+export async function updateRoutineFolder(userId: string, folderId: string, name: string): Promise<RoutineFolderResponse> {
+  const folder = await prisma.routineFolder.findFirst({ where: { id: folderId, userId } });
+  if (!folder) {
+    throw new HttpError(404, 'FOLDER_NOT_FOUND', 'Folder does not exist or is not accessible.');
+  }
+
+  const updated = await prisma.routineFolder.update({
+    where: { id: folderId },
+    data: { name: name.trim() },
+    include: { routines: { select: { id: true } } },
+  });
+
+  return {
+    id: updated.id,
+    name: updated.name,
+    routineIds: updated.routines.map((r) => r.id),
+    createdAt: updated.createdAt.toISOString(),
+    updatedAt: updated.updatedAt.toISOString(),
+  };
+}
+
+export async function deleteRoutineFolder(userId: string, folderId: string): Promise<void> {
+  const folder = await prisma.routineFolder.findFirst({ where: { id: folderId, userId } });
+  if (!folder) {
+    throw new HttpError(404, 'FOLDER_NOT_FOUND', 'Folder does not exist or is not accessible.');
+  }
+
+  await prisma.routineFolder.delete({ where: { id: folderId } });
+}
+
+export async function setRoutineFolder(userId: string, routineId: string, folderId: string | null): Promise<RoutineResponse> {
+  await findRoutine(userId, routineId);
+
+  if (folderId) {
+    const folder = await prisma.routineFolder.findFirst({ where: { id: folderId, userId } });
+    if (!folder) {
+      throw new HttpError(404, 'FOLDER_NOT_FOUND', 'Folder does not exist or is not accessible.');
+    }
+  }
+
+  const updated = await prisma.routine.update({
+    where: { id: routineId },
+    data: { folderId },
+    include: { routineExercises: { include: { exercise: true }, orderBy: { position: 'asc' } } },
+  });
+
+  return toRoutineResponse(updated);
 }

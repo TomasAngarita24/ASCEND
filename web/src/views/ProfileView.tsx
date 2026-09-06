@@ -24,12 +24,6 @@ function getMonday(date: Date): Date {
   return d;
 }
 
-function isSameDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear()
-    && a.getMonth() === b.getMonth()
-    && a.getDate() === b.getDate();
-}
-
 /** Calculate consecutive weekly streak from sorted completed workout dates (desc) */
 function calcWeeklyStreak(workoutDates: Date[]): number {
   if (workoutDates.length === 0) return 0;
@@ -173,8 +167,8 @@ const ActivityCalendar: React.FC<CalendarProps> = ({ workoutDays }) => {
                       width: CELL_SIZE,
                       height: CELL_SIZE,
                       borderRadius: 3,
-                      backgroundColor: isWorkout ? '#22f0c5' : 'var(--heat-empty, #172033)',
-                      boxShadow: isWorkout ? '0 0 6px rgba(34,240,197,0.35)' : 'none',
+                      backgroundColor: isWorkout ? 'var(--accent-teal)' : 'var(--heat-empty, #172033)',
+                      boxShadow: isWorkout ? '0 0 6px var(--accent-teal-glow)' : 'none',
                       transition: 'background 0.12s',
                     }}
                   />
@@ -188,8 +182,8 @@ const ActivityCalendar: React.FC<CalendarProps> = ({ workoutDays }) => {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Menos</span>
         <div style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: 'var(--heat-empty, #172033)' }} />
-        <div style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: 'rgba(34,240,197,0.35)' }} />
-        <div style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: '#22f0c5' }} />
+        <div style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: 'rgba(6,182,212,0.35)' }} />
+        <div style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: 'var(--accent-teal)' }} />
         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Más</span>
       </div>
     </div>
@@ -337,7 +331,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         {/* Calendar Panel */}
         <div style={styles.card}>
           <div style={styles.titleRow}>
-            <Calendar size={22} color="#22f0c5" />
+            <Calendar size={22} color="var(--accent-teal)" />
             <h2 style={styles.cardTitle}>Actividad</h2>
           </div>
 
@@ -434,7 +428,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       <div style={styles.cardLarge}>
         <div style={styles.cardHeaderBetween}>
           <div style={styles.titleRow}>
-            <Award size={22} color="#22f0c5" />
+            <Award size={22} color="var(--accent-teal)" />
             <h2 style={styles.cardTitle}>Tus entrenamientos</h2>
           </div>
           <button style={styles.seeAllBtn} onClick={() => onNavigate('history')}>
@@ -457,7 +451,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 <div key={w.id} style={styles.workoutFeedItem} onClick={() => onNavigate('history')}>
                   <div style={styles.feedLeft}>
                     <div style={styles.feedIconBadge}>
-                      <Dumbbell size={18} color="#22f0c5" />
+                      <Dumbbell size={18} color="var(--accent-teal)" />
                     </div>
                     <div>
                       <h4 style={styles.feedTitle}>
@@ -470,7 +464,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       </p>
                     </div>
                   </div>
-                  <ChevronRight size={18} color="#94a3b8" />
+                  <ChevronRight size={18} color="var(--text-muted)" />
                 </div>
               );
             })}
@@ -483,12 +477,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    width: '100%',
     padding: '2.5rem 3rem',
     display: 'flex',
     flexDirection: 'column',
     gap: '2rem',
     boxSizing: 'border-box',
+    maxWidth: '1280px',
+    margin: '0 auto',
   },
   pageTitle: {
     fontSize: '2.4rem',
@@ -499,19 +494,20 @@ const styles: Record<string, React.CSSProperties> = {
   headerCard: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '20px',
-    padding: '2.25rem 2.5rem',
+    borderRadius: '24px',
+    padding: '2.5rem',
     display: 'flex',
     alignItems: 'center',
-    gap: '2.5rem',
-    width: '100%',
-    boxSizing: 'border-box',
+    justifyContent: 'space-between',
+    gap: '2rem',
+    flexWrap: 'wrap',
   },
+  headerLeft: { display: 'flex', alignItems: 'center', gap: '2rem', flex: 1 },
   avatarCircle: {
     width: '96px',
     height: '96px',
     borderRadius: '50%',
-    backgroundColor: '#22f0c5',
+    backgroundColor: 'var(--accent-teal)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -519,7 +515,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover' },
-  avatarInitial: { fontSize: '2.2rem', fontWeight: 800, color: '#0b0f19' },
+  avatarInitial: { fontSize: '2.2rem', fontWeight: 800, color: 'var(--bg-color)' },
   headerInfo: { display: 'flex', flexDirection: 'column', gap: '0.4rem', flex: 1 },
   userName: { fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)' },
   userEmail: { fontSize: '1rem', color: 'var(--text-muted)' },

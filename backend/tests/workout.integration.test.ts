@@ -133,7 +133,65 @@ describe('workouts', () => {
     assert.equal(completedWorkout.status, 200);
     assert.equal(((completedWorkout.body.workout as Record<string, unknown>).exercises as unknown[]).length, 1);
   });
+it('keeps a workout after deleting its source routine', async () => {
+  const accessToken = await registerAndGetAccessToken();
+  const headers = {
+    authorization: `Bearer ${accessToken}`,
+    'content-type': 'application/json',
+  };
 
+  const exerciseId = await createExercise(accessToken);
+
+  const routine = await request('/routines', {
+    body: JSON.stringify({ name: 'Routine to delete' }),
+    headers,
+    method: 'POST',
+  });
+
+  assert.equal(routine.status, 201);
+
+  const routineId = (routine.body.routine as Record<string, string>).id;
+
+  const routineExercise = await request(`/routines/${routineId}/exercises`, {
+    body: JSON.stringify({ exerciseId }),
+    headers,
+    method: 'POST',
+  });
+
+  assert.equal(routineExercise.status, 201);
+
+  const started = await request('/workouts', {
+    body: JSON.stringify({ routineId }),
+    headers,
+    method: 'POST',
+  });
+
+  assert.equal(started.status, 201);
+
+  const workoutId = (started.body.workout as Record<string, string>).id;
+
+  const deleted = await request(`/routines/${routineId}`, {
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+    },
+    method: 'DELETE',
+  });
+
+  assert.equal(deleted.status, 204);
+
+  const workout = await request(`/workouts/${workoutId}`, {
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  assert.equal(workout.status, 200);
+
+  const workoutData = workout.body.workout as Record<string, unknown>;
+
+  assert.equal(workoutData.id, workoutId);
+  assert.equal(workoutData.routineId, null);
+});
   it('returns paginated history with completed-workout metrics', async () => {
     const accessToken = await registerAndGetAccessToken();
     const headers = { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' };
@@ -267,5 +325,46 @@ describe('workouts', () => {
     });
     assert.equal(inaccessible.status, 404);
     assert.equal((inaccessible.body.error as Record<string, string>).code, 'WORKOUT_NOT_FOUND');
+  });
+
+  it('allows editing sets on a completed workout and deleting the workout', async () => {
+    const accessToken = await registerAndGetAccessToken();
+    const headers = { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' };
+    const exerciseId = await createExercise(accessToken);
+
+    const started = await request('/workouts', { body: '{}', headers, method: 'POST' });
+    const workoutId = (started.body.workout as Record<string, string>).id;
+
+    const addedEx = await request(`/workouts/${workoutId}/exercises`, {
+      body: JSON.stringify({ exerciseId }), headers, method: 'POST',
+    });
+    const workoutExerciseId = (addedEx.body.workoutExercise as Record<string, string>).id;
+
+    const setRes = await request(`/workouts/${workoutId}/exercises/${workoutExerciseId}/sets`, {
+      body: JSON.stringify({ weight: 80, repetitions: 8, isCompleted: true }), headers, method: 'POST',
+    });
+    const setId = (setRes.body.set as Record<string, string>).id;
+
+    // Complete the workout
+    const completed = await request(`/workouts/${workoutId}/complete`, { headers, method: 'POST' });
+    assert.equal(completed.status, 200);
+
+    // Edit set on completed workout
+    const editRes = await request(`/workouts/${workoutId}/exercises/${workoutExerciseId}/sets/${setId}`, {
+      body: JSON.stringify({ weight: 85, repetitions: 10, notes: 'Felt very strong' }), headers, method: 'PATCH',
+    });
+    assert.equal(editRes.status, 200);
+    const editedSet = editRes.body.set as Record<string, unknown>;
+    assert.equal(editedSet.weight, 85);
+    assert.equal(editedSet.repetitions, 10);
+    assert.equal(editedSet.notes, 'Felt very strong');
+
+    // Delete the workout
+    const deleteRes = await request(`/workouts/${workoutId}`, { headers, method: 'DELETE' });
+    assert.equal(deleteRes.status, 204);
+
+    // Verify it is gone
+    const fetchAfterDelete = await request(`/workouts/${workoutId}`, { headers });
+    assert.equal(fetchAfterDelete.status, 404);
   });
 });

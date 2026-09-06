@@ -212,7 +212,7 @@ The application should respond quickly to user interactions, avoid unnecessary A
 
 ### NFR-SEC-001 — Data and Access Security
 
-The application must secure user authentication, hash passwords before storing them, protect authenticated API endpoints, validate incoming data, prevent unauthorized access to user data, never expose sensitive credentials in the mobile application, and store secrets using environment variables. User passwords must never be stored in plain text.
+The application must secure user authentication, hash passwords before storing them, protect authenticated API endpoints, validate incoming data, prevent unauthorized access to user data, never expose sensitive credentials in the web client, and store secrets using environment variables. User passwords must never be stored in plain text.
 
 ## Usability
 

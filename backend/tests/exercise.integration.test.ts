@@ -221,7 +221,6 @@ describe('exercises', () => {
     assert.equal(creation.status, 201);
     const exerciseId = (creation.body.exercise as Record<string, string>).id;
 
-    // Update
     const update = await request(`/exercises/${exerciseId}`, {
       body: JSON.stringify({
         name: 'Updated Exercise Name',
@@ -255,159 +254,154 @@ describe('exercises', () => {
 
     assert.ok(deletedExercise);
     assert.ok(deletedExercise.deletedAt);
-    });
-    it('keeps previous performance available after deleting a custom exercise', async () => {
-  const accessToken = await registerAndGetAccessToken();
-  const headers = {
-    authorization: `Bearer ${accessToken}`,
-    'content-type': 'application/json',
-  };
-
-  const creation = await request('/exercises', {
-    body: JSON.stringify({
-      name: `Historical Exercise ${randomUUID()}`,
-      targetMuscleGroups: ['Chest'],
-    }),
-    headers,
-    method: 'POST',
   });
 
-  assert.equal(creation.status, 201);
+  it('does not allow a deleted custom exercise to be added to a workout', async () => {
+    const accessToken = await registerAndGetAccessToken();
+    const headers = {
+      authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json',
+    };
 
-  const exerciseId = (creation.body.exercise as Record<string, string>).id;
-
-  const started = await request('/workouts', {
-    body: '{}',
-    headers,
-    method: 'POST',
-  });
-
-  assert.equal(started.status, 201);
-
-  const workoutId = (started.body.workout as Record<string, string>).id;
-
-  const addedExercise = await request(`/workouts/${workoutId}/exercises`, {
-    body: JSON.stringify({ exerciseId }),
-    headers,
-    method: 'POST',
-  });
-
-  assert.equal(addedExercise.status, 201);
-
-  const workoutExerciseId = (
-    addedExercise.body.workoutExercise as Record<string, string>
-  ).id;
-
-  const createdSet = await request(
-    `/workouts/${workoutId}/exercises/${workoutExerciseId}/sets`,
-    {
+    // Create exercise
+    const creation = await request('/exercises', {
       body: JSON.stringify({
-        weight: 60,
-        repetitions: 10,
-        isCompleted: true,
+        name: `Deleted workout exercise ${randomUUID()}`,
+        targetMuscleGroups: ['Chest'],
       }),
       headers,
       method: 'POST',
-    },
-  );
-  it('does not allow a deleted custom exercise to be added to a workout', async () => {
-  const accessToken = await registerAndGetAccessToken();
-  const headers = {
-    authorization: `Bearer ${accessToken}`,
-    'content-type': 'application/json',
-  };
+    });
 
-  // Create exercise
-  const creation = await request('/exercises', {
-    body: JSON.stringify({
-      name: `Deleted workout exercise ${randomUUID()}`,
-      targetMuscleGroups: ['Chest'],
-    }),
-    headers,
-    method: 'POST',
+    assert.equal(creation.status, 201);
+    const exerciseId = (creation.body.exercise as Record<string, string>).id;
+
+    // Delete exercise
+    const deleted = await request(`/exercises/${exerciseId}`, {
+      headers,
+      method: 'DELETE',
+    });
+
+    assert.equal(deleted.status, 204);
+
+    // Create workout
+    const workout = await request('/workouts', {
+      body: '{}',
+      headers,
+      method: 'POST',
+    });
+
+    assert.equal(workout.status, 201);
+    const workoutId = (workout.body.workout as Record<string, string>).id;
+
+    // Try to add deleted exercise
+    const addedExercise = await request(`/workouts/${workoutId}/exercises`, {
+      body: JSON.stringify({ exerciseId }),
+      headers,
+      method: 'POST',
+    });
+
+    assert.equal(addedExercise.status, 404);
+    assert.equal(
+      (addedExercise.body.error as Record<string, string>).code,
+      'EXERCISE_NOT_FOUND',
+    );
   });
 
-  assert.equal(creation.status, 201);
+  it('keeps previous performance available after deleting a custom exercise', async () => {
+    const accessToken = await registerAndGetAccessToken();
+    const headers = {
+      authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json',
+    };
 
-  const exerciseId = (creation.body.exercise as Record<string, string>).id;
+    const creation = await request('/exercises', {
+      body: JSON.stringify({
+        name: `Historical Exercise ${randomUUID()}`,
+        targetMuscleGroups: ['Chest'],
+      }),
+      headers,
+      method: 'POST',
+    });
 
-  // Delete exercise
-  const deleted = await request(`/exercises/${exerciseId}`, {
-    headers,
-    method: 'DELETE',
-  });
+    assert.equal(creation.status, 201);
+    const exerciseId = (creation.body.exercise as Record<string, string>).id;
 
-  assert.equal(deleted.status, 204);
+    const started = await request('/workouts', {
+      body: '{}',
+      headers,
+      method: 'POST',
+    });
 
-  // Create workout
-  const workout = await request('/workouts', {
-    body: '{}',
-    headers,
-    method: 'POST',
-  });
+    assert.equal(started.status, 201);
+    const workoutId = (started.body.workout as Record<string, string>).id;
 
-  assert.equal(workout.status, 201);
+    const addedExercise = await request(`/workouts/${workoutId}/exercises`, {
+      body: JSON.stringify({ exerciseId }),
+      headers,
+      method: 'POST',
+    });
 
-  const workoutId = (workout.body.workout as Record<string, string>).id;
+    assert.equal(addedExercise.status, 201);
+    const workoutExerciseId = (
+      addedExercise.body.workoutExercise as Record<string, string>
+    ).id;
 
-  // Try to add deleted exercise
-  const addedExercise = await request(`/workouts/${workoutId}/exercises`, {
-    body: JSON.stringify({ exerciseId }),
-    headers,
-    method: 'POST',
-  });
+    const createdSet = await request(
+      `/workouts/${workoutId}/exercises/${workoutExerciseId}/sets`,
+      {
+        body: JSON.stringify({
+          weight: 60,
+          repetitions: 10,
+          isCompleted: true,
+        }),
+        headers,
+        method: 'POST',
+      },
+    );
 
-  assert.equal(addedExercise.status, 404);
-  assert.equal(
-    (addedExercise.body.error as Record<string, string>).code,
-    'EXERCISE_NOT_FOUND',
-  );
-});
-  assert.equal(createdSet.status, 201);
+    assert.equal(createdSet.status, 201);
 
-  const completed = await request(`/workouts/${workoutId}/complete`, {
-    headers,
-    method: 'POST',
-  });
+    const completed = await request(`/workouts/${workoutId}/complete`, {
+      headers,
+      method: 'POST',
+    });
 
-  assert.equal(completed.status, 200);
+    assert.equal(completed.status, 200);
 
-  const deleted = await request(`/exercises/${exerciseId}`, {
-    headers,
-    method: 'DELETE',
-  });
+    const deleted = await request(`/exercises/${exerciseId}`, {
+      headers,
+      method: 'DELETE',
+    });
 
-  assert.equal(deleted.status, 204);
+    assert.equal(deleted.status, 204);
 
-  const verifyGet = await request(`/exercises/${exerciseId}`, {
-    headers: { authorization: `Bearer ${accessToken}` },
-  });
-
-  assert.equal(verifyGet.status, 404);
-
-  const previousPerformance = await request(
-    `/exercises/${exerciseId}/previous-performance`,
-    {
+    const verifyGet = await request(`/exercises/${exerciseId}`, {
       headers: { authorization: `Bearer ${accessToken}` },
-    },
-  );
+    });
 
-  assert.equal(previousPerformance.status, 200);
+    assert.equal(verifyGet.status, 404);
 
-  const previousWorkout =
-    previousPerformance.body.previousWorkout as Record<string, unknown>;
+    const previousPerformance = await request(
+      `/exercises/${exerciseId}/previous-performance`,
+      {
+        headers: { authorization: `Bearer ${accessToken}` },
+      },
+    );
 
-  assert.equal(previousWorkout.id, workoutId);
+    assert.equal(previousPerformance.status, 200);
+    const previousWorkout =
+      previousPerformance.body.previousWorkout as Record<string, unknown>;
 
-  assert.deepEqual(previousWorkout.sets, [
-    {
-      setNumber: 1,
-      weight: 60,
-      repetitions: 10,
-      rpe: null,
-      setType: 'normal',
-    },
-  ]);
-});
-  
+    assert.equal(previousWorkout.id, workoutId);
+    assert.deepEqual(previousWorkout.sets, [
+      {
+        setNumber: 1,
+        weight: 60,
+        repetitions: 10,
+        rpe: null,
+        setType: 'normal',
+      },
+    ]);
+  });
 });

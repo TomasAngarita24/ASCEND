@@ -14,14 +14,16 @@ import {
   Sparkles,
   Layers,
   BookOpen,
-  Info,
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { matchesSearch } from '../utils/text';
 import {
   api,
   type ExerciseSummary,
   type Tokens,
   type WorkoutHistoryEntry,
   type WorkoutDetailEntry,
+  type ExerciseProgressionPoint,
 } from '../api/api';
 
 interface ExerciseLibraryViewProps {
@@ -67,13 +69,14 @@ function calc1RM(weight: number, reps: number): number {
   return Math.round(weight / (1.0278 - 0.0278 * reps));
 }
 
-// ─── Minimal SVG line chart ─────────────────────────────────────────────────
+// ─── Interactive SVG line chart ──────────────────────────────────────────────
 interface ChartPoint { date: string; value: number }
 
 const LineChart: React.FC<{ data: ChartPoint[]; color: string; label: string }> = ({ data, color, label }) => {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const W = 560;
-  const H = 180;
-  const PAD = { top: 20, right: 20, bottom: 36, left: 50 };
+  const H = 190;
+  const PAD = { top: 25, right: 25, bottom: 36, left: 55 };
 
   if (data.length === 0) return (
     <div style={{ height: H, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontSize: '0.9rem' }}>
@@ -98,13 +101,46 @@ const LineChart: React.FC<{ data: ChartPoint[]; color: string; label: string }> 
   const yTicks = Array.from({ length: ticks + 1 }, (_, i) => Math.round(minV + (range / ticks) * i));
   const xStep = Math.max(1, Math.ceil(data.length / 5));
 
+  const hoveredPoint = hoveredIdx !== null && data[hoveredIdx] ? data[hoveredIdx] : null;
+
   return (
-    <div style={{ width: '100%' }}>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}>
+    <div style={{ width: '100%', position: 'relative' }}>
+      {hoveredPoint && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          right: '1rem',
+          backgroundColor: 'var(--surface-color)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '8px',
+          padding: '0.35rem 0.65rem',
+          fontSize: '0.78rem',
+          color: 'var(--text-primary)',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          pointerEvents: 'none',
+          zIndex: 5,
+        }}>
+          <span style={{ color: 'var(--text-muted)' }}>
+            {new Date(hoveredPoint.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}:
+          </span>
+          <span style={{ fontWeight: 800, color }}>
+            {hoveredPoint.value.toLocaleString()} {label}
+          </span>
+        </div>
+      )}
+
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        style={{ width: '100%', height: 'auto', overflow: 'visible' }}
+        onMouseLeave={() => setHoveredIdx(null)}
+      >
         {yTicks.map((t, i) => (
           <g key={i}>
             <line x1={PAD.left} y1={py(t)} x2={W - PAD.right} y2={py(t)} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
-            <text x={PAD.left - 8} y={py(t) + 4} textAnchor="end" fill="#64748b" fontSize="11">{t}</text>
+            <text x={PAD.left - 8} y={py(t) + 4} textAnchor="end" fill="#64748b" fontSize="11">{t.toLocaleString()}</text>
           </g>
         ))}
         <defs>
@@ -115,18 +151,32 @@ const LineChart: React.FC<{ data: ChartPoint[]; color: string; label: string }> 
         </defs>
         <path d={areaD} fill={`url(#grad-${color.replace('#','')})`} />
         <path d={pathD} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-        {data.map((d, i) => (
-          <circle key={i} cx={px(i)} cy={py(d.value)} r="4" fill={color} stroke="#0b0f19" strokeWidth="2" />
-        ))}
+        {data.map((d, i) => {
+          const isHovered = hoveredIdx === i;
+          return (
+            <g key={i} onMouseEnter={() => setHoveredIdx(i)} style={{ cursor: 'pointer' }}>
+              <circle
+                cx={px(i)}
+                cy={py(d.value)}
+                r={isHovered ? 7 : 4}
+                fill={color}
+                stroke="#0b0f19"
+                strokeWidth={isHovered ? 3 : 2}
+                style={{ transition: 'r 0.15s ease' }}
+              />
+              <circle cx={px(i)} cy={py(d.value)} r={14} fill="transparent" />
+            </g>
+          );
+        })}
         {data.filter((_, i) => i % xStep === 0 || i === data.length - 1).map((d) => {
           const idx = data.indexOf(d);
           return (
-            <text key={idx} x={px(idx)} y={H - 6} textAnchor="middle" fill="#64748b" fontSize="10">
+            <text key={idx} x={px(idx)} y={H - 8} textAnchor="middle" fill="#64748b" fontSize="10">
               {new Date(d.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
             </text>
           );
         })}
-        <text x={12} y={H / 2} fill="#64748b" fontSize="10" transform={`rotate(-90, 12, ${H / 2})`} textAnchor="middle">{label}</text>
+        <text x={14} y={H / 2} fill="#64748b" fontSize="10" transform={`rotate(-90, 14, ${H / 2})`} textAnchor="middle">{label}</text>
       </svg>
     </div>
   );
@@ -168,14 +218,24 @@ interface ExerciseDetailPanelProps {
 }
 
 const ExerciseDetailPanel: React.FC<ExerciseDetailPanelProps> = ({ exercise, tokens, history, onBack, onEdit, onDelete }) => {
+  const [progressionData, setProgressionData] = useState<ExerciseProgressionPoint[]>([]);
   const [loadedWorkouts, setLoadedWorkouts] = useState<WorkoutDetailEntry[]>([]);
   const [loadingDetails, setLoadingDetails] = useState(true);
+  const [activeChart, setActiveChart] = useState<'1rm' | 'weight' | 'volume' | 'reps'>('1rm');
 
   useEffect(() => {
     setLoadingDetails(true);
-    const recent = history.slice(0, 20);
-    Promise.all(recent.map(w => api.getWorkout(tokens.accessToken, w.id).catch(() => null)))
-      .then(results => setLoadedWorkouts(results.filter(Boolean) as WorkoutDetailEntry[]))
+    const recent = history.slice(0, 8);
+    Promise.all([
+      api.getExerciseProgression(tokens.accessToken, exercise.id).catch(() => null),
+      Promise.all(recent.map(w => api.getWorkout(tokens.accessToken, w.id).catch(() => null))),
+    ])
+      .then(([progRes, workoutsRes]) => {
+        if (progRes?.data) {
+          setProgressionData(progRes.data);
+        }
+        setLoadedWorkouts((workoutsRes || []).filter(Boolean) as WorkoutDetailEntry[]);
+      })
       .finally(() => setLoadingDetails(false));
   }, [exercise.id, tokens, history]);
 
@@ -193,28 +253,47 @@ const ExerciseDetailPanel: React.FC<ExerciseDetailPanelProps> = ({ exercise, tok
     return points.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [loadedWorkouts, exercise.id]);
 
-  const weightByDay = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const s of exerciseSets) {
-      const day = s.date.slice(0, 10);
-      map.set(day, Math.max(map.get(day) ?? 0, s.weight));
+  const chartData = useMemo(() => {
+    if (activeChart === '1rm') {
+      return progressionData
+        .filter((p) => p.estimatedOneRepMax !== null && p.estimatedOneRepMax > 0)
+        .map((p) => ({ date: p.date, value: p.estimatedOneRepMax! }));
     }
-    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([date, value]) => ({ date, value }));
-  }, [exerciseSets]);
-
-  const oneRMByDay = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const s of exerciseSets) {
-      const day = s.date.slice(0, 10);
-      const est = calc1RM(s.weight, s.reps);
-      map.set(day, Math.max(map.get(day) ?? 0, est));
+    if (activeChart === 'weight') {
+      return progressionData
+        .filter((p) => p.weight !== null && p.weight > 0)
+        .map((p) => ({ date: p.date, value: p.weight! }));
     }
-    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([date, value]) => ({ date, value }));
-  }, [exerciseSets]);
+    if (activeChart === 'volume') {
+      return progressionData
+        .filter((p) => p.volume > 0)
+        .map((p) => ({ date: p.date, value: p.volume }));
+    }
+    return progressionData
+      .filter((p) => p.repetitions > 0)
+      .map((p) => ({ date: p.date, value: p.repetitions }));
+  }, [progressionData, activeChart]);
 
-  const maxWeight = exerciseSets.length > 0 ? Math.max(...exerciseSets.map(s => s.weight)) : null;
-  const max1RM = oneRMByDay.length > 0 ? Math.max(...oneRMByDay.map(d => d.value)) : null;
-  const [activeChart, setActiveChart] = useState<'weight' | '1rm'>('weight');
+  const maxWeight = useMemo(() => {
+    const weights = progressionData.map((p) => p.weight).filter((w): w is number => w !== null && w > 0);
+    return weights.length > 0 ? Math.max(...weights) : null;
+  }, [progressionData]);
+
+  const max1RM = useMemo(() => {
+    const ones = progressionData.map((p) => p.estimatedOneRepMax).filter((w): w is number => w !== null && w > 0);
+    return ones.length > 0 ? Math.max(...ones) : null;
+  }, [progressionData]);
+
+  const totalVolumeLifetime = useMemo(() => {
+    return progressionData.reduce((sum, p) => sum + (p.volume || 0), 0);
+  }, [progressionData]);
+
+  const chartConfig = {
+    '1rm': { label: '1RM (kg)', color: 'var(--accent-teal)' },
+    'weight': { label: 'Peso máx. (kg)', color: '#38bdf8' },
+    'volume': { label: 'Volumen (kg)', color: '#818cf8' },
+    'reps': { label: 'Reps totales', color: '#34d399' },
+  }[activeChart];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -271,46 +350,87 @@ const ExerciseDetailPanel: React.FC<ExerciseDetailPanelProps> = ({ exercise, tok
         </div>
       )}
 
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '1rem' }}>
-        <div style={dS.stat}><Trophy size={20} color="#eab308" /><div style={dS.statV}>{maxWeight !== null ? `${maxWeight} kg` : '—'}</div><div style={dS.statL}>Peso máximo</div></div>
-        <div style={dS.stat}><Zap size={20} color="#22f0c5" /><div style={dS.statV}>{max1RM !== null ? `${max1RM} kg` : '—'}</div><div style={dS.statL}>1RM estimado</div></div>
-        <div style={dS.stat}><TrendingUp size={20} color="#6366f1" /><div style={dS.statV}>{exerciseSets.length}</div><div style={dS.statL}>Series registradas</div></div>
+      {/* Stats Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem' }}>
+        <div style={dS.stat}>
+          <Trophy size={20} color="#eab308" />
+          <div style={dS.statV}>{maxWeight !== null ? `${maxWeight} kg` : '—'}</div>
+          <div style={dS.statL}>Peso máximo histórico</div>
+        </div>
+        <div style={dS.stat}>
+          <Zap size={20} color="var(--accent-teal)" />
+          <div style={dS.statV}>{max1RM !== null ? `${max1RM} kg` : '—'}</div>
+          <div style={dS.statL}>1RM estimado máx.</div>
+        </div>
+        <div style={dS.stat}>
+          <TrendingUp size={20} color="#818cf8" />
+          <div style={dS.statV}>{totalVolumeLifetime > 0 ? `${totalVolumeLifetime.toLocaleString()} kg` : '—'}</div>
+          <div style={dS.statL}>Volumen total acumulado</div>
+        </div>
+        <div style={dS.stat}>
+          <Layers size={20} color="#34d399" />
+          <div style={dS.statV}>{progressionData.length}</div>
+          <div style={dS.statL}>Sesiones registradas</div>
+        </div>
       </div>
 
-      {/* Chart */}
+      {/* Interactive Chart */}
       <div style={dS.chartCard}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#E6EEF3' }}>Progresión</h2>
-          <div style={{ display: 'flex', gap: '0.4rem' }}>
-            {(['weight', '1rm'] as const).map(t => (
-              <button key={t} onClick={() => setActiveChart(t)} style={{ padding: '0.35rem 0.85rem', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600, border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', ...(activeChart === t ? { backgroundColor: 'rgba(34,240,197,0.12)', color: '#22f0c5', borderColor: 'rgba(34,240,197,0.25)' } : { backgroundColor: 'transparent', color: '#64748b' }) }}>
-                {t === 'weight' ? 'Peso máx.' : '1RM est.'}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Evolución y Progresión</h2>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>Pasa el cursor sobre los puntos para ver el detalle de cada sesión</p>
+          </div>
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+            {([
+              { key: '1rm', label: '1RM est.' },
+              { key: 'weight', label: 'Peso máx.' },
+              { key: 'volume', label: 'Volumen' },
+              { key: 'reps', label: 'Reps' },
+            ] as const).map(t => (
+              <button
+                key={t.key}
+                onClick={() => setActiveChart(t.key)}
+                style={{
+                  padding: '0.35rem 0.85rem',
+                  borderRadius: '8px',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  border: '1px solid var(--border-color)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  ...(activeChart === t.key
+                    ? { backgroundColor: 'rgba(6,182,212,0.15)', color: 'var(--accent-teal)', borderColor: 'rgba(6,182,212,0.35)' }
+                    : { backgroundColor: 'transparent', color: 'var(--text-muted)' }),
+                }}
+              >
+                {t.label}
               </button>
             ))}
           </div>
         </div>
+
         {loadingDetails ? (
-          <div style={{ color: '#64748b', padding: '2rem 0' }}>Cargando datos...</div>
+          <div style={{ color: 'var(--text-muted)', padding: '3rem 0', textAlign: 'center' }}>Cargando analítica del ejercicio...</div>
         ) : (
-          <LineChart data={activeChart === 'weight' ? weightByDay : oneRMByDay} color={activeChart === 'weight' ? '#22f0c5' : '#6366f1'} label={activeChart === 'weight' ? 'kg' : '1RM kg'} />
+          <LineChart data={chartData} color={chartConfig.color} label={chartConfig.label} />
         )}
       </div>
 
       {/* Recent sets */}
       {exerciseSets.length > 0 && (
         <div style={dS.chartCard}>
-          <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#E6EEF3' }}>Últimas series</h2>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>Últimas series</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', padding: '0.5rem 0.75rem', fontSize: '0.75rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', padding: '0.5rem 0.75rem', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               <span>Fecha</span><span>Peso</span><span>Reps</span><span>1RM est.</span>
             </div>
             {[...exerciseSets].reverse().slice(0, 12).map((s, i) => (
               <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', padding: '0.55rem 0.75rem', borderRadius: '8px', fontSize: '0.85rem', ...(i % 2 === 0 ? { backgroundColor: 'rgba(255,255,255,0.03)' } : {}) }}>
-                <span style={{ color: '#94a3b8' }}>{new Date(s.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit' })}</span>
-                <span style={{ color: '#E6EEF3', fontWeight: 700 }}>{s.weight} kg</span>
-                <span style={{ color: '#E6EEF3' }}>{s.reps}</span>
-                <span style={{ color: '#22f0c5', fontWeight: 700 }}>{calc1RM(s.weight, s.reps)} kg</span>
+                <span style={{ color: 'var(--text-muted)' }}>{new Date(s.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit' })}</span>
+                <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{s.weight} kg</span>
+                <span style={{ color: 'var(--text-primary)' }}>{s.reps}</span>
+                <span style={{ color: 'var(--accent-teal)', fontWeight: 700 }}>{calc1RM(s.weight, s.reps)} kg</span>
               </div>
             ))}
           </div>
@@ -384,16 +504,12 @@ export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens
     return exercises.filter(ex => ex.isCustom === true);
   }, [exercises]);
 
-  const catalogExercises = useMemo(() => {
-    return exercises.filter(ex => !ex.isCustom);
-  }, [exercises]);
-
   const currentTabList = activeTab === 'custom' ? customExercises : exercises;
 
   const filteredExercises = useMemo(() => {
     return currentTabList.filter((ex) => {
-      if (searchQuery.trim() && !ex.name.toLowerCase().includes(searchQuery.toLowerCase().trim())) return false;
-      if (selectedMuscle !== 'Todos' && !ex.targetMuscleGroups.some(m => m.toLowerCase().trim() === selectedMuscle.toLowerCase().trim())) return false;
+      if (searchQuery.trim() && !matchesSearch(ex.name, searchQuery)) return false;
+      if (selectedMuscle !== 'Todos' && !ex.targetMuscleGroups.some(m => matchesSearch(m, selectedMuscle))) return false;
       if (selectedEquipment !== 'Todos') {
         const t = selectedEquipment.toLowerCase().trim();
         if (t === 'ninguno') {
@@ -443,9 +559,9 @@ export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens
           name: formName.trim(),
           targetMuscleGroups: [formMuscle],
           equipment: formEquipment,
-          description: formDesc.trim() || null,
-          instructions: formInstructions.trim() || null,
-          mediaUrl: formMediaUrl.trim() || null,
+          description: formDesc.trim() || undefined,
+          instructions: formInstructions.trim() || undefined,
+          mediaUrl: formMediaUrl.trim() || undefined,
         });
         setExercises(prev => prev.map(ex => ex.id === editingExercise.id ? { ...ex, ...updated } : ex));
         if (selectedExercise && selectedExercise.id === editingExercise.id) {
@@ -482,8 +598,9 @@ export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens
         setSelectedExercise(null);
       }
       setDeletingExercise(null);
+      toast.success('Ejercicio eliminado.');
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error al eliminar el ejercicio.');
+      toast.error(err instanceof Error ? err.message : 'Error al eliminar el ejercicio.');
     } finally {
       setDeleting(false);
     }

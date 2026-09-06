@@ -16,15 +16,33 @@ export interface RoutineExerciseResponse {
 export interface RoutineResponse {
   id: string;
   name: string;
+  folderId?: string | null;
   exercises: RoutineExerciseResponse[];
   createdAt: string;
   updatedAt: string;
 }
 
+export interface RoutineMuscleSet {
+  muscleGroup: string;
+  sets: number;
+}
+
 export interface RoutineSummary {
   id: string;
   name: string;
+  folderId?: string | null;
   exerciseCount: number;
+  totalSets: number;
+  muscleSets: RoutineMuscleSet[];
   createdAt: string;
   updatedAt: string;
 }
+
+export interface RoutineFolderResponse {
+  id: string;
+  name: string;
+  routineIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+

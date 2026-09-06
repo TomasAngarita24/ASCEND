@@ -1,6 +1,6 @@
 # ASCEND
 
-ASCEND is a mobile workout tracking and training management application designed to help users plan their workouts, record training sessions in real time, and analyze their progress over time.
+ASCEND is a workout tracking and training management application designed to help users plan their workouts, record training sessions in real time, and analyze their progress over time. It runs on desktop and mobile as a progressive web app (PWA) and is backed by a Node.js API and PostgreSQL database.
 
 The goal of ASCEND is to provide a simple, flexible, and data-driven way to manage strength training.
 
@@ -59,11 +59,13 @@ ASCEND is planned to evolve with additional features such as:
 ```text
 ASCEND/
 │
-├── mobile/          # React Native mobile application
+├── backend/         # Node.js + Express API
 │
-├── backend/         # Node.js + backend API
+├── web/             # PWA frontend (React + Vite), installable on desktop & mobile
 │
 ├── docs/            # Project and technical documentation
+│
+├── compose.yaml     # Local PostgreSQL via Docker
 │
 ├── .gitignore
 └── README.md

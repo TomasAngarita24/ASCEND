@@ -9,6 +9,8 @@ import type { AuthContext, AuthTokens } from './auth.types';
 const ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
 const REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
 
+export { ACCESS_TOKEN_TTL_SECONDS, REFRESH_TOKEN_TTL_SECONDS };
+
 export function createAccessToken(context: AuthContext): Pick<AuthTokens, 'accessToken' | 'accessTokenExpiresAt'> {
   const accessToken = jwt.sign(
     { sid: context.sessionId },

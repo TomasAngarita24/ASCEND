@@ -3,12 +3,13 @@ import { Router } from 'express';
 import { asyncHandler } from '../../lib/async-handler';
 import { authenticate } from '../auth/auth.middleware';
 import {
-  addRoutineExercise, createRoutine, deleteRoutine, deleteRoutineExercise, duplicateRoutine, getRoutine,
-  listRoutines, reorderRoutineExercises, updateRoutine, updateRoutineExercise,
+  addRoutineExercise, createRoutine, createRoutineFolder, deleteRoutine, deleteRoutineExercise,
+  deleteRoutineFolder, duplicateRoutine, getRoutine, listRoutineFolders, listRoutines,
+  reorderRoutineExercises, setRoutineFolder, updateRoutine, updateRoutineExercise, updateRoutineFolder,
 } from './routine.service';
 import {
-  validateAddRoutineExercise, validateCreateRoutine, validateReorder, validateRoutineId,
-  validateUpdateRoutine, validateUpdateRoutineExercise,
+  validateAddRoutineExercise, validateCreateRoutine, validateFolderId, validateFolderName,
+  validateReorder, validateRoutineFolder, validateRoutineId, validateUpdateRoutine, validateUpdateRoutineExercise,
 } from './routine.validation';
 
 export const routineRouter = Router();
@@ -22,6 +23,36 @@ routineRouter.get('/', asyncHandler(async (request, response) => {
 routineRouter.post('/', asyncHandler(async (request, response) => {
   const input = validateCreateRoutine(request.body);
   response.status(201).json({ routine: await createRoutine(request.auth!.userId, input.name) });
+}));
+
+// Folder routes (must precede /:routineId)
+routineRouter.get('/folders', asyncHandler(async (request, response) => {
+  response.status(200).json(await listRoutineFolders(request.auth!.userId));
+}));
+
+routineRouter.post('/folders', asyncHandler(async (request, response) => {
+  const { name } = validateFolderName(request.body);
+  response.status(201).json({ folder: await createRoutineFolder(request.auth!.userId, name) });
+}));
+
+routineRouter.patch('/folders/:folderId', asyncHandler(async (request, response) => {
+  const { name } = validateFolderName(request.body);
+  response.status(200).json({ folder: await updateRoutineFolder(request.auth!.userId, validateFolderId(request.params.folderId), name) });
+}));
+
+routineRouter.delete('/folders/:folderId', asyncHandler(async (request, response) => {
+  await deleteRoutineFolder(request.auth!.userId, validateFolderId(request.params.folderId));
+  response.status(204).send();
+}));
+
+routineRouter.patch('/:routineId/folder', asyncHandler(async (request, response) => {
+  const { folderId } = validateRoutineFolder(request.body);
+  const updated = await setRoutineFolder(
+    request.auth!.userId,
+    validateRoutineId(request.params.routineId),
+    folderId,
+  );
+  response.status(200).json({ routine: updated });
 }));
 
 routineRouter.get('/:routineId', asyncHandler(async (request, response) => {

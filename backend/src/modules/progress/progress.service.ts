@@ -5,7 +5,7 @@ import { estimateOneRepMax } from './one-rep-max';
 import { getPersonalRecords } from './personal-record.service';
 import type {
   EstimatedOneRepMaxResponse, ExerciseProgressionResponse, ProgressChartResponse, ProgressStatisticsResponse,
-  MuscleGroupStatisticsResponse,
+  MuscleGroupStatisticsResponse, WeeklyMuscleSetsResponse,
 } from './progress.types';
 
 interface StatisticsInput {
@@ -382,5 +382,112 @@ export async function getMuscleGroupStatistics(userId: string): Promise<MuscleGr
       .sort((left, right) => left.muscleGroup.localeCompare(right.muscleGroup)),
   };
 }
+
+export async function getWeeklyMuscleSets(userId: string): Promise<WeeklyMuscleSetsResponse> {
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const diffToMonday = (dayOfWeek + 6) % 7;
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - diffToMonday);
+  weekStart.setHours(0, 0, 0, 0);
+
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+
+  const workouts = await prisma.workout.findMany({
+    where: { userId, status: 'completed' },
+    select: {
+      completedAt: true,
+      workoutExercises: {
+        select: {
+          exercise: { select: { primaryMuscleGroups: true, targetMuscleGroups: true } },
+          sets: {
+            where: { isCompleted: true },
+            select: { repetitions: true, weight: true },
+          },
+        },
+      },
+    },
+  });
+
+  const statistics = new Map<string, {
+    weeklySets: number;
+    weeklyVolume: number;
+    dailySets: number;
+    dailyVolume: number;
+    totalSets: number;
+    totalVolume: number;
+    frequencyThisWeek: number;
+  }>();
+
+  for (const workout of workouts) {
+    if (!workout.completedAt) continue;
+    const isThisWeek = workout.completedAt >= weekStart;
+    const isToday = workout.completedAt >= todayStart;
+    const groupsInWorkoutThisWeek = new Set<string>();
+
+    for (const workoutExercise of workout.workoutExercises) {
+      if (workoutExercise.sets.length === 0) continue;
+      const setsCount = workoutExercise.sets.length;
+      const volume = workoutExercise.sets.reduce(
+        (total, set) => total + Number(set.weight ?? 0) * (set.repetitions ?? 0),
+        0,
+      );
+
+      const primaryMuscles =
+        workoutExercise.exercise.primaryMuscleGroups && workoutExercise.exercise.primaryMuscleGroups.length > 0
+          ? workoutExercise.exercise.primaryMuscleGroups
+          : workoutExercise.exercise.targetMuscleGroups && workoutExercise.exercise.targetMuscleGroups.length > 0
+          ? workoutExercise.exercise.targetMuscleGroups.slice(0, 1)
+          : [];
+
+      for (const muscleGroup of primaryMuscles) {
+        const current = statistics.get(muscleGroup) ?? {
+          weeklySets: 0,
+          weeklyVolume: 0,
+          dailySets: 0,
+          dailyVolume: 0,
+          totalSets: 0,
+          totalVolume: 0,
+          frequencyThisWeek: 0,
+        };
+        current.totalSets += setsCount;
+        current.totalVolume += volume;
+        if (isThisWeek) {
+          current.weeklySets += setsCount;
+          current.weeklyVolume += volume;
+          groupsInWorkoutThisWeek.add(muscleGroup);
+        }
+        if (isToday) {
+          current.dailySets += setsCount;
+          current.dailyVolume += volume;
+        }
+        statistics.set(muscleGroup, current);
+      }
+    }
+
+    for (const muscleGroup of groupsInWorkoutThisWeek) {
+      const current = statistics.get(muscleGroup);
+      if (current) {
+        current.frequencyThisWeek += 1;
+      }
+    }
+  }
+
+  const data = [...statistics.entries()]
+    .map(([muscleGroup, values]) => ({ muscleGroup, ...values }))
+    .sort((a, b) => b.weeklySets - a.weeklySets || b.totalSets - a.totalSets);
+
+  const totalWeeklySets = data.reduce((sum, item) => sum + item.weeklySets, 0);
+  const totalDailySets = data.reduce((sum, item) => sum + item.dailySets, 0);
+
+  return {
+    data,
+    totalWeeklySets,
+    totalDailySets,
+  };
+}
+
+
 
  

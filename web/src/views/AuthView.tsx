@@ -1,19 +1,25 @@
 import React, { useState } from 'react';
-import { Dumbbell, Sun, Moon, Eye, EyeOff } from 'lucide-react';
+import { Dumbbell, Sun, Moon, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { api, type AuthSession } from '../api/api';
 import { useTheme } from '../context/ThemeContext';
+import { GoogleSignIn } from '../components/GoogleSignIn';
 
 interface AuthViewProps {
   onSuccess: (session: AuthSession) => void;
 }
 
 export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
+  const [view, setView] = useState<'auth' | 'forgot'>('auth');
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
   const { theme, toggleTheme } = useTheme();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -36,6 +42,36 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
     }
   };
 
+  const handleGoogleCredential = async (credential: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const session = await api.loginWithGoogle(credential);
+      onSuccess(session);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al iniciar sesión con Google.');
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetEmail.trim()) {
+      setResetError('Ingresa tu correo electrónico.');
+      return;
+    }
+    setResetLoading(true);
+    setResetError(null);
+    try {
+      await api.forgotPassword(resetEmail.trim());
+      setResetSent(true);
+    } catch (err: unknown) {
+      setResetError(err instanceof Error ? err.message : 'No fue posible enviar el correo.');
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   const isDark = theme === 'dark';
 
   const s: Record<string, React.CSSProperties> = {
@@ -45,7 +81,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
       alignItems: 'center',
       justifyContent: 'center',
       padding: '1.5rem',
-      backgroundColor: isDark ? '#040816' : '#e2e8f0',
+      backgroundColor: 'var(--bg-color)',
       position: 'relative',
     },
     themeToggle: {
@@ -94,11 +130,11 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
       fontSize: '1.6rem',
       fontWeight: 800,
       letterSpacing: '2px',
-      color: isDark ? '#e2e8f0' : '#1e293b',
+      color: 'var(--text-primary)',
       display: 'block',
     },
     brandAccent: {
-      color: isDark ? '#22f0c5' : '#0d9488',
+      color: 'var(--accent-teal)',
     },
     form: {
       display: 'flex',
@@ -113,20 +149,20 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
     label: {
       fontSize: '0.85rem',
       fontWeight: 700,
-      color: isDark ? '#cbd5e1' : '#334155',
+      color: 'var(--text-secondary)',
       letterSpacing: '0.3px',
     },
     input: {
       width: '100%',
       padding: '0.85rem 1rem',
       borderRadius: '12px',
-      backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#f1f5f9',
-      border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #cbd5e1',
-      color: isDark ? '#e2e8f0' : '#1e293b',
+      backgroundColor: 'var(--input-bg)',
+      border: '1px solid var(--border-color)',
+      color: 'var(--text-primary)',
       fontSize: '0.95rem',
-      outline: 'none',
-      transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
       boxSizing: 'border-box',
+      outline: 'none',
+      transition: 'border-color 0.2s, box-shadow 0.2s',
     },
     passwordWrapper: {
       position: 'relative',
@@ -135,28 +171,28 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
     },
     passwordInput: {
       width: '100%',
-      padding: '0.85rem 2.8rem 0.85rem 1rem',
+      padding: '0.85rem 3rem 0.85rem 1rem',
       borderRadius: '12px',
-      backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#f1f5f9',
-      border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #cbd5e1',
-      color: isDark ? '#e2e8f0' : '#1e293b',
+      backgroundColor: 'var(--input-bg)',
+      border: '1px solid var(--border-color)',
+      color: 'var(--text-primary)',
       fontSize: '0.95rem',
+      boxSizing: 'border-box',
       outline: 'none',
-      transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
-      boxSizing: 'border-box' as const,
+      transition: 'border-color 0.2s, box-shadow 0.2s',
     },
-    eyeBtn: {
-      position: 'absolute' as const,
-      right: '10px',
+    eyeButton: {
+      position: 'absolute',
+      right: '0.85rem',
       background: 'none',
       border: 'none',
       cursor: 'pointer',
-      padding: '4px',
+      color: 'var(--text-muted)',
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'center',
+      padding: '0.25rem',
     },
-    submitBtn: {
+    submitButton: {
       width: '100%',
       padding: '0.9rem',
       borderRadius: '14px',
@@ -165,16 +201,14 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
       letterSpacing: '0.5px',
       border: 'none',
       cursor: 'pointer',
-      background: isDark
-        ? 'linear-gradient(135deg, #22f0c5, #0ea5e9)'
-        : 'linear-gradient(135deg, #0d9488, #0ea5e9)',
+      background: 'var(--accent-gradient)',
       color: '#ffffff',
       transition: 'opacity 0.2s ease, transform 0.1s ease',
       marginTop: '0.5rem',
       textShadow: '0 1px 2px rgba(0,0,0,0.2)',
     },
     errorAlert: {
-      backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : 'rgba(239, 68, 68, 0.08)',
+      backgroundColor: 'rgba(239, 68, 68, 0.12)',
       border: '1px solid rgba(239, 68, 68, 0.3)',
       color: '#ef4444',
       padding: '0.75rem',
@@ -187,7 +221,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
       marginTop: '0.5rem',
     },
     forgotText: {
-      color: isDark ? '#22f0c5' : '#0d9488',
+      color: 'var(--accent-teal)',
       fontSize: '0.85rem',
       fontWeight: 600,
       cursor: 'pointer',
@@ -195,16 +229,57 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
       border: 'none',
       textDecoration: 'none',
     },
+    forgotTitle: {
+      fontSize: '1.25rem',
+      fontWeight: 800,
+      color: 'var(--text-primary)',
+      textAlign: 'center',
+      margin: 0,
+    },
+    forgotDesc: {
+      fontSize: '0.9rem',
+      color: 'var(--text-muted)',
+      textAlign: 'center',
+      marginTop: '0.5rem',
+      marginBottom: '1.75rem',
+      lineHeight: 1.5,
+    },
+    resetSentBox: {
+      backgroundColor: 'rgba(34, 240, 197, 0.08)',
+      border: '1px solid var(--border-color)',
+      borderRadius: '12px',
+      color: 'var(--text-secondary)',
+      fontSize: '0.9rem',
+      lineHeight: 1.6,
+      textAlign: 'center',
+      padding: '1rem 1.25rem',
+    },
+    backToLogin: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '0.4rem',
+      width: '100%',
+      marginTop: '1.25rem',
+      color: 'var(--accent-teal)',
+      fontSize: '0.9rem',
+      fontWeight: 600,
+      cursor: 'pointer',
+      background: 'none',
+      border: 'none',
+      textDecoration: 'underline',
+      textUnderlineOffset: '2px',
+    },
     switchRow: {
       textAlign: 'center',
       marginTop: '0.75rem',
     },
     switchText: {
-      color: isDark ? '#94a3b8' : '#64748b',
+      color: 'var(--text-muted)',
       fontSize: '0.88rem',
     },
     switchLink: {
-      color: isDark ? '#22f0c5' : '#0d9488',
+      color: 'var(--accent-teal)',
       fontWeight: 700,
       cursor: 'pointer',
       background: 'none',
@@ -233,113 +308,170 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
         {/* Logo & Brand */}
         <div style={s.logoContainer}>
           <div style={s.logoIcon}>
-            <Dumbbell size={36} color={isDark ? '#22f0c5' : '#0d9488'} />
+            <Dumbbell size={36} color="var(--accent-teal)" />
           </div>
           <span style={s.brandName}>
             ASC<span style={s.brandAccent}>END</span>
           </span>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} style={s.form}>
-          <div style={s.fieldGroup}>
-            <label style={s.label}>Correo</label>
-            <input
-              type="email"
-              placeholder="Introduce tu correo"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={s.input}
-              required
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = isDark ? '#22f0c5' : '#0d9488';
-                e.currentTarget.style.boxShadow = isDark
-                  ? '0 0 0 3px rgba(34,240,197,0.15)'
-                  : '0 0 0 3px rgba(13,148,136,0.15)';
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.08)' : '#cbd5e1';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            />
-          </div>
+        {view === 'forgot' ? (
+          <>
+            <p style={s.forgotTitle}>Restablecer contraseña</p>
+            <p style={s.forgotDesc}>
+              Ingresa tu correo y te enviaremos un enlace para crear una nueva contraseña.
+            </p>
 
-          <div style={s.fieldGroup}>
-            <label style={s.label}>Contraseña</label>
-            <div style={s.passwordWrapper}>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Introduce tu contraseña"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={s.passwordInput}
-                required
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = isDark ? '#22f0c5' : '#0d9488';
-                  e.currentTarget.style.boxShadow = isDark
-                    ? '0 0 0 3px rgba(34,240,197,0.15)'
-                    : '0 0 0 3px rgba(13,148,136,0.15)';
+            {resetSent ? (
+              <div style={s.resetSentBox}>
+                <p>
+                  Si el correo <strong>{resetEmail.trim()}</strong> está registrado, recibirás un
+                  enlace de recuperación. Revisa tu bandeja de entrada (y el correo no deseado).
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleForgotPassword} style={s.form}>
+                <div style={s.fieldGroup}>
+                  <label style={s.label}>Correo electrónico</label>
+                  <input
+                    type="email"
+                    placeholder="Introduce tu correo"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    style={s.input}
+                    required
+                  />
+                </div>
+
+                {resetError && <div style={s.errorAlert}>{resetError}</div>}
+
+                <button
+                  type="submit"
+                  disabled={resetLoading}
+                  style={{ ...s.submitButton, marginTop: '0.5rem', ...(resetLoading ? { opacity: 0.7 } : {}) }}
+                >
+                  {resetLoading ? 'Enviando...' : 'Enviar enlace de recuperación'}
+                </button>
+              </form>
+            )}
+
+            <button
+              type="button"
+              style={s.backToLogin}
+              onClick={() => {
+                setView('auth');
+                setResetError(null);
+                setResetSent(false);
+              }}
+            >
+              <ArrowLeft size={16} />
+              Volver al inicio de sesión
+            </button>
+          </>
+        ) : (
+          <>
+            {/* Form */}
+            <form onSubmit={handleSubmit} style={s.form}>
+              <div style={s.fieldGroup}>
+                <label style={s.label}>Correo</label>
+                <input
+                  type="email"
+                  placeholder="Introduce tu correo"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  style={s.input}
+                  required
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--accent-teal)';
+                    e.currentTarget.style.boxShadow = '0 0 0 3px var(--accent-teal-glow)';
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-color)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                />
+              </div>
+
+              <div style={s.fieldGroup}>
+                <label style={s.label}>Contraseña</label>
+                <div style={s.passwordWrapper}>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Introduce tu contraseña"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    style={s.passwordInput}
+                    required
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--accent-teal)';
+                      e.currentTarget.style.boxShadow = '0 0 0 3px var(--accent-teal-glow)';
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border-color)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  />
+                  <button
+                    type="button"
+                    style={s.eyeButton}
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                  >
+                    {showPassword
+                      ? <EyeOff size={18} color={isDark ? '#94a3b8' : '#64748b'} />
+                      : <Eye size={18} color={isDark ? '#94a3b8' : '#64748b'} />
+                    }
+                  </button>
+                </div>
+              </div>
+
+              {error && <div style={s.errorAlert}>{error}</div>}
+
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  ...s.submitButton,
+                  opacity: loading ? 0.7 : 1,
                 }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.08)' : '#cbd5e1';
-                  e.currentTarget.style.boxShadow = 'none';
-                }}
-              />
+              >
+                {loading
+                  ? 'Procesando...'
+                  : isRegister
+                    ? 'Crear cuenta'
+                    : 'Iniciar sesión'}
+              </button>
+            </form>
+
+            <GoogleSignIn onCredential={handleGoogleCredential} />
+
+            {/* Forgot Password */}
+            {!isRegister && (
+              <div style={s.forgotLink}>
+                <button type="button" style={s.forgotText} onClick={() => setView('forgot')}>
+                  ¿Olvidaste tu contraseña?
+                </button>
+              </div>
+            )}
+
+            {/* Switch Login / Register */}
+            <div style={s.switchRow}>
+              <span style={s.switchText}>
+                {isRegister ? '¿Ya tienes una cuenta? ' : '¿No tienes una cuenta? '}
+              </span>
               <button
                 type="button"
-                style={s.eyeBtn}
-                onClick={() => setShowPassword(!showPassword)}
-                tabIndex={-1}
+                style={s.switchLink}
+                onClick={() => {
+                  setIsRegister(!isRegister);
+                  setError(null);
+                }}
               >
-                {showPassword
-                  ? <EyeOff size={18} color={isDark ? '#94a3b8' : '#64748b'} />
-                  : <Eye size={18} color={isDark ? '#94a3b8' : '#64748b'} />
-                }
+                {isRegister ? 'Inicia sesión' : 'Regístrate'}
               </button>
             </div>
-          </div>
-
-          {error && <div style={s.errorAlert}>{error}</div>}
-
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              ...s.submitBtn,
-              opacity: loading ? 0.7 : 1,
-            }}
-          >
-            {loading
-              ? 'Procesando...'
-              : isRegister
-                ? 'Crear cuenta'
-                : 'Iniciar sesión'}
-          </button>
-        </form>
-
-        {/* Forgot Password */}
-        {!isRegister && (
-          <div style={s.forgotLink}>
-            <span style={s.forgotText}>¿Olvidaste tu contraseña?</span>
-          </div>
+          </>
         )}
-
-        {/* Switch Login / Register */}
-        <div style={s.switchRow}>
-          <span style={s.switchText}>
-            {isRegister ? '¿Ya tienes una cuenta? ' : '¿No tienes una cuenta? '}
-          </span>
-          <button
-            type="button"
-            style={s.switchLink}
-            onClick={() => {
-              setIsRegister(!isRegister);
-              setError(null);
-            }}
-          >
-            {isRegister ? 'Inicia sesión' : 'Regístrate'}
-          </button>
-        </div>
       </div>
     </div>
   );

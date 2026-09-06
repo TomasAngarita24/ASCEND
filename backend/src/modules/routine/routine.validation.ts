@@ -34,6 +34,9 @@ const updateRoutineExerciseSchema = exerciseConfigurationSchema
   );
 const reorderSchema = z.object({ routineExerciseIds: z.array(z.uuid()) });
 
+const folderNameSchema = z.object({ name: routineName }).strict();
+const setRoutineFolderSchema = z.object({ folderId: z.uuid().nullable() }).strict();
+
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);
 
@@ -65,5 +68,17 @@ export function validateReorder(value: unknown): z.infer<typeof reorderSchema> {
 }
 
 export function validateRoutineId(value: unknown): string {
+  return parse(z.uuid(), value);
+}
+
+export function validateFolderName(value: unknown): z.infer<typeof folderNameSchema> {
+  return parse(folderNameSchema, value);
+}
+
+export function validateRoutineFolder(value: unknown): z.infer<typeof setRoutineFolderSchema> {
+  return parse(setRoutineFolderSchema, value);
+}
+
+export function validateFolderId(value: unknown): string {
   return parse(z.uuid(), value);
 }

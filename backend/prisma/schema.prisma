@@ -12,12 +12,18 @@ id              String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uu
 email           String     @unique @db.VarChar(255)
 passwordHash    String?    @map("password_hash")
 googleId        String?    @unique @map("google_id") @db.VarChar(255)
+fullName        String?    @map("full_name") @db.VarChar(255)
+bio             String?
+avatarUrl       String?    @map("avatar_url")
 createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
 updatedAt       DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 customExercises Exercise[] @relation("CustomExercises")
 routines        Routine[]
+routineFolders  RoutineFolder[]
+bodyMeasurements BodyMeasurement[]
 workouts        Workout[]
 sessions        Session[]
+passwordResetTokens PasswordResetToken[]
 
 @@map("users")
 }
@@ -27,6 +33,7 @@ id                 String            @id @default(dbgenerated("gen_random_uuid()
 name               String            @db.VarChar(255)
 description        String?
 targetMuscleGroups String[]          @default([]) @map("target_muscle_groups")
+primaryMuscleGroups String[]         @default([]) @map("primary_muscle_groups")
 equipment          String?           @db.VarChar(255)
 instructions       String?
 mediaUrl           String?           @map("media_url")
@@ -46,14 +53,17 @@ workoutExercises   WorkoutExercise[]
 model Routine {
 id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 userId           String            @map("user_id") @db.Uuid
+folderId         String?           @map("folder_id") @db.Uuid
 name             String            @db.VarChar(255)
 createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
 updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+folder           RoutineFolder?    @relation(fields: [folderId], references: [id], onDelete: SetNull)
 routineExercises RoutineExercise[]
 workouts         Workout[]
 
 @@index([userId])
+@@index([folderId])
 @@map("routine")
 }
 
@@ -86,7 +96,7 @@ completedAt      DateTime?         @map("completed_at") @db.Timestamptz(6)
 createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
 updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-routine          Routine?          @relation(fields: [routineId], references: [id], onDelete: Cascade)
+routine          Routine?          @relation(fields: [routineId], references: [id], onDelete: SetNull)
 workoutExercises WorkoutExercise[]
 
 @@index([userId, startedAt(sort: Desc)])
@@ -140,6 +150,54 @@ updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Time
 user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
 @@index([userId])
-@@index([expiresAt])
-@@map("session")
+  @@index([expiresAt])
+  @@map("session")
+}
+
+model PasswordResetToken {
+id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+userId    String   @map("user_id") @db.Uuid
+tokenHash String   @unique @map("token_hash")
+expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+@@index([userId])
+@@map("password_reset_token")
+}
+
+model RoutineFolder {
+id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+userId    String    @map("user_id") @db.Uuid
+name      String    @db.VarChar(255)
+createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+routines  Routine[]
+
+@@index([userId])
+@@map("routine_folder")
+}
+
+model BodyMeasurement {
+id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+userId     String   @map("user_id") @db.Uuid
+date       DateTime @db.Date
+weight     Decimal? @db.Decimal(5, 2)
+neck       Decimal? @db.Decimal(5, 2)
+shoulders  Decimal? @db.Decimal(5, 2)
+chest      Decimal? @db.Decimal(5, 2)
+waist      Decimal? @db.Decimal(5, 2)
+hips       Decimal? @db.Decimal(5, 2)
+bicep      Decimal? @db.Decimal(5, 2)
+thigh      Decimal? @db.Decimal(5, 2)
+calf       Decimal? @db.Decimal(5, 2)
+bodyFat    Decimal? @map("body_fat") @db.Decimal(4, 2)
+createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+@@unique([userId, date])
+@@index([userId, date])
+@@map("body_measurement")
 }

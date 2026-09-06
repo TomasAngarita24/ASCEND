@@ -46,3 +46,20 @@ export interface MuscleGroupStatisticsResponse {
     volume: number;
   }>;
 }
+
+export interface WeeklyMuscleSetsResponse {
+  data: Array<{
+    muscleGroup: string;
+    weeklySets: number;
+    weeklyVolume: number;
+    dailySets: number;
+    dailyVolume: number;
+    totalSets: number;
+    totalVolume: number;
+    frequencyThisWeek: number;
+  }>;
+  totalWeeklySets: number;
+  totalDailySets: number;
+}
+
+

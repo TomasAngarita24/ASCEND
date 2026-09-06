@@ -13,7 +13,7 @@
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
-    "test": "tsx --test tests/auth.integration.test.ts tests/google-auth.integration.test.ts tests/exercise.integration.test.ts tests/routine.integration.test.ts tests/workout.integration.test.ts"
+    "test": "tsx --test tests/auth.integration.test.ts tests/auth.cookies.integration.test.ts tests/google-auth.integration.test.ts tests/exercise.integration.test.ts tests/routine.integration.test.ts tests/workout.integration.test.ts tests/cloud-sync.integration.test.ts"
   },
   "keywords": [
     "node",
@@ -22,19 +22,26 @@
     "api"
   ],
   "license": "MIT",
+  "overrides": {
+    "qs": "^6.16.0"
+  },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "@types/cors": "^2.8.19",
     "argon2": "^0.45.1",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^4.19.2",
+    "express-rate-limit": "^8.7.0",
     "google-auth-library": "^11.0.2",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.14.10",
