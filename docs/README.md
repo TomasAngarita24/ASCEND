@@ -7,3 +7,4 @@
 - [Database](database.md)
 - [API](api.md)
 - [Technical Decisions](decisions.md)
+- [Operations](operations.md)

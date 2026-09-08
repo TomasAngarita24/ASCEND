@@ -1,8 +1,6 @@
 # Roadmap
 
-## MVP
-
-The first version of ASCEND should focus on the essential workout tracking experience.
+## MVP — Implemented
 
 ### Authentication
 
@@ -59,18 +57,21 @@ The first version of ASCEND should focus on the essential workout tracking exper
 - Automatic timer after completed sets
 - Manual timer controls
 
-## Version 2
+## Version 2 — Implemented
 
-- Supersets
 - Plate calculator
-- Advanced statistics
 - Estimated 1RM
 - Muscle group statistics
-- Muscle heatmap
 - Routine templates
+- Backend analytics endpoints (charts, statistics, weekly muscle sets) remain available for future clients
+
+### Removed from scope
+
+- Muscle heatmap
+- Advanced statistics dashboard
 - Advanced workout analytics
 
-## Version 3
+## Version 3 — Implemented
 
 - User profiles
 - Following and followers
@@ -85,16 +86,15 @@ The first version of ASCEND should focus on the essential workout tracking exper
 
 The architecture should leave room for future functionality without requiring major structural changes. The following features are not part of the current scope:
 
-- Password recovery
+- Password recovery (implemented — see ResetPasswordView)
 - Email verification
-- Social login
+- Social login (partial: Google OAuth implemented)
 - Push notifications
 - Workout reminders
 - Rest timer notifications
-- Offline workout tracking
+- Offline workout tracking (partial: offline queue implemented)
 - Multiple devices
 - Apple Health integration
 - Google Health Connect integration
 - Wearable device integration
-- Advanced analytics
 - Social challenges

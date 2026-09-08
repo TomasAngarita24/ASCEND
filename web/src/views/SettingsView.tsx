@@ -191,7 +191,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       <div style={styles.card}>
         <div style={styles.cardHeader}>
           <div style={styles.titleRow}>
-            {theme === 'dark' ? <Moon size={24} color="var(--accent-teal)" /> : <Sun size={24} color="#f59e0b" />}
+            {theme === 'dark' ? <Moon size={24} color="var(--accent-teal)" /> : <Sun size={24} color="var(--accent-gold)" />}
             <h2 style={styles.cardTitle}>Apariencia</h2>
           </div>
           <p style={styles.subtitle}>Elige entre modo oscuro o claro según tu preferencia</p>
@@ -200,7 +200,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'var(--card-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {theme === 'dark' ? <Moon size={20} color="var(--accent-teal)" /> : <Sun size={20} color="#f59e0b" />}
+              {theme === 'dark' ? <Moon size={20} color="var(--accent-teal)" /> : <Sun size={20} color="var(--accent-gold)" />}
             </div>
             <div>
               <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.95rem' }}>
@@ -243,7 +243,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             }}>
               {theme === 'dark'
                 ? <Moon size={12} color="var(--accent-teal)" />
-                : <Sun size={12} color="#f59e0b" />}
+                : <Sun size={12} color="var(--accent-gold)" />}
             </span>
           </button>
         </div>
@@ -253,7 +253,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       <div style={styles.card}>
         <div style={styles.cardHeader}>
           <div style={styles.titleRow}>
-            <UserIcon size={24} color="#E6EEF3" />
+            <UserIcon size={24} color="var(--text-primary)" />
             <h2 style={styles.cardTitle}>Información del perfil</h2>
           </div>
           <p style={styles.subtitle}>Actualiza tu información personal y los detalles del perfil</p>
@@ -321,7 +321,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           {savedSuccess && (
             <div style={styles.successBanner}>
-              <Check size={20} color="#22c55e" />
+              <Check size={20} color="var(--accent-green)" />
               <span>Información del perfil actualizada correctamente.</span>
             </div>
           )}
@@ -338,7 +338,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       <div style={styles.card}>
         <div style={styles.cardHeader}>
           <div style={styles.titleRow}>
-            <Shield size={24} color="#E6EEF3" />
+            <Shield size={24} color="var(--text-primary)" />
             <h2 style={styles.cardTitle}>Seguridad de la cuenta</h2>
           </div>
           <p style={styles.subtitle}>Actualiza tu correo electrónico y tu contraseña de acceso</p>
@@ -403,14 +403,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           {secError && (
             <div style={styles.errorBanner}>
-              <AlertTriangle size={18} color="#ef4444" />
+              <AlertTriangle size={18} color="var(--danger-color)" />
               <span>{secError}</span>
             </div>
           )}
 
           {secSuccess && (
             <div style={styles.successBanner}>
-              <Check size={20} color="#22c55e" />
+              <Check size={20} color="var(--accent-green)" />
               <span>Credenciales de seguridad actualizadas correctamente.</span>
             </div>
           )}
@@ -505,7 +505,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="modal-overlay" onClick={() => setIsDeleteModalOpen(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
             <div style={styles.modalHeader}>
-              <AlertTriangle size={36} color="#ef4444" />
+              <AlertTriangle size={36} color="var(--danger-color)" />
               <h3 style={styles.modalTitle}>¿Eliminar tu cuenta?</h3>
             </div>
             <p style={styles.modalText}>
@@ -544,7 +544,7 @@ const styles: Record<string, React.CSSProperties> = {
   card: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '20px',
+    borderRadius: 'var(--radius-container)',
     padding: '2.25rem 2.5rem',
     display: 'flex',
     flexDirection: 'column',
@@ -607,7 +607,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid var(--border-color)',
     color: 'var(--text-primary)',
     padding: '0.65rem 1.35rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     fontWeight: 600,
     fontSize: '0.95rem',
     display: 'inline-flex',
@@ -646,7 +646,7 @@ const styles: Record<string, React.CSSProperties> = {
   input: {
     backgroundColor: 'var(--input-bg)',
     borderColor: 'var(--border-color)',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     padding: '0.95rem 1.15rem',
     fontSize: '1.05rem',
     color: 'var(--text-primary)',
@@ -656,7 +656,7 @@ const styles: Record<string, React.CSSProperties> = {
   textarea: {
     backgroundColor: 'var(--input-bg)',
     borderColor: 'var(--border-color)',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     padding: '1.15rem',
     fontSize: '1.05rem',
     color: 'var(--text-primary)',
@@ -665,22 +665,22 @@ const styles: Record<string, React.CSSProperties> = {
     boxSizing: 'border-box',
   },
   successBanner: {
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
-    border: '1px solid rgba(34, 197, 94, 0.3)',
+    backgroundColor: 'rgba(76, 175, 125, 0.15)',
+    border: '1px solid rgba(76, 175, 125, 0.3)',
     color: 'var(--accent-green)',
     padding: '0.85rem 1.25rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     fontSize: '0.95rem',
     display: 'flex',
     alignItems: 'center',
     gap: '0.6rem',
   },
   errorBanner: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    border: '1px solid rgba(239, 68, 68, 0.3)',
+    backgroundColor: 'rgba(192, 105, 105, 0.15)',
+    border: '1px solid rgba(192, 105, 105, 0.3)',
     color: 'var(--danger-color)',
     padding: '0.85rem 1.25rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     fontSize: '0.95rem',
     display: 'flex',
     alignItems: 'center',
@@ -693,22 +693,22 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--accent-teal)',
     color: 'var(--bg-color)',
     padding: '0.75rem 2rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     fontWeight: 700,
     fontSize: '1.05rem',
   },
   secSaveBtn: {
     backgroundColor: 'var(--accent-blue)',
-    color: '#ffffff',
+    color: 'var(--bg-color)',
     padding: '0.75rem 2rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     fontWeight: 700,
     fontSize: '1.05rem',
   },
   dangerCard: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '20px',
+    borderRadius: 'var(--radius-container)',
     padding: '2.25rem 2.5rem',
     display: 'flex',
     flexDirection: 'column',
@@ -731,11 +731,11 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: '0.5rem',
   },
   logoutBtn: {
-    backgroundColor: 'rgba(37, 99, 235, 0.15)',
-    border: '1px solid rgba(37, 99, 235, 0.3)',
-    color: '#60a5fa',
+    backgroundColor: 'rgba(192, 138, 90, 0.15)',
+    border: '1px solid rgba(192, 138, 90, 0.3)',
+    color: 'var(--accent-gold)',
     padding: '0.85rem 1.75rem',
-    borderRadius: '14px',
+    borderRadius: 'var(--radius-container)',
     fontWeight: 700,
     fontSize: '1rem',
     display: 'flex',
@@ -743,11 +743,11 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '0.6rem',
   },
   deleteAccountBtn: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    border: '1px solid rgba(239, 68, 68, 0.3)',
-    color: '#ef4444',
+    backgroundColor: 'rgba(192, 105, 105, 0.15)',
+    border: '1px solid rgba(192, 105, 105, 0.3)',
+    color: 'var(--danger-color)',
     padding: '0.85rem 1.75rem',
-    borderRadius: '14px',
+    borderRadius: 'var(--radius-container)',
     fontWeight: 700,
     fontSize: '1rem',
     display: 'flex',
@@ -781,16 +781,16 @@ const styles: Record<string, React.CSSProperties> = {
   },
   cancelModalBtn: {
     padding: '0.85rem 1.5rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     color: 'var(--text-muted)',
     fontWeight: 600,
     fontSize: '1rem',
   },
   confirmDeleteBtn: {
-    backgroundColor: '#ef4444',
-    color: '#ffffff',
+    backgroundColor: 'var(--danger-color)',
+    color: 'var(--bg-color)',
     padding: '0.85rem 1.5rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     fontWeight: 700,
     fontSize: '1rem',
   },
@@ -802,7 +802,7 @@ const styles: Record<string, React.CSSProperties> = {
   exportInfoBox: {
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     padding: '1rem 1.25rem',
     display: 'flex',
     flexDirection: 'column',
@@ -828,8 +828,8 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '0.6rem',
     padding: '0.85rem 1.5rem',
-    borderRadius: '12px',
-    backgroundColor: 'rgba(6, 182, 212, 0.12)',
+    borderRadius: 'var(--radius-container)',
+    backgroundColor: 'rgba(192, 138, 90, 0.12)',
     border: '1px solid var(--accent-teal)',
     color: 'var(--accent-teal)',
     fontWeight: 700,
@@ -842,7 +842,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '0.6rem',
     padding: '0.85rem 1.5rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
     color: 'var(--text-primary)',
@@ -856,8 +856,8 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '0.6rem',
     padding: '0.85rem 1.5rem',
-    borderRadius: '12px',
-    backgroundColor: 'rgba(37, 99, 235, 0.12)',
+    borderRadius: 'var(--radius-container)',
+    backgroundColor: 'rgba(192, 138, 90, 0.12)',
     border: '1px solid var(--accent-blue)',
     color: 'var(--accent-blue)',
     fontWeight: 700,

@@ -48,7 +48,7 @@ async function authenticatedFetch(
     headers: {
       ...(options.body !== undefined ? { 'content-type': 'application/json' } : {}),
       ...(cookies.size > 0 ? { cookie: cookieHeader(cookies) } : {}),
-      ...(options.headers ?? {}),
+      ...(options.headers),
     },
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   };

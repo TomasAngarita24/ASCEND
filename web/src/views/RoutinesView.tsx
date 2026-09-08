@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Plus,
   Folder,
@@ -11,10 +11,12 @@ import {
   Copy,
   Layers,
   X,
+  ClipboardList,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, type RoutineSummary, type RoutineDetail, type Tokens } from '../api/api';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { RoutineTemplatesModal } from '../components/RoutineTemplatesModal';
 
 interface RoutinesViewProps {
   tokens: Tokens;
@@ -33,33 +35,33 @@ interface ConfirmState {
 }
 
 const MUSCLE_COLOR_MAP: Record<string, string> = {
-  Pecho: '#38bdf8',
-  Chest: '#38bdf8',
-  Pectoral: '#38bdf8',
-  Espalda: '#818cf8',
-  Dorsal: '#818cf8',
-  Back: '#818cf8',
-  Cuádriceps: '#34d399',
-  Cuadriceps: '#34d399',
-  Femoral: '#10b981',
-  Isquiotibiales: '#10b981',
-  Piernas: '#34d399',
-  Pierna: '#34d399',
-  Hombros: '#f59e0b',
-  Shoulders: '#f59e0b',
-  Deltoides: '#f59e0b',
-  Bíceps: '#ec4899',
-  Biceps: '#ec4899',
-  Tríceps: '#a855f7',
-  Triceps: '#a855f7',
-  Abdominales: '#f97316',
-  Core: '#f97316',
-  Glúteos: '#06b6d4',
-  Gluteos: '#06b6d4',
-  Pantorrillas: '#14b8a6',
-  Gemelos: '#14b8a6',
-  Antebrazos: '#64748b',
-  Trapecio: '#6366f1',
+  Pecho: '#E1C27A',
+  Chest: '#E1C27A',
+  Pectoral: '#E1C27A',
+  Espalda: '#C8A45D',
+  Dorsal: '#C8A45D',
+  Back: '#C8A45D',
+  Cuádriceps: '#4CAF7D',
+  Cuadriceps: '#4CAF7D',
+  Femoral: '#6FC79B',
+  Isquiotibiales: '#6FC79B',
+  Piernas: '#4CAF7D',
+  Pierna: '#4CAF7D',
+  Hombros: '#B8914D',
+  Shoulders: '#B8914D',
+  Deltoides: '#B8914D',
+  Bíceps: '#C0C2C6',
+  Biceps: '#C0C2C6',
+  Tríceps: '#8A8D93',
+  Triceps: '#8A8D93',
+  Abdominales: '#B5754F',
+  Core: '#B5754F',
+  Glúteos: '#3D8F66',
+  Gluteos: '#3D8F66',
+  Pantorrillas: '#7A9E87',
+  Gemelos: '#7A9E87',
+  Antebrazos: '#5F6268',
+  Trapecio: '#A67B4A',
 };
 
 export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorkout, onExplore: _onExplore, onOpenEditor }) => {
@@ -158,7 +160,7 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
   const groupedRoutineIds = new Set(groups.flatMap(g => Array.isArray(g.routineIds) ? g.routineIds : []));
   const ungroupedRoutines = (routines || []).filter(r => r && r.id && !groupedRoutineIds.has(r.id));
 
-  const loadRoutinesAndFolders = async () => {
+  const loadRoutinesAndFolders = useCallback(async () => {
     setLoading(true);
     try {
       // 1. Check if localStorage has old groups that need migration
@@ -209,14 +211,20 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
     } finally {
       setLoading(false);
     }
-  };
+  }, [tokens]);
 
   useEffect(() => {
     loadRoutinesAndFolders();
-  }, [tokens]);
+  }, [loadRoutinesAndFolders]);
 
   const handleOpenNewRoutineModal = () => {
     onOpenEditor({ isNew: true, routineId: null, name: 'Nueva rutina', detail: null });
+  };
+
+  const [isTemplatesModalOpen, setIsTemplatesModalOpen] = useState(false);
+
+  const handleTemplateAdded = async () => {
+    await loadRoutinesAndFolders();
   };
 
   const handleEditRoutine = async (routineId: string) => {
@@ -300,7 +308,7 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
             onClick={() => handleDeleteRoutine(routine.id, routine.name)}
             title="Eliminar rutina"
           >
-            <Trash2 size={16} color="#ef4444" />
+            <Trash2 size={16} color="var(--danger-color)" />
           </button>
         </div>
       </div>
@@ -353,7 +361,6 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
       {/* Top Header Hero */}
       <div style={styles.headerHero}>
         <div>
-          <div style={styles.eyebrow}>PLANTILLAS Y PROGRAMACIÓN</div>
           <h1 style={styles.title}>Mis Rutinas</h1>
           <p style={styles.subtitle}>Crea plantillas personalizadas, organízalas en carpetas y comienza a entrenar con un solo clic.</p>
         </div>
@@ -362,6 +369,10 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
           <button style={styles.createRoutineBtn} onClick={handleOpenNewRoutineModal}>
             <Plus size={18} />
             <span>Nueva rutina</span>
+          </button>
+          <button style={styles.newGroupBtn} onClick={() => setIsTemplatesModalOpen(true)}>
+            <ClipboardList size={17} color="var(--accent-teal)" />
+            <span>Plantillas</span>
           </button>
           <button style={styles.newGroupBtn} onClick={() => setIsGroupModalOpen(true)}>
             <Folder size={17} color="var(--accent-teal)" />
@@ -590,6 +601,15 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
         }}
         onCancel={closeConfirm}
       />
+
+      {/* Routine Templates Modal */}
+      {isTemplatesModalOpen && (
+        <RoutineTemplatesModal
+          tokens={tokens}
+          onClose={() => setIsTemplatesModalOpen(false)}
+          onAdded={handleTemplateAdded}
+        />
+      )}
     </div>
   );
 };
@@ -607,20 +627,13 @@ const styles: Record<string, React.CSSProperties> = {
   headerHero: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '24px',
+    borderRadius: 'var(--radius-container)',
     padding: '2rem 2.5rem',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
     flexWrap: 'wrap',
     gap: '1.5rem',
-  },
-  eyebrow: {
-    fontSize: '0.72rem',
-    fontWeight: 800,
-    color: 'var(--accent-teal)',
-    letterSpacing: '0.08em',
-    marginBottom: '0.2rem',
   },
   title: {
     fontSize: '2.2rem',
@@ -645,10 +658,10 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--accent-teal)',
     color: 'var(--bg-color)',
     padding: '0.75rem 1.25rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     fontWeight: 800,
     fontSize: '0.92rem',
-    boxShadow: '0 4px 16px var(--accent-teal-glow)',
+    
   },
   newGroupBtn: {
     display: 'flex',
@@ -658,14 +671,14 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid var(--border-color)',
     color: 'var(--text-primary)',
     padding: '0.75rem 1.15rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     fontWeight: 700,
     fontSize: '0.9rem',
   },
   quickStartCard: {
     backgroundColor: 'var(--card-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '18px',
+    borderRadius: 'var(--radius-container)',
     padding: '1.25rem 1.75rem',
     display: 'flex',
     alignItems: 'center',
@@ -681,8 +694,8 @@ const styles: Record<string, React.CSSProperties> = {
   quickStartIcon: {
     width: '44px',
     height: '44px',
-    borderRadius: '13px',
-    backgroundColor: 'rgba(6, 182, 212, 0.12)',
+    borderRadius: 'var(--radius-control)',
+    backgroundColor: 'rgba(192, 138, 90, 0.12)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -712,7 +725,7 @@ const styles: Record<string, React.CSSProperties> = {
   groupAccordionBox: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '20px',
+    borderRadius: 'var(--radius-container)',
     padding: '1.25rem 1.5rem',
     display: 'flex',
     flexDirection: 'column',
@@ -740,20 +753,20 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.75rem',
     fontWeight: 800,
     padding: '0.15rem 0.55rem',
-    borderRadius: '999px',
+    borderRadius: 'var(--radius-full)',
   },
   groupSetsCountBadge: {
-    backgroundColor: 'rgba(6, 182, 212, 0.12)',
+    backgroundColor: 'rgba(192, 138, 90, 0.12)',
     color: 'var(--accent-teal)',
-    border: '1px solid rgba(6, 182, 212, 0.25)',
+    border: '1px solid rgba(192, 138, 90, 0.25)',
     fontSize: '0.72rem',
     fontWeight: 700,
     padding: '0.15rem 0.55rem',
-    borderRadius: '999px',
+    borderRadius: 'var(--radius-full)',
   },
   deleteGroupBtn: {
     padding: '0.4rem',
-    borderRadius: '8px',
+    borderRadius: 'var(--radius-element)',
   },
   groupEmptyState: {
     padding: '2rem',
@@ -761,7 +774,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-muted)',
     fontSize: '0.88rem',
     backgroundColor: 'var(--input-bg)',
-    borderRadius: '14px',
+    borderRadius: 'var(--radius-container)',
     width: '100%',
   },
   sectionHeader: {
@@ -780,7 +793,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid var(--border-color)',
     color: 'var(--text-muted)',
     padding: '0.25rem 0.75rem',
-    borderRadius: '999px',
+    borderRadius: 'var(--radius-full)',
     fontSize: '0.8rem',
     fontWeight: 700,
   },
@@ -792,7 +805,7 @@ const styles: Record<string, React.CSSProperties> = {
   routineCard: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '20px',
+    borderRadius: 'var(--radius-container)',
     padding: '1.35rem 1.5rem',
     display: 'flex',
     flexDirection: 'column',
@@ -808,8 +821,8 @@ const styles: Record<string, React.CSSProperties> = {
   routineIconBadge: {
     width: '38px',
     height: '38px',
-    borderRadius: '11px',
-    backgroundColor: 'rgba(6, 182, 212, 0.12)',
+    borderRadius: 'var(--radius-control)',
+    backgroundColor: 'rgba(192, 138, 90, 0.12)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -820,7 +833,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   iconActionBtn: {
     padding: '0.45rem',
-    borderRadius: '8px',
+    borderRadius: 'var(--radius-element)',
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
     display: 'flex',
@@ -829,9 +842,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
   iconActionBtnDelete: {
     padding: '0.45rem',
-    borderRadius: '8px',
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    border: '1px solid rgba(239, 68, 68, 0.2)',
+    borderRadius: 'var(--radius-element)',
+    backgroundColor: 'rgba(192, 105, 105, 0.1)',
+    border: '1px solid rgba(192, 105, 105, 0.2)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -876,15 +889,15 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--accent-teal)',
     color: 'var(--bg-color)',
     padding: '0.65rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     fontWeight: 800,
     fontSize: '0.88rem',
-    boxShadow: '0 4px 14px var(--accent-teal-glow)',
+    
   },
   groupSelectDropdown: {
     fontSize: '0.78rem',
     padding: '0.4rem 0.65rem',
-    borderRadius: '8px',
+    borderRadius: 'var(--radius-element)',
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
     color: 'var(--text-muted)',
@@ -898,7 +911,7 @@ const styles: Record<string, React.CSSProperties> = {
   emptyState: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '24px',
+    borderRadius: 'var(--radius-container)',
     padding: '4rem 2rem',
     textAlign: 'center',
     display: 'flex',
@@ -928,7 +941,7 @@ const styles: Record<string, React.CSSProperties> = {
 
   cancelBtn: {
     padding: '0.7rem 1.25rem',
-    borderRadius: '10px',
+    borderRadius: 'var(--radius-control)',
     color: 'var(--text-muted)',
     fontWeight: 600,
     border: '1px solid var(--border-color)',
@@ -937,10 +950,10 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--accent-teal)',
     color: 'var(--bg-color)',
     padding: '0.7rem 1.35rem',
-    borderRadius: '10px',
+    borderRadius: 'var(--radius-control)',
     fontWeight: 800,
     fontSize: '0.9rem',
-    boxShadow: '0 4px 14px var(--accent-teal-glow)',
+    
   },
   groupExpandedContent: {
     display: 'flex',
@@ -951,7 +964,7 @@ const styles: Record<string, React.CSSProperties> = {
   folderVolumeBox: {
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
-    borderRadius: '16px',
+    borderRadius: 'var(--radius-container)',
     padding: '1.15rem 1.25rem',
     display: 'flex',
     flexDirection: 'column',
@@ -967,9 +980,9 @@ const styles: Record<string, React.CSSProperties> = {
   folderVolumeIconBadge: {
     width: '34px',
     height: '34px',
-    borderRadius: '10px',
-    backgroundColor: 'rgba(6, 182, 212, 0.12)',
-    border: '1px solid rgba(6, 182, 212, 0.25)',
+    borderRadius: 'var(--radius-control)',
+    backgroundColor: 'rgba(192, 138, 90, 0.12)',
+    border: '1px solid rgba(192, 138, 90, 0.25)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -998,7 +1011,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.8rem',
     fontWeight: 700,
     padding: '0.35rem 0.75rem',
-    borderRadius: '999px',
+    borderRadius: 'var(--radius-full)',
   },
   folderVolumeEmptyNotice: {
     fontSize: '0.85rem',
@@ -1007,13 +1020,13 @@ const styles: Record<string, React.CSSProperties> = {
   },
   folderMuscleGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
     gap: '0.75rem',
   },
   folderMuscleCard: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     padding: '0.75rem 0.85rem',
     display: 'flex',
     flexDirection: 'column',
@@ -1025,11 +1038,17 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: '0.4rem',
+    minWidth: 0,
   },
   folderMuscleName: {
     fontSize: '0.82rem',
     fontWeight: 700,
     color: 'var(--text-primary)',
+    flex: '1 1 auto',
+    minWidth: 0,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
   folderMuscleSetsRow: {
     display: 'flex',
@@ -1061,20 +1080,22 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '4px',
     textTransform: 'uppercase',
     letterSpacing: '0.03em',
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
   },
   badgeOptimal: {
-    backgroundColor: 'rgba(52, 211, 153, 0.15)',
-    color: '#34d399',
-    border: '1px solid rgba(52, 211, 153, 0.3)',
+    backgroundColor: 'rgba(76, 175, 125, 0.15)',
+    color: 'var(--accent-green)',
+    border: '1px solid rgba(76, 175, 125, 0.3)',
   },
   badgeHigh: {
-    backgroundColor: 'rgba(251, 191, 36, 0.15)',
-    color: '#fbbf24',
-    border: '1px solid rgba(251, 191, 36, 0.3)',
+    backgroundColor: 'rgba(192, 138, 90, 0.15)',
+    color: 'var(--accent-gold)',
+    border: '1px solid rgba(192, 138, 90, 0.3)',
   },
   badgeMaintenance: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    color: '#38bdf8',
-    border: '1px solid rgba(56, 189, 248, 0.3)',
+    backgroundColor: 'rgba(192, 194, 198, 0.14)',
+    color: '#C0C2C6',
+    border: '1px solid rgba(192, 194, 198, 0.3)',
   },
 };

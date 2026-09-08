@@ -6,3 +6,20 @@ backend/src/generated/
 .env
 .env.*
 !.env.example
+
+# opencode agent runtime
+.agent/
+.agents/
+.opencode/
+skills-lock.json
+
+# build/type artifacts
+*.tsbuildinfo
+coverage/
+
+# local database backups
+backups/
+
+# editors
+.vscode/
+.idea/

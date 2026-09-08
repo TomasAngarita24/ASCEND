@@ -136,6 +136,43 @@ export interface RoutineDetail {
   exercises: RoutineExercise[];
 }
 
+export type RoutineTemplateLevel = 'beginner' | 'intermediate' | 'advanced';
+export type RoutineTemplateGoal = 'strength' | 'hypertrophy' | 'general';
+
+export interface RoutineTemplateSummary {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  level: RoutineTemplateLevel;
+  goal: RoutineTemplateGoal;
+  equipment: string;
+  exerciseCount: number;
+}
+
+export interface RoutineTemplateExercise {
+  id: string;
+  position: number;
+  exercise: {
+    id: string;
+    name: string;
+  };
+  targetSets: number | null;
+  targetRepetitionsMin: number | null;
+  targetRepetitionsMax: number | null;
+  restSeconds: number | null;
+}
+
+export interface RoutineTemplateDetail extends RoutineTemplateSummary {
+  exercises: RoutineTemplateExercise[];
+}
+
+export interface RoutineTemplateFilters {
+  level?: RoutineTemplateLevel;
+  goal?: RoutineTemplateGoal;
+  equipment?: string;
+}
+
 export interface WorkoutSet {
   id: string;
   setNumber: number;
@@ -185,9 +222,97 @@ export interface WorkoutDetailEntry {
   exercises: WorkoutExercise[];
 }
 
-export interface ProgressChartData {
-  metric: string;
-  data: Array<{ date: string; value: number }>;
+export interface FeedAuthor {
+  id: string;
+  fullName: string | null;
+  avatarUrl: string | null;
+}
+
+export interface FeedWorkoutExercise {
+  id: string;
+  name: string;
+  mediaUrl: string | null;
+  setsCompleted: number;
+}
+
+export interface FeedWorkout {
+  id: string;
+  routineName: string | null;
+  completedAt: string | null;
+  durationSeconds: number;
+  totalVolume: number;
+  exercises: FeedWorkoutExercise[];
+}
+
+export interface FeedRoutine {
+  id: string;
+  name: string;
+  exerciseCount: number;
+  muscleGroups: string[];
+}
+
+export interface FeedPost {
+  id: string;
+  postType: string;
+  caption: string | null;
+  author: FeedAuthor;
+  workout: FeedWorkout | null;
+  routine: FeedRoutine | null;
+  likeCount: number;
+  likedByMe: boolean;
+  commentCount: number;
+  createdAt: string;
+}
+
+export interface FeedResponse {
+  data: FeedPost[];
+  pagination: { page: number; limit: number; total: number };
+}
+
+export interface PostComment {
+  id: string;
+  postId: string;
+  body: string;
+  author: FeedAuthor;
+  createdAt: string;
+}
+
+export interface CommentsResponse {
+  data: PostComment[];
+  pagination: { page: number; limit: number; total: number };
+}
+
+export interface SocialUserSummary {
+  id: string;
+  fullName: string | null;
+  avatarUrl: string | null;
+  isFollowing: boolean;
+}
+
+export interface PublicProfileResponse {
+  id: string;
+  fullName: string | null;
+  avatarUrl: string | null;
+  bio: string | null;
+  createdAt: string;
+  stats: {
+    workoutsCompleted: number;
+    postsCount: number;
+  };
+  followersCount: number;
+  followingCount: number;
+  isFollowing: boolean;
+  isSelf: boolean;
+}
+
+export interface FollowMutationResponse {
+  following: boolean;
+  followersCount: number;
+}
+
+export interface FollowListResponse {
+  data: SocialUserSummary[];
+  pagination: { page: number; limit: number; total: number };
 }
 
 export interface MuscleGroupStat {
@@ -214,6 +339,26 @@ export interface WeeklyMuscleSetStat {
   totalSets: number;
   totalVolume: number;
   frequencyThisWeek: number;
+}
+
+export class ApiError extends Error {
+  readonly status?: number;
+  readonly code?: string;
+
+  constructor(message: string, status?: number, code?: string) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
+/** Coerces an unknown thrown value into an error, keeping the HTTP status when present. */
+export function toError(err: unknown): { message: string; status?: number } {
+  if (err instanceof ApiError) {
+    return { message: err.message, status: err.status };
+  }
+  return { message: err instanceof Error ? err.message : 'Ocurrió un error inesperado.' };
 }
 
 class ApiClient {
@@ -323,7 +468,7 @@ class ApiClient {
       } else if (response.status >= 500) {
         friendlyMessage = 'Ocurrió un problema en el servidor. Inténtalo de nuevo más tarde.';
       }
-      throw new Error(friendlyMessage);
+      throw new ApiError(friendlyMessage, response.status, data.code);
     }
     return data as T;
   }
@@ -480,11 +625,34 @@ class ApiClient {
     });
   }
 
-  async reorderRoutineExercises(accessToken: string, routineId: string, routineExerciseIds: string[]): Promise<RoutineDetail> {
+async reorderRoutineExercises(accessToken: string, routineId: string, routineExerciseIds: string[]): Promise<RoutineDetail> {
     const res = await this.request<{ routine: RoutineDetail }>(`/routines/${routineId}/exercises/reorder`, {
       method: 'POST',
-      accessToken,
       body: JSON.stringify({ routineExerciseIds }),
+      accessToken,
+    });
+    return res.routine;
+  }
+
+  async listRoutineTemplates(accessToken: string, filters: RoutineTemplateFilters = {}): Promise<RoutineTemplateSummary[]> {
+    const search = new URLSearchParams();
+    if (filters.level) search.set('level', filters.level);
+    if (filters.goal) search.set('goal', filters.goal);
+    if (filters.equipment) search.set('equipment', filters.equipment);
+    const query = search.toString();
+    const res = await this.request<{ data: RoutineTemplateSummary[] }>(`/routine-templates${query ? `?${query}` : ''}`, { accessToken });
+    return res.data;
+  }
+
+  async getRoutineTemplate(accessToken: string, templateId: string): Promise<RoutineTemplateDetail> {
+    const res = await this.request<{ template: RoutineTemplateDetail }>(`/routine-templates/${templateId}`, { accessToken });
+    return res.template;
+  }
+
+  async addRoutineTemplate(accessToken: string, templateId: string): Promise<RoutineDetail> {
+    const res = await this.request<{ routine: RoutineDetail }>(`/routine-templates/${templateId}/add`, {
+      method: 'POST',
+      accessToken,
     });
     return res.routine;
   }
@@ -608,16 +776,98 @@ class ApiClient {
     return res.workout;
   }
 
+  // --- Social feed ---
+  async shareWorkout(accessToken: string, workoutId: string, caption?: string): Promise<FeedPost> {
+    const res = await this.request<{ post: FeedPost }>(`/workouts/${workoutId}/share`, {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify(caption ? { caption } : {}),
+    });
+    return res.post;
+  }
+
+  async copyRoutinePost(accessToken: string, postId: string): Promise<{ id: string; name: string }> {
+    const res = await this.request<{ routine: { id: string; name: string } }>(`/social/posts/${postId}/copy-routine`, {
+      method: 'POST',
+      accessToken,
+    });
+    return res.routine;
+  }
+
+  async getSocialFeed(accessToken: string, page = 1, limit = 20): Promise<FeedResponse> {
+    return await this.request<FeedResponse>(`/social/feed?page=${page}&limit=${limit}`, { accessToken });
+  }
+
+  async likePost(accessToken: string, postId: string): Promise<void> {
+    await this.request<void>(`/social/posts/${postId}/likes`, {
+      method: 'POST',
+      accessToken,
+    });
+  }
+
+  async unlikePost(accessToken: string, postId: string): Promise<void> {
+    await this.request<void>(`/social/posts/${postId}/likes`, {
+      method: 'DELETE',
+      accessToken,
+    });
+  }
+
+  async deletePost(accessToken: string, postId: string): Promise<void> {
+    await this.request<void>(`/social/posts/${postId}`, {
+      method: 'DELETE',
+      accessToken,
+    });
+  }
+
+  async getPostComments(accessToken: string, postId: string, page = 1, limit = 20): Promise<CommentsResponse> {
+    return await this.request<CommentsResponse>(`/social/posts/${postId}/comments?page=${page}&limit=${limit}`, { accessToken });
+  }
+
+  async addPostComment(accessToken: string, postId: string, body: string): Promise<PostComment> {
+    const res = await this.request<{ comment: PostComment }>(`/social/posts/${postId}/comments`, {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify({ body }),
+    });
+    return res.comment;
+  }
+
+  // --- Public profiles & follows ---
+  async getPublicProfile(accessToken: string, userId: string): Promise<PublicProfileResponse> {
+    return await this.request<PublicProfileResponse>(`/users/${userId}/profile`, { accessToken });
+  }
+
+  async followUser(accessToken: string, userId: string): Promise<FollowMutationResponse> {
+    return await this.request<FollowMutationResponse>(`/users/${userId}/follow`, {
+      method: 'POST',
+      accessToken,
+    });
+  }
+
+  async unfollowUser(accessToken: string, userId: string): Promise<FollowMutationResponse> {
+    return await this.request<FollowMutationResponse>(`/users/${userId}/follow`, {
+      method: 'DELETE',
+      accessToken,
+    });
+  }
+
+  async getUserFollowers(accessToken: string, userId: string, page = 1, limit = 20): Promise<FollowListResponse> {
+    return await this.request<FollowListResponse>(`/users/${userId}/followers?page=${page}&limit=${limit}`, { accessToken });
+  }
+
+  async getUserFollowing(accessToken: string, userId: string, page = 1, limit = 20): Promise<FollowListResponse> {
+    return await this.request<FollowListResponse>(`/users/${userId}/following?page=${page}&limit=${limit}`, { accessToken });
+  }
+
+  async searchUsers(accessToken: string, query: string, page = 1, limit = 20): Promise<FollowListResponse> {
+    const q = encodeURIComponent(query);
+    return await this.request<FollowListResponse>(`/users/search?q=${q}&page=${page}&limit=${limit}`, { accessToken });
+  }
+
   // --- Progress & Analytics ---
   async getStatistics(accessToken: string): Promise<ProgressStatistics> {
     const res = await this.request<{ statistics: ProgressStatistics }>('/progress/statistics', { accessToken });
     return res.statistics;
-  }
-
-  async getProgressChart(accessToken: string, metric: 'volume' | 'workout_frequency' | 'exercise_1rm' | 'duration', exerciseId?: string): Promise<ProgressChartData> {
-    const search = new URLSearchParams({ metric });
-    if (exerciseId) search.set('exerciseId', exerciseId);
-    return await this.request<ProgressChartData>(`/progress/charts?${search.toString()}`, { accessToken });
   }
 
   async getMuscleGroupStatistics(accessToken: string): Promise<MuscleGroupStat[]> {
@@ -667,15 +917,6 @@ class ApiClient {
   async createFolder(accessToken: string, name: string): Promise<RoutineFolder> {
     const res = await this.request<{ folder: RoutineFolder }>('/routines/folders', {
       method: 'POST',
-      accessToken,
-      body: JSON.stringify({ name }),
-    });
-    return res.folder;
-  }
-
-  async updateFolder(accessToken: string, folderId: string, name: string): Promise<RoutineFolder> {
-    const res = await this.request<{ folder: RoutineFolder }>(`/routines/folders/${folderId}`, {
-      method: 'PATCH',
       accessToken,
       body: JSON.stringify({ name }),
     });

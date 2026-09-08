@@ -21,7 +21,7 @@ export default defineConfig({
         name: 'ASCEND — Strength & Overload',
         short_name: 'ASCEND',
         description: 'Tu compañero de entrenamiento inteligente. Registra, progresa y supera tus marcas.',
-        theme_color: '#06b6d4',
+        theme_color: '#0b0f19',
         background_color: '#0b0f19',
         display: 'standalone',
         orientation: 'portrait',
@@ -43,7 +43,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg}'],
+        globPatterns: ['**/*.{js,css,html,svg,png}'],
       },
     }),
   ],

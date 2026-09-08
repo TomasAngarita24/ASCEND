@@ -25,8 +25,8 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   if (!isOpen) return null;
 
   const accentColor = variant === 'danger' ? 'var(--danger-color)' : 'var(--accent-gold)';
-  const accentBg = variant === 'danger' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(245, 158, 11, 0.12)';
-  const accentBorder = variant === 'danger' ? 'rgba(239, 68, 68, 0.28)' : 'rgba(245, 158, 11, 0.28)';
+  const accentBg = variant === 'danger' ? 'rgba(192, 105, 105, 0.12)' : 'rgba(192, 138, 90, 0.12)';
+  const accentBorder = variant === 'danger' ? 'rgba(192, 105, 105, 0.28)' : 'rgba(192, 138, 90, 0.28)';
 
   return (
     <div className="modal-overlay" onClick={onCancel}>
@@ -42,7 +42,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             top: '1.1rem',
             right: '1.1rem',
             padding: '0.35rem',
-            borderRadius: '8px',
+            borderRadius: 'var(--radius-element)',
             backgroundColor: 'transparent',
             color: 'var(--text-muted)',
             display: 'flex',
@@ -56,7 +56,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
           style={{
             width: '54px',
             height: '54px',
-            borderRadius: '15px',
+            borderRadius: 'var(--radius-element)',
             backgroundColor: accentBg,
             border: `1px solid ${accentBorder}`,
             display: 'flex',
@@ -96,7 +96,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             onClick={onCancel}
             style={{
               padding: '0.7rem 1.4rem',
-              borderRadius: '12px',
+              borderRadius: 'var(--radius-control)',
               backgroundColor: 'var(--input-bg)',
               border: '1px solid var(--border-color)',
               color: 'var(--text-secondary)',
@@ -111,7 +111,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             onClick={() => { onConfirm(); }}
             style={{
               padding: '0.7rem 1.4rem',
-              borderRadius: '12px',
+              borderRadius: 'var(--radius-control)',
               backgroundColor: accentBg,
               border: `1px solid ${accentBorder}`,
               color: accentColor,

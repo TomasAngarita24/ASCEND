@@ -3,16 +3,13 @@ import {
   Dumbbell,
   Activity,
   Calendar,
-  Zap,
   PieChart,
   ChevronRight,
   Play,
   ArrowUpRight,
   Target,
   RefreshCw,
-  Trophy,
   Layers,
-  Sparkles,
 } from 'lucide-react';
 import {
   api,
@@ -40,39 +37,39 @@ export const HomeView: React.FC<HomeViewProps> = ({ tokens, onNavigate, onStartW
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const loadDashboardData = async () => {
+      setLoading(true);
+      try {
+        const [statsRes, muscleRes, historyRes, weeklyRes] = await Promise.allSettled([
+          api.getStatistics(tokens.accessToken),
+          api.getMuscleGroupStatistics(tokens.accessToken),
+          api.listWorkoutHistory(tokens.accessToken),
+          api.getWeeklyMuscleSets(tokens.accessToken),
+        ]);
+
+        if (statsRes.status === 'fulfilled') setStats(statsRes.value);
+        if (muscleRes.status === 'fulfilled') setMuscleStats(muscleRes.value);
+        if (historyRes.status === 'fulfilled') setRecentWorkouts(historyRes.value.slice(0, 3));
+        if (weeklyRes.status === 'fulfilled') {
+          setWeeklyMuscleSets(weeklyRes.value.data);
+          setTotalWeeklySets(weeklyRes.value.totalWeeklySets);
+          setTotalDailySets(weeklyRes.value.totalDailySets);
+        }
+      } catch {
+        // Ignore
+      } finally {
+        setLoading(false);
+      }
+    };
+
     loadDashboardData();
   }, [tokens]);
 
-  const loadDashboardData = async () => {
-    setLoading(true);
-    try {
-      const [statsRes, muscleRes, historyRes, weeklyRes] = await Promise.allSettled([
-        api.getStatistics(tokens.accessToken),
-        api.getMuscleGroupStatistics(tokens.accessToken),
-        api.listWorkoutHistory(tokens.accessToken),
-        api.getWeeklyMuscleSets(tokens.accessToken),
-      ]);
-
-      if (statsRes.status === 'fulfilled') setStats(statsRes.value);
-      if (muscleRes.status === 'fulfilled') setMuscleStats(muscleRes.value);
-      if (historyRes.status === 'fulfilled') setRecentWorkouts(historyRes.value.slice(0, 3));
-      if (weeklyRes.status === 'fulfilled') {
-        setWeeklyMuscleSets(weeklyRes.value.data);
-        setTotalWeeklySets(weeklyRes.value.totalWeeklySets);
-        setTotalDailySets(weeklyRes.value.totalDailySets);
-      }
-    } catch {
-      // Ignore
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return '¡Buenos días! 🌅';
-    if (hour < 19) return '¡Buenas tardes! ⚡';
-    return '¡Buenas noches! 🌙';
+    if (hour < 12) return 'Buenos días';
+    if (hour < 19) return 'Buenas tardes';
+    return 'Buenas noches';
   };
 
   const totalMuscleVolume = muscleStats.reduce((sum, m) => sum + m.volume, 0);
@@ -108,53 +105,46 @@ export const HomeView: React.FC<HomeViewProps> = ({ tokens, onNavigate, onStartW
   }, [weeklyMuscleSets, weeklyViewMode, sortedMuscles, stats, totalMuscleVolume]);
 
   const muscleColorMap: Record<string, string> = {
-    Pecho: '#38bdf8',
-    Chest: '#38bdf8',
-    Pectoral: '#38bdf8',
-    Dorsal: '#818cf8',
-    Espalda: '#818cf8',
-    Back: '#818cf8',
-    Cuadriceps: '#34d399',
-    Femoral: '#10b981',
-    Piernas: '#34d399',
-    Legs: '#34d399',
-    Gluteos: '#059669',
-    Hombros: '#f472b6',
-    Shoulders: '#f472b6',
-    Biceps: '#fbbf24',
-    Triceps: '#f59e0b',
-    Brazos: '#fbbf24',
-    Arms: '#fbbf24',
-    Abdominales: '#a78bfa',
-    Core: '#a78bfa',
-    Trapecio: '#c084fc',
-    Antebrazo: '#fb7185',
-    Pantorrillas: '#2dd4bf',
-    Adductor: '#e879f9',
+    Pecho: '#E1C27A',
+    Chest: '#E1C27A',
+    Pectoral: '#E1C27A',
+    Dorsal: '#C8A45D',
+    Espalda: '#C8A45D',
+    Back: '#C8A45D',
+    Cuadriceps: '#4CAF7D',
+    Femoral: '#6FC79B',
+    Piernas: '#4CAF7D',
+    Legs: '#4CAF7D',
+    Gluteos: '#3D8F66',
+    Hombros: '#B8914D',
+    Shoulders: '#B8914D',
+    Biceps: '#C0C2C6',
+    Triceps: '#8A8D93',
+    Brazos: '#C0C2C6',
+    Arms: '#C0C2C6',
+    Abdominales: '#B5754F',
+    Core: '#B5754F',
+    Trapecio: '#A67B4A',
+    Antebrazo: '#5F6268',
+    Pantorrillas: '#7A9E87',
+    Adductor: '#6FC79B',
   };
 
   return (
     <div style={styles.container}>
-      {/* Welcome Hero Banner */}
+      {/* Welcome Hero */}
       <div style={styles.welcomeBanner}>
         <div style={styles.welcomeLeft}>
-          <div style={styles.badgeRow}>
-            <span style={styles.greetingBadge}>
-              <Sparkles size={13} color="var(--accent-teal)" />
-              {getGreeting()}
-            </span>
-          </div>
+          <span style={styles.greetingText}>{getGreeting()}</span>
           <h1 style={styles.welcomeTitle}>Panel de Rendimiento</h1>
           <p style={styles.welcomeSubtitle}>
-            Monitorea tu sobrecarga progresiva, volumen acumulado por semana y distribución de balance muscular.
+            Sobrecarga progresiva, volumen semanal y equilibrio muscular en un solo vistazo.
           </p>
         </div>
 
         <div style={styles.bannerActions}>
           <button style={styles.startWorkoutBtn} onClick={() => onStartWorkout()}>
-            <div style={styles.playIconCircle}>
-              <Play size={14} fill="var(--bg-color)" color="var(--bg-color)" style={{ marginLeft: '2px' }} />
-            </div>
+            <Play size={15} fill="currentColor" style={{ marginLeft: '2px' }} />
             <span>Entrenar ahora</span>
           </button>
           <button style={styles.secondaryActionBtn} onClick={() => onNavigate('routines')}>
@@ -174,9 +164,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ tokens, onNavigate, onStartW
           {/* Top 4 Metrics Grid */}
           <div style={styles.metricsGrid}>
             <div style={styles.metricCard}>
-              <div style={{ ...styles.metricIconWrap, backgroundColor: 'rgba(34, 240, 197, 0.12)' }}>
-                <Zap size={20} color="var(--accent-teal)" />
-              </div>
               <div style={styles.metricInfo}>
                 <span style={styles.metricLabel}>Volumen Total</span>
                 <span style={styles.metricValue}>
@@ -187,9 +174,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ tokens, onNavigate, onStartW
             </div>
 
             <div style={styles.metricCard}>
-              <div style={{ ...styles.metricIconWrap, backgroundColor: 'rgba(56, 189, 248, 0.12)' }}>
-                <Activity size={20} color="#38bdf8" />
-              </div>
               <div style={styles.metricInfo}>
                 <span style={styles.metricLabel}>Series Completadas</span>
                 <span style={styles.metricValue}>
@@ -200,9 +184,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ tokens, onNavigate, onStartW
             </div>
 
             <div style={styles.metricCard}>
-              <div style={{ ...styles.metricIconWrap, backgroundColor: 'rgba(129, 140, 248, 0.12)' }}>
-                <Calendar size={20} color="#818cf8" />
-              </div>
               <div style={styles.metricInfo}>
                 <span style={styles.metricLabel}>Entrenamientos</span>
                 <span style={styles.metricValue}>
@@ -213,9 +194,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ tokens, onNavigate, onStartW
             </div>
 
             <div style={styles.metricCard}>
-              <div style={{ ...styles.metricIconWrap, backgroundColor: 'rgba(245, 158, 11, 0.12)' }}>
-                <Trophy size={20} color="#f59e0b" />
-              </div>
               <div style={styles.metricInfo}>
                 <span style={styles.metricLabel}>Récords Personales</span>
                 <span style={styles.metricValue}>
@@ -231,12 +209,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ tokens, onNavigate, onStartW
             {/* Left Column: Weekly & Daily Muscle Sets Volume (FR-PROG-003) */}
             <div style={styles.chartCard}>
               <div style={styles.cardHeader}>
-                <div>
-                  <div style={styles.cardEyebrow}>VOLUMEN DE ENTRENAMIENTO SEMANAL</div>
-                  <h2 style={styles.cardTitle}>
-                    {weeklyViewMode === 'weekly' ? 'Series Semanales por Músculo' : 'Series Diarias por Músculo'}
-                  </h2>
-                </div>
+                <h2 style={styles.cardTitle}>
+                  {weeklyViewMode === 'weekly' ? 'Series Semanales por Músculo' : 'Series Diarias por Músculo'}
+                </h2>
 
                 <div style={styles.weeklyHeaderRight}>
                   <div style={styles.weeklySetsBadge}>
@@ -284,13 +259,13 @@ export const HomeView: React.FC<HomeViewProps> = ({ tokens, onNavigate, onStartW
                 <div style={styles.weeklyContentWrap}>
                   {weeklyViewMode === 'weekly' && totalWeeklySets === 0 && (
                     <div style={styles.weeklyNotice}>
-                      <span>💡 Aún no has registrado series esta semana. Mostrando metas semanales por grupo muscular:</span>
+                      <span>Aún no has registrado series esta semana. Mostrando metas semanales por grupo muscular:</span>
                     </div>
                   )}
 
                   {weeklyViewMode === 'daily' && totalDailySets === 0 && (
                     <div style={styles.weeklyNotice}>
-                      <span>💡 Aún no has registrado series hoy. Inicia un entrenamiento para sumar tus series diarias:</span>
+                      <span>Aún no has registrado series hoy. Inicia un entrenamiento para sumar tus series diarias:</span>
                     </div>
                   )}
 
@@ -377,8 +352,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ tokens, onNavigate, onStartW
                   <div style={styles.weeklyFooterNotice}>
                     <span>
                       {weeklyViewMode === 'weekly'
-                        ? '🎯 Volumen semanal óptimo: Entre 10 y 20 series efectivas semanales por músculo principal.'
-                        : '🎯 Volumen diario óptimo: Entre 4 y 8 series efectivas por sesión por músculo principal.'}
+                        ? 'Volumen semanal óptimo: entre 10 y 20 series efectivas por músculo principal.'
+                        : 'Volumen diario óptimo: entre 4 y 8 series efectivas por sesión y músculo principal.'}
                     </span>
                   </div>
                 </div>
@@ -388,10 +363,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ tokens, onNavigate, onStartW
             {/* Right Column: Muscle Balance (FR-MUSC-002) */}
             <div style={styles.muscleCard}>
               <div style={styles.cardHeader}>
-                <div>
-                  <div style={styles.cardEyebrow}>DISTRIBUCIÓN DE ESTIMULO</div>
-                  <h2 style={styles.cardTitle}>Balance Muscular</h2>
-                </div>
+                <h2 style={styles.cardTitle}>Balance Muscular</h2>
                 <button
                   style={styles.exploreLinkBtn}
                   onClick={() => onNavigate('exercises')}
@@ -449,10 +421,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ tokens, onNavigate, onStartW
             {/* Recent Sessions */}
             <div style={styles.recentWorkoutsCard}>
               <div style={styles.cardHeader}>
-                <div>
-                  <div style={styles.cardEyebrow}>HISTORIAL RECIENTE</div>
-                  <h2 style={styles.cardTitle}>Últimas Sesiones</h2>
-                </div>
+                <h2 style={styles.cardTitle}>Últimas Sesiones</h2>
                 <button style={styles.textLinkBtn} onClick={() => onNavigate('history')}>
                   <span>Ver todo</span>
                   <ChevronRight size={16} />
@@ -469,7 +438,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ tokens, onNavigate, onStartW
               ) : (
                 <div style={styles.recentGrid}>
                   {recentWorkouts.map((w) => (
-                    <div key={w.id} style={styles.recentItemCard} onClick={() => onNavigate('history')}>
+                    <div key={w.id} style={styles.recentItemCard} onClick={() => onNavigate('history')} role="button" tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onNavigate('history'); }}>
                       <div style={styles.recentItemTop}>
                         <span style={styles.recentDate}>
                           {new Date(w.startedAt).toLocaleDateString('es-ES', {
@@ -502,13 +472,12 @@ export const HomeView: React.FC<HomeViewProps> = ({ tokens, onNavigate, onStartW
 
             {/* Quick Tools Tile */}
             <div style={styles.quickToolsCard}>
-              <div style={styles.cardEyebrow}>ACCESOS RÁPIDOS</div>
               <h2 style={styles.cardTitle}>Herramientas del Gimnasio</h2>
 
               <div style={styles.toolsList}>
                 <div style={styles.toolItem} onClick={() => onNavigate('plate-calculator')}>
-                  <div style={{ ...styles.toolIconWrap, backgroundColor: 'rgba(37, 99, 235, 0.12)' }}>
-                    <Target size={18} color="#2563eb" />
+                  <div style={{ ...styles.toolIconWrap, backgroundColor: 'rgba(192, 138, 90, 0.12)' }}>
+                    <Target size={18} color="var(--accent-blue)" />
                   </div>
                   <div style={{ flex: 1 }}>
                     <h4 style={styles.toolTitle}>Calculadora de Discos</h4>
@@ -518,7 +487,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ tokens, onNavigate, onStartW
                 </div>
 
                 <div style={styles.toolItem} onClick={() => onNavigate('measurements')}>
-                  <div style={{ ...styles.toolIconWrap, backgroundColor: 'rgba(34, 240, 197, 0.12)' }}>
+                  <div style={{ ...styles.toolIconWrap, backgroundColor: 'rgba(192, 138, 90, 0.12)' }}>
                     <Activity size={18} color="var(--accent-teal)" />
                   </div>
                   <div style={{ flex: 1 }}>
@@ -529,8 +498,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ tokens, onNavigate, onStartW
                 </div>
 
                 <div style={styles.toolItem} onClick={() => onNavigate('exercises')}>
-                  <div style={{ ...styles.toolIconWrap, backgroundColor: 'rgba(245, 158, 11, 0.12)' }}>
-                    <Layers size={18} color="#f59e0b" />
+                  <div style={{ ...styles.toolIconWrap, backgroundColor: 'rgba(192, 138, 90, 0.12)' }}>
+                    <Layers size={18} color="var(--accent-gold)" />
                   </div>
                   <div style={{ flex: 1 }}>
                     <h4 style={styles.toolTitle}>151 Ejercicios Ilustrados</h4>
@@ -560,16 +529,13 @@ const styles: Record<string, React.CSSProperties> = {
   welcomeBanner: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '24px',
+    borderRadius: 'var(--radius-container)',
     padding: '2rem 2.5rem',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
     flexWrap: 'wrap',
     gap: '1.5rem',
-    position: 'relative',
-    overflow: 'hidden',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
   },
   welcomeLeft: {
     display: 'flex',
@@ -577,27 +543,14 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '0.4rem',
     maxWidth: '650px',
   },
-  badgeRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-    marginBottom: '0.2rem',
-  },
-  greetingBadge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '0.4rem',
-    padding: '0.25rem 0.65rem',
-    borderRadius: '999px',
-    backgroundColor: 'rgba(6, 182, 212, 0.1)',
-    border: '1px solid rgba(6, 182, 212, 0.25)',
-    color: 'var(--accent-teal)',
-    fontSize: '0.78rem',
+  greetingText: {
+    fontSize: '0.85rem',
     fontWeight: 700,
+    color: 'var(--accent-teal)',
     letterSpacing: '0.02em',
   },
   welcomeTitle: {
-    fontSize: '2.2rem',
+    fontSize: '2.1rem',
     fontWeight: 800,
     letterSpacing: '-0.03em',
     color: 'var(--text-primary)',
@@ -620,19 +573,9 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--accent-teal)',
     color: 'var(--bg-color)',
     padding: '0.75rem 1.35rem',
-    borderRadius: '14px',
+    borderRadius: 'var(--radius-control)',
     fontWeight: 800,
     fontSize: '0.95rem',
-    boxShadow: '0 4px 20px var(--accent-teal-glow)',
-  },
-  playIconCircle: {
-    width: '26px',
-    height: '26px',
-    borderRadius: '50%',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   secondaryActionBtn: {
     display: 'flex',
@@ -642,7 +585,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid var(--border-color)',
     color: 'var(--text-primary)',
     padding: '0.75rem 1.25rem',
-    borderRadius: '14px',
+    borderRadius: 'var(--radius-control)',
     fontWeight: 700,
     fontSize: '0.9rem',
   },
@@ -655,31 +598,18 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '6rem 2rem',
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '20px',
+    borderRadius: 'var(--radius-container)',
   },
   metricsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
     gap: '1rem',
   },
   metricCard: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '20px',
-    padding: '1.4rem',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1.1rem',
-    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
-  },
-  metricIconWrap: {
-    width: '48px',
-    height: '48px',
-    borderRadius: '14px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
+    borderRadius: 'var(--radius-container)',
+    padding: '1.4rem 1.5rem',
   },
   metricInfo: {
     display: 'flex',
@@ -687,18 +617,19 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '0.2rem',
   },
   metricLabel: {
-    fontSize: '0.78rem',
+    fontSize: '0.76rem',
     fontWeight: 700,
     color: 'var(--text-muted)',
     textTransform: 'uppercase',
     letterSpacing: '0.04em',
   },
   metricValue: {
-    fontSize: '1.55rem',
+    fontSize: '1.6rem',
     fontWeight: 800,
     color: 'var(--text-primary)',
     letterSpacing: '-0.02em',
     lineHeight: 1.1,
+    fontVariantNumeric: 'tabular-nums',
   },
   metricSub: {
     fontSize: '0.75rem',
@@ -712,7 +643,7 @@ const styles: Record<string, React.CSSProperties> = {
   chartCard: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '24px',
+    borderRadius: 'var(--radius-container)',
     padding: '1.75rem 2rem',
     display: 'flex',
     flexDirection: 'column',
@@ -725,15 +656,8 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '1rem',
     flexWrap: 'wrap',
   },
-  cardEyebrow: {
-    fontSize: '0.72rem',
-    fontWeight: 800,
-    color: 'var(--accent-teal)',
-    letterSpacing: '0.08em',
-    marginBottom: '0.2rem',
-  },
   cardTitle: {
-    fontSize: '1.25rem',
+    fontSize: '1.2rem',
     fontWeight: 800,
     color: 'var(--text-primary)',
     letterSpacing: '-0.02em',
@@ -758,9 +682,8 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'transparent',
   },
   toggleBtnActive: {
-    backgroundColor: 'var(--surface-color)',
+    backgroundColor: 'var(--surface-elevated)',
     color: 'var(--accent-teal)',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
   },
   chartEmpty: {
     display: 'flex',
@@ -783,8 +706,8 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: '0.4rem',
-    backgroundColor: 'rgba(6, 182, 212, 0.08)',
-    border: '1px solid rgba(6, 182, 212, 0.2)',
+    backgroundColor: 'rgba(192, 138, 90, 0.08)',
+    border: '1px solid rgba(192, 138, 90, 0.2)',
     padding: '0.35rem 0.75rem',
     borderRadius: '10px',
     fontSize: '0.78rem',
@@ -798,8 +721,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   weeklyNotice: {
     padding: '0.65rem 1rem',
-    backgroundColor: 'rgba(56, 189, 248, 0.08)',
-    border: '1px solid rgba(56, 189, 248, 0.18)',
+    backgroundColor: 'rgba(192, 138, 90, 0.08)',
+    border: '1px solid rgba(192, 138, 90, 0.18)',
     borderRadius: '12px',
     fontSize: '0.82rem',
     color: 'var(--text-muted)',
@@ -828,6 +751,11 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.88rem',
     fontWeight: 700,
     color: 'var(--text-primary)',
+    flex: '1 1 auto',
+    minWidth: 0,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
   weeklySetsCount: {
     fontSize: '0.92rem',
@@ -846,21 +774,23 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '6px',
     textTransform: 'uppercase',
     letterSpacing: '0.03em',
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
   },
   badgeOptimal: {
-    backgroundColor: 'rgba(52, 211, 153, 0.15)',
-    color: '#34d399',
-    border: '1px solid rgba(52, 211, 153, 0.3)',
+    backgroundColor: 'rgba(76, 175, 125, 0.15)',
+    color: 'var(--accent-green)',
+    border: '1px solid rgba(76, 175, 125, 0.3)',
   },
   badgeHigh: {
-    backgroundColor: 'rgba(251, 191, 36, 0.15)',
-    color: '#fbbf24',
-    border: '1px solid rgba(251, 191, 36, 0.3)',
+    backgroundColor: 'rgba(192, 138, 90, 0.15)',
+    color: 'var(--accent-gold)',
+    border: '1px solid rgba(192, 138, 90, 0.3)',
   },
   badgeMaintenance: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    color: '#38bdf8',
-    border: '1px solid rgba(56, 189, 248, 0.3)',
+    backgroundColor: 'rgba(192, 194, 198, 0.14)',
+    color: '#C0C2C6',
+    border: '1px solid rgba(192, 194, 198, 0.3)',
   },
   badgeMuted: {
     backgroundColor: 'rgba(148, 163, 184, 0.1)',
@@ -912,72 +842,10 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-muted)',
     textAlign: 'center',
   },
-  chartContainer: {
-    height: '240px',
-    width: '100%',
-    display: 'flex',
-    alignItems: 'flex-end',
-    paddingTop: '2rem',
-  },
-  barsRow: {
-    display: 'flex',
-    width: '100%',
-    height: '100%',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    gap: '0.75rem',
-  },
-  barColumn: {
-    flex: 1,
-    height: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    position: 'relative',
-    cursor: 'pointer',
-  },
-  barTooltip: {
-    position: 'absolute',
-    top: '-8px',
-    backgroundColor: 'var(--card-color)',
-    border: '1px solid var(--border-color)',
-    color: 'var(--accent-teal)',
-    padding: '0.25rem 0.5rem',
-    borderRadius: '6px',
-    fontSize: '0.75rem',
-    fontWeight: 700,
-    whiteSpace: 'nowrap',
-    pointerEvents: 'none',
-    transition: 'all 0.15s ease',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
-    zIndex: 10,
-  },
-  barTrack: {
-    width: '100%',
-    maxWidth: '44px',
-    height: 'calc(100% - 30px)',
-    backgroundColor: 'var(--input-bg)',
-    borderRadius: '10px',
-    display: 'flex',
-    alignItems: 'flex-end',
-    overflow: 'hidden',
-  },
-  barFill: {
-    width: '100%',
-    borderRadius: '10px',
-    transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-  },
-  barDate: {
-    fontSize: '0.75rem',
-    marginTop: '0.5rem',
-    textAlign: 'center',
-    whiteSpace: 'nowrap',
-  },
   muscleCard: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '24px',
+    borderRadius: 'var(--radius-container)',
     padding: '1.75rem 2rem',
     display: 'flex',
     flexDirection: 'column',
@@ -1052,7 +920,7 @@ const styles: Record<string, React.CSSProperties> = {
   recentWorkoutsCard: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '24px',
+    borderRadius: 'var(--radius-container)',
     padding: '1.75rem 2rem',
     display: 'flex',
     flexDirection: 'column',
@@ -1077,10 +945,10 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '1rem',
   },
   emptyStartBtn: {
-    backgroundColor: 'var(--accent-blue)',
-    color: '#ffffff',
+    backgroundColor: 'var(--primary)',
+    color: '#0B0D0F',
     padding: '0.6rem 1.25rem',
-    borderRadius: '10px',
+    borderRadius: 'var(--radius-control)',
     fontSize: '0.85rem',
     fontWeight: 700,
   },
@@ -1092,13 +960,13 @@ const styles: Record<string, React.CSSProperties> = {
   recentItemCard: {
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
-    borderRadius: '16px',
+    borderRadius: 'var(--radius-element)',
     padding: '1rem',
     display: 'flex',
     flexDirection: 'column',
     gap: '0.75rem',
     cursor: 'pointer',
-    transition: 'all 0.15s ease',
+    transition: 'border-color 0.15s ease',
   },
   recentItemTop: {
     display: 'flex',
@@ -1114,8 +982,8 @@ const styles: Record<string, React.CSSProperties> = {
   recentStatusBadge: {
     fontSize: '0.7rem',
     fontWeight: 700,
-    color: '#22c55e',
-    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    color: 'var(--accent-green)',
+    backgroundColor: 'rgba(76, 175, 125, 0.12)',
     padding: '0.15rem 0.45rem',
     borderRadius: '6px',
   },
@@ -1137,7 +1005,7 @@ const styles: Record<string, React.CSSProperties> = {
   quickToolsCard: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '24px',
+    borderRadius: 'var(--radius-container)',
     padding: '1.75rem 2rem',
     display: 'flex',
     flexDirection: 'column',
@@ -1155,19 +1023,21 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '0.85rem',
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
-    borderRadius: '14px',
+    borderRadius: 'var(--radius-element)',
     padding: '0.85rem 1rem',
     cursor: 'pointer',
-    transition: 'all 0.15s ease',
+    transition: 'border-color 0.15s ease',
   },
   toolIconWrap: {
     width: '38px',
     height: '38px',
-    borderRadius: '11px',
+    borderRadius: 'var(--radius-element)',
+    backgroundColor: 'var(--accent-teal-glow)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+    color: 'var(--accent-teal)',
   },
   toolTitle: {
     fontSize: '0.9rem',

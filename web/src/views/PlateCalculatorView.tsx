@@ -360,7 +360,7 @@ const styles: Record<string, React.CSSProperties> = {
   headerHero: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '24px',
+    borderRadius: 'var(--radius-container)',
     padding: '2rem 2.5rem',
   },
   eyebrow: {
@@ -400,7 +400,7 @@ const styles: Record<string, React.CSSProperties> = {
   card: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '22px',
+    borderRadius: 'var(--radius-container)',
     padding: '1.6rem 1.85rem',
     display: 'flex',
     flexDirection: 'column',
@@ -411,7 +411,7 @@ const styles: Record<string, React.CSSProperties> = {
   summaryCard: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '22px',
+    borderRadius: 'var(--radius-container)',
     padding: '1.6rem 1.85rem',
     display: 'flex',
     flexDirection: 'column',
@@ -434,7 +434,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '2.2rem',
     fontWeight: 800,
     padding: '0.85rem 3.5rem 0.85rem 1.25rem',
-    borderRadius: '16px',
+    borderRadius: 'var(--radius-container)',
     backgroundColor: 'var(--input-bg)',
     borderColor: 'var(--border-color)',
     color: 'var(--text-primary)',
@@ -460,7 +460,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   presetBtn: {
     padding: '0.6rem 0.5rem',
-    borderRadius: '10px',
+    borderRadius: 'var(--radius-control)',
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
     color: 'var(--text-primary)',
@@ -473,7 +473,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--bg-color)',
     borderColor: 'var(--accent-teal)',
     fontWeight: 800,
-    boxShadow: '0 2px 10px var(--accent-teal-glow)',
+    
   },
   barOptions: {
     display: 'flex',
@@ -482,7 +482,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   barBtn: {
     padding: '0.75rem 1rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
     color: 'var(--text-primary)',
@@ -492,7 +492,7 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
   },
   barBtnActive: {
-    backgroundColor: 'rgba(34, 240, 197, 0.12)',
+    backgroundColor: 'rgba(192, 138, 90, 0.12)',
     borderColor: 'var(--accent-teal)',
     color: 'var(--accent-teal)',
     fontWeight: 700,
@@ -509,10 +509,10 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
   },
   errorAlert: {
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: 'rgba(192, 105, 105, 0.12)',
     color: 'var(--danger-color)',
     padding: '0.75rem 1rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     fontSize: '0.85rem',
     fontWeight: 600,
     display: 'flex',
@@ -520,10 +520,10 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '0.5rem',
   },
   warningAlert: {
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-    color: '#f59e0b',
+    backgroundColor: 'rgba(192, 138, 90, 0.12)',
+    color: 'var(--accent-gold)',
     padding: '0.75rem 1rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     fontSize: '0.85rem',
     fontWeight: 600,
     display: 'flex',
@@ -531,10 +531,10 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '0.5rem',
   },
   successAlert: {
-    backgroundColor: 'rgba(34, 197, 94, 0.12)',
-    color: '#22c55e',
+    backgroundColor: 'rgba(76, 175, 125, 0.12)',
+    color: 'var(--accent-green)',
     padding: '0.75rem 1rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     fontSize: '0.85rem',
     fontWeight: 600,
     display: 'flex',
@@ -547,7 +547,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     height: '150px',
     backgroundColor: 'var(--input-bg)',
-    borderRadius: '16px',
+    borderRadius: 'var(--radius-container)',
     border: '1px solid var(--border-color)',
     padding: '0 1rem',
     overflowX: 'auto',
@@ -593,6 +593,6 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '0.85rem 1.25rem',
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
   },
 };

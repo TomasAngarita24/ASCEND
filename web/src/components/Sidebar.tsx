@@ -9,6 +9,7 @@ import {
   Ruler,
   Calculator,
   Flame,
+  Users,
   type LucideIcon,
   Sun,
   Moon,
@@ -25,7 +26,8 @@ export type NavTab =
   | 'profile'
   | 'measurements'
   | 'plate-calculator'
-  | 'settings';
+  | 'settings'
+  | 'social';
 
 interface SidebarProps {
   activeTab: NavTab;
@@ -46,9 +48,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const navItems: Array<{ id: NavTab; label: string; Icon: LucideIcon; badge?: string }> = [
     { id: 'home', label: 'Inicio', Icon: Home },
-    { id: 'routines', label: 'Entrenamientos', Icon: Dumbbell },
+    { id: 'routines', label: 'Rutinas', Icon: Dumbbell },
     { id: 'exercises', label: 'Biblioteca', Icon: BookOpen },
     { id: 'history', label: 'Historial', Icon: History },
+    { id: 'social', label: 'Social', Icon: Users },
     { id: 'measurements', label: 'Medidas', Icon: Ruler },
     { id: 'plate-calculator', label: 'Calculadora', Icon: Calculator },
     { id: 'profile', label: 'Perfil', Icon: User },
@@ -66,7 +69,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         aria-label="Ir a inicio"
       >
         <div style={styles.logoBadge}>
-          <Dumbbell size={24} color="var(--accent-teal)" />
+          <img src="/logo.png" alt="ASCEND" style={{ height: 28, width: 'auto', display: 'block' }} />
         </div>
         <div style={styles.brandTextWrapper}>
           <span style={styles.brandName}>ASCEND</span>
@@ -91,8 +94,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Navigation Section */}
       <div style={styles.navSection}>
-        <div style={styles.sectionLabel}>MENÚ PRINCIPAL</div>
-
         <nav style={styles.navList}>
           {navItems.map(({ id, label, Icon }) => {
             const isActive = activeTab === id;
@@ -104,6 +105,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   ...(isActive ? styles.navItemActive : styles.navItemInactive),
                 }}
                 onClick={() => onTabChange(id)}
+                aria-current={isActive ? 'page' : undefined}
               >
                 <div style={{
                   ...styles.iconContainer,
@@ -120,10 +122,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </span>
 
                 {id === 'active-workout' && hasActiveWorkout && (
-                  <span style={styles.activeDot} />
+                  <span style={styles.activeDot} aria-hidden="true" />
                 )}
-
-                {isActive && <div style={styles.activeGlowBar} />}
               </button>
             );
           })}
@@ -139,7 +139,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             style={styles.themeBtn}
             title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
           >
-            {theme === 'dark' ? <Sun size={17} color="#eab308" /> : <Moon size={17} color="#2563eb" />}
+            {theme === 'dark' ? <Sun size={17} color="var(--accent-gold)" /> : <Moon size={17} color="var(--accent-blue)" />}
             <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>
               {theme === 'dark' ? 'Oscuro' : 'Claro'}
             </span>
@@ -183,21 +183,20 @@ const styles: Record<string, React.CSSProperties> = {
     outline: 'none',
     width: '100%',
     textAlign: 'left',
-    borderRadius: '14px',
+    borderRadius: 'var(--radius-element)',
     userSelect: 'none',
     WebkitUserSelect: 'none',
     transition: 'transform 0.15s ease, opacity 0.15s ease',
   },
   logoBadge: {
-    backgroundColor: 'rgba(6, 182, 212, 0.12)',
-    border: '1px solid rgba(6, 182, 212, 0.25)',
+    backgroundColor: 'var(--accent-teal-glow)',
+    border: '1px solid var(--border-highlight)',
     width: '42px',
     height: '42px',
-    borderRadius: '13px',
+    borderRadius: 'var(--radius-element)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '0 0 16px var(--accent-teal-glow)',
   },
   brandTextWrapper: {
     display: 'flex',
@@ -205,29 +204,29 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '0.5rem',
   },
   brandName: {
-    fontSize: '1.45rem',
+    fontSize: '1.4rem',
     fontWeight: 800,
     letterSpacing: '-0.03em',
     color: 'var(--text-primary)',
   },
   betaBadge: {
-    background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.2) 0%, rgba(37, 99, 235, 0.2) 100%)',
+    background: 'var(--accent-teal-glow)',
     color: 'var(--accent-teal)',
-    border: '1px solid rgba(6, 182, 212, 0.3)',
-    fontSize: '0.68rem',
+    border: '1px solid var(--border-highlight)',
+    fontSize: '0.66rem',
     fontWeight: 800,
-    padding: '0.15rem 0.45rem',
-    borderRadius: '6px',
-    letterSpacing: '0.05em',
+    padding: '0.14rem 0.45rem',
+    borderRadius: 'var(--radius-element)',
+    letterSpacing: '0.08em',
   },
   activeWorkoutBanner: {
     display: 'flex',
     alignItems: 'center',
     gap: '0.75rem',
     padding: '0.75rem 1rem',
-    borderRadius: '14px',
-    background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(37, 99, 235, 0.08) 100%)',
-    border: '1px solid rgba(6, 182, 212, 0.3)',
+    borderRadius: 'var(--radius-control)',
+    background: 'var(--accent-teal-glow)',
+    border: '1px solid var(--border-highlight)',
     marginBottom: '1.25rem',
     cursor: 'pointer',
     textAlign: 'left',
@@ -236,19 +235,18 @@ const styles: Record<string, React.CSSProperties> = {
     outline: 'none',
   },
   activeWorkoutPulse: {
-    position: 'absolute',
-    left: '8px',
-    top: '8px',
-    width: '6px',
-    height: '6px',
+    width: '7px',
+    height: '7px',
     borderRadius: '50%',
     backgroundColor: 'var(--accent-teal)',
-    boxShadow: '0 0 8px var(--accent-teal)',
+    flexShrink: 0,
+    marginLeft: 'auto',
+    order: 3,
   },
   activeWorkoutTitle: {
     fontSize: '0.85rem',
     fontWeight: 700,
-    color: 'var(--accent-teal)',
+    color: 'var(--text-primary)',
   },
   activeWorkoutSub: {
     fontSize: '0.72rem',
@@ -258,28 +256,20 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.75rem',
+    gap: '0.5rem',
     overflowY: 'auto',
-  },
-  sectionLabel: {
-    fontSize: '0.72rem',
-    fontWeight: 800,
-    letterSpacing: '0.08em',
-    color: 'var(--text-dim)',
-    paddingLeft: '0.65rem',
-    marginBottom: '0.1rem',
   },
   navList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.3rem',
+    gap: '0.25rem',
   },
   navItem: {
     display: 'flex',
     alignItems: 'center',
-    padding: '0.65rem 0.85rem',
+    padding: '0.6rem 0.85rem',
     gap: '0.85rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-control)',
     fontSize: '0.92rem',
     width: '100%',
     textAlign: 'left',
@@ -294,20 +284,22 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'transparent',
   },
   navItemActive: {
-    backgroundColor: 'var(--card-color)',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+    backgroundColor: 'var(--surface-elevated)',
+    border: '1px solid var(--border-color)',
+    padding: '0.6rem 0.85rem',
   },
   iconContainer: {
     width: '32px',
     height: '32px',
-    borderRadius: '8px',
+    borderRadius: 'var(--radius-element)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     transition: 'all 0.15s ease',
+    flexShrink: 0,
   },
   iconActive: {
-    backgroundColor: 'rgba(6, 182, 212, 0.12)',
+    backgroundColor: 'var(--accent-teal-glow)',
   },
   iconInactive: {
     backgroundColor: 'transparent',
@@ -317,22 +309,11 @@ const styles: Record<string, React.CSSProperties> = {
     letterSpacing: '-0.01em',
   },
   activeDot: {
-    width: '7px',
-    height: '7px',
+    width: '6px',
+    height: '6px',
     borderRadius: '50%',
     backgroundColor: 'var(--accent-teal)',
-    boxShadow: '0 0 8px var(--accent-teal)',
-  },
-  activeGlowBar: {
-    position: 'absolute',
-    right: '8px',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    width: '3px',
-    height: '18px',
-    borderRadius: '2px',
-    backgroundColor: 'var(--accent-teal)',
-    boxShadow: '0 0 8px var(--accent-teal)',
+    flexShrink: 0,
   },
   sidebarFooter: {
     display: 'flex',
@@ -357,7 +338,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '0.45rem',
     padding: '0.35rem 0.65rem',
-    borderRadius: '9px',
+    borderRadius: 'var(--radius-control)',
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
     color: 'var(--text-primary)',

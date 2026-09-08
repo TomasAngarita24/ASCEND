@@ -1,0 +1,27 @@
+# ASCEND - automatic HTTPS reverse proxy in front of the web (nginx) container.
+#
+# Set APP_DOMAIN in the repo .env to your published domain (e.g.
+# APP_DOMAIN=ascend.example.com) and Caddy will obtain and renew Let's Encrypt
+# certificates automatically (requires ports 80 and 443 reachable).
+# Defaults to "localhost", which triggers Caddy's internal CA for local TLS
+# testing without touching Let's Encrypt.
+
+{$APP_DOMAIN:localhost} {
+	# Terminate TLS, then hand everything to the web container (SPA + API proxy).
+	reverse_proxy web:8080
+
+	encode gzip zstd
+
+	# HSTS is only sent over HTTPS; harmless on localhost.
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+	# Nice-to-haves: block dotfiles and basic security headers.
+	header {
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	# Standard Caddy security snippet.
+	@dotfiles path_regexp ^/\..*
+	respond @dotfiles 404
+}

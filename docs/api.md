@@ -1044,7 +1044,7 @@ Returns muscle-group statistics derived from exercise associations and recorded 
 }
 ```
 
-Muscle-balance visualizations and the heatmap remain future features; this endpoint supplies the data that may support them.
+This endpoint supplies muscle-balance data for client-side visualizations.
 
 `trainingFrequency` counts each completed workout at most once per muscle group. The full completed-set volume of an exercise contributes to every target muscle group associated with that exercise.
 
@@ -1053,6 +1053,109 @@ Muscle-balance visualizations and the heatmap remain future features; this endpo
 - `400 Bad Request` — A date range, metric, or exercise identifier is invalid.
 - `401 Unauthorized` — Access token is missing, invalid, or expired.
 - `404 Not Found` — The requested exercise does not exist or is not accessible to the authenticated user.
+
+## Routine Templates
+
+Templates are predefined single-session routines seeded from the global exercise catalog. They are read-only; an authenticated user adds a copy of a template to their own routines.
+
+### `GET /routine-templates`
+
+Lists predefined routine templates. Supports the optional query filters `level` (`beginner`, `intermediate`, `advanced`), `goal` (`strength`, `hypertrophy`, `general`), and `equipment` (`Barra`, `Mancuernas`, `Maquinas`, `Ninguno`). Templates with no resolved exercises are excluded.
+
+#### Success response — `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "slug": "full-body-barbell",
+      "name": "Full Body (Barra)",
+      "description": "Cuerpo completo en una sola sesión con barra.",
+      "level": "beginner",
+      "goal": "general",
+      "equipment": "Barra",
+      "exerciseCount": 6
+    }
+  ]
+}
+```
+
+#### Validation errors
+
+- `400 VALIDATION_ERROR` — An unsupported filter value was supplied.
+
+### `GET /routine-templates/:templateId`
+
+Returns one predefined routine template with its exercises ordered by position.
+
+#### Success response — `200 OK`
+
+```json
+{
+  "template": {
+    "id": "uuid",
+    "slug": "full-body-barbell",
+    "name": "Full Body (Barra)",
+    "description": "...",
+    "level": "beginner",
+    "goal": "general",
+    "equipment": "Barra",
+    "exerciseCount": 6,
+    "exercises": [
+      {
+        "id": "uuid",
+        "position": 1,
+        "targetSets": 3,
+        "targetRepetitionsMin": 8,
+        "targetRepetitionsMax": 12,
+        "restSeconds": 120,
+        "exercise": { "id": "uuid", "name": "Sentadilla con barra" }
+      }
+    ]
+  }
+}
+```
+
+#### Error responses
+
+- `404 ROUTINE_TEMPLATE_NOT_FOUND` — The template does not exist.
+
+### `POST /routine-templates/:templateId/add`
+
+Creates a copy of the template as a routine owned by the authenticated user, including its exercises and their target sets, repetitions, and rest. The routine is created without a folder and with the template's name.
+
+#### Success response — `201 Created`
+
+```json
+{
+  "routine": {
+    "id": "uuid",
+    "name": "Full Body (Barra)",
+    "folderId": null,
+    "exercises": [
+      {
+        "id": "uuid",
+        "position": 1,
+        "targetSets": 3,
+        "targetRepetitionsMin": 8,
+        "targetRepetitionsMax": 12,
+        "targetWeight": null,
+        "restSeconds": 120,
+        "notes": null,
+        "exercise": { "id": "uuid", "name": "Sentadilla con barra" }
+      }
+    ],
+    "createdAt": "2026-09-07T04:00:00.000Z",
+    "updatedAt": "2026-09-07T04:00:00.000Z"
+  }
+}
+```
+
+#### Error responses
+
+- `404 ROUTINE_TEMPLATE_NOT_FOUND` — The template does not exist.
+- `422 ROUTINE_TEMPLATE_EMPTY` — The template has no resolved exercises to copy.
 
 ## Client-Side Features Without API Endpoints
 
@@ -1068,25 +1171,6 @@ The plate calculator is a stateless calculation based on target weight, barbell 
 
 The following endpoints document the existing post-MVP and future feature scope. They are reserved contracts: their database models and implementation are not yet defined.
 
-### Supersets
-
-| Endpoint | Purpose |
-| --- | --- |
-| `POST /routines/:routineId/supersets` | Creates a superset from two or more routine exercises. |
-| `POST /routines/:routineId/supersets/:supersetId/exercises` | Adds a routine exercise to a superset. |
-| `DELETE /routines/:routineId/supersets/:supersetId/exercises/:routineExerciseId` | Removes a routine exercise from a superset. |
-| `DELETE /routines/:routineId/supersets/:supersetId` | Removes a superset. |
-
-Superset exercises remain independently tracked when a routine is used to start a workout.
-
-### Routine Templates
-
-| Endpoint | Purpose |
-| --- | --- |
-| `GET /routine-templates` | Lists predefined templates; supports experience level, training goal, and equipment filters. |
-| `GET /routine-templates/:templateId` | Returns one predefined routine template. |
-| `POST /routine-templates/:templateId/add` | Adds a copy of a template to the authenticated user's routines. |
-
 ### Social Features
 
 | Endpoint | Purpose |
@@ -1096,6 +1180,7 @@ Superset exercises remain independently tracked when a routine is used to start 
 | `DELETE /users/:userId/follow` | Unfollows a user. |
 | `GET /users/:userId/followers` | Lists a user's followers. |
 | `GET /users/:userId/following` | Lists users followed by that user. |
+| `GET /users/search?q=<name>` | Searches users by name to follow. |
 | `GET /social/feed` | Returns the workout feed. |
 | `POST /workouts/:workoutId/share` | Shares a workout to the feed. |
 | `POST /routines/:routineId/share` | Shares a routine to the feed. |

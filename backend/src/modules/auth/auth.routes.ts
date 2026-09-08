@@ -1,15 +1,15 @@
 import { Router } from 'express';
 
 import { asyncHandler } from '../../lib/async-handler';
-import { credentialLimiter } from '../../middleware/rate-limit';
+import { credentialLimiter, perEmailCredentialLimiter } from '../../middleware/rate-limit';
 import { authenticate } from './auth.middleware';
 import { setAuthCookies, clearAuthCookies, REFRESH_TOKEN_COOKIE } from './auth.cookies';
-import { authenticateWithGoogle, changePassword, deleteAccount, forgotPassword, getAuthenticatedUser, login, logout, refresh, register, resetPassword, updateProfile } from './auth.service';
+import { authenticateWithGoogle, changePassword, deleteAccount, forgotPassword, login, logout, refresh, register, resetPassword, updateProfile } from './auth.service';
 import { validateChangePassword, validateCredentials, validateForgotPassword, validateGoogleAuth, validateRefreshToken, validateResetPassword, validateUpdateProfile } from './auth.validation';
 
 export const authRouter = Router();
 
-authRouter.post('/register', credentialLimiter, asyncHandler(async (request, response) => {
+authRouter.post('/register', credentialLimiter, perEmailCredentialLimiter, asyncHandler(async (request, response) => {
   const credentials = validateCredentials(request.body);
   const result = await register(credentials);
   setAuthCookies(response, result);
@@ -17,7 +17,7 @@ authRouter.post('/register', credentialLimiter, asyncHandler(async (request, res
   response.status(201).json(result);
 }));
 
-authRouter.post('/login', credentialLimiter, asyncHandler(async (request, response) => {
+authRouter.post('/login', credentialLimiter, perEmailCredentialLimiter, asyncHandler(async (request, response) => {
   const credentials = validateCredentials(request.body);
   const result = await login(credentials);
   setAuthCookies(response, result);

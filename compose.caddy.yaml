@@ -1,0 +1,31 @@
+# ASCEND - optional Caddy TLS proxy in front of the web container.
+#
+# Use by stacking it on top of the base stack:
+#   docker compose -f compose.yaml -f compose.caddy.yaml up -d --build
+#
+# Then set APP_DOMAIN in .env (e.g. APP_DOMAIN=ascend.example.com) and open
+# https://<domain>. Without APP_DOMAIN it falls back to "localhost" and Caddy
+# serves https://localhost with its internal CA (for local testing).
+#
+# If you prefer no reverse proxy at all, keep using only compose.yaml (plain
+# http on port 8080 via nginx).
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+
+volumes:
+  caddy_data:
+  caddy_config:

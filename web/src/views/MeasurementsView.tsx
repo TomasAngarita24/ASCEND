@@ -46,7 +46,7 @@ const LineChart: React.FC<LineChartProps> = ({ points, color, unit, label }) => 
   if (points.length === 0) {
     return (
       <div style={{ height: H + PAD.top + PAD.bottom, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ color: '#64748b', fontSize: '0.9rem' }}>Sin datos registrados aún</span>
+        <span style={{ color: 'var(--text-dim)', fontSize: '0.9rem' }}>Sin datos registrados aún</span>
       </div>
     );
   }
@@ -93,7 +93,7 @@ const LineChart: React.FC<LineChartProps> = ({ points, color, unit, label }) => 
         <g key={val}>
           <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y}
             stroke="rgba(255,255,255,0.06)" strokeWidth="1" strokeDasharray="4 4" />
-          <text x={PAD.left - 6} y={y + 4} textAnchor="end" fill="#64748b" fontSize="11">
+          <text x={PAD.left - 6} y={y + 4} textAnchor="end" fill="var(--text-dim)" fontSize="11">
             {val % 1 === 0 ? val : val.toFixed(1)}
           </text>
         </g>
@@ -109,7 +109,7 @@ const LineChart: React.FC<LineChartProps> = ({ points, color, unit, label }) => 
       {points.map((p, i) => (
         <g key={i}>
           <circle cx={toX(i)} cy={toY(p.value)} r="5" fill={color} />
-          <circle cx={toX(i)} cy={toY(p.value)} r="3" fill="#0f1417" />
+          <circle cx={toX(i)} cy={toY(p.value)} r="3" fill="var(--bg-color)" />
         </g>
       ))}
 
@@ -118,14 +118,14 @@ const LineChart: React.FC<LineChartProps> = ({ points, color, unit, label }) => 
         const idx = points.indexOf(p);
         return (
           <text key={i} x={toX(idx)} y={H + PAD.top + 20}
-            textAnchor="middle" fill="#64748b" fontSize="10">
+            textAnchor="middle" fill="var(--text-dim)" fontSize="10">
             {p.date.slice(5)} {/* MM-DD */}
           </text>
         );
       })}
 
       {/* Unit label */}
-      <text x={PAD.left - 6} y={PAD.top - 4} textAnchor="end" fill="#94a3b8" fontSize="10">{unit}</text>
+      <text x={PAD.left - 6} y={PAD.top - 4} textAnchor="end" fill="var(--text-muted)" fontSize="10">{unit}</text>
     </svg>
   );
 };
@@ -150,9 +150,9 @@ const TrendBadge: React.FC<{ current: number | null; prev: number | null; unit: 
 };
 
 const badgeStyles: Record<string, React.CSSProperties> = {
-  positive: { display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#22c55e', fontSize: '0.8rem', fontWeight: 700 },
-  negative: { display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#ef4444', fontSize: '0.8rem', fontWeight: 700 },
-  neutral: { display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#94a3b8', fontSize: '0.8rem', fontWeight: 700 },
+  positive: { display: 'inline-flex', alignItems: 'center', gap: '3px', color: 'var(--accent-green)', fontSize: '0.8rem', fontWeight: 700 },
+  negative: { display: 'inline-flex', alignItems: 'center', gap: '3px', color: 'var(--danger-color)', fontSize: '0.8rem', fontWeight: 700 },
+  neutral: { display: 'inline-flex', alignItems: 'center', gap: '3px', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700 },
 };
 
 // ─── Field config ─────────────────────────────────────────────────────────────
@@ -160,16 +160,16 @@ const badgeStyles: Record<string, React.CSSProperties> = {
 interface FieldDef { key: string; label: string; unit: string; color: string; lowerIsBetter?: boolean }
 
 const FIELDS: FieldDef[] = [
-  { key: 'weight', label: 'Peso corporal', unit: 'kg', color: '#06b6d4', lowerIsBetter: false },
-  { key: 'bodyFat', label: 'Grasa corporal', unit: '%', color: '#f97316', lowerIsBetter: true },
-  { key: 'neck', label: 'Cuello', unit: 'cm', color: '#a78bfa', lowerIsBetter: false },
-  { key: 'shoulders', label: 'Hombros', unit: 'cm', color: '#60a5fa', lowerIsBetter: false },
-  { key: 'chest', label: 'Pecho', unit: 'cm', color: '#34d399', lowerIsBetter: false },
-  { key: 'waist', label: 'Cintura', unit: 'cm', color: '#ef4444', lowerIsBetter: true },
-  { key: 'hips', label: 'Cadera', unit: 'cm', color: '#f472b6', lowerIsBetter: false },
-  { key: 'bicep', label: 'Bícep', unit: 'cm', color: '#fbbf24', lowerIsBetter: false },
-  { key: 'thigh', label: 'Muslo', unit: 'cm', color: '#2dd4bf', lowerIsBetter: false },
-  { key: 'calf', label: 'Pantorrilla', unit: 'cm', color: '#a3e635', lowerIsBetter: false },
+  { key: 'weight', label: 'Peso corporal', unit: 'kg', color: 'var(--accent-teal)', lowerIsBetter: false },
+  { key: 'bodyFat', label: 'Grasa corporal', unit: '%', color: '#B5754F', lowerIsBetter: true },
+  { key: 'neck', label: 'Cuello', unit: 'cm', color: '#C0C2C6', lowerIsBetter: false },
+  { key: 'shoulders', label: 'Hombros', unit: 'cm', color: '#B8914D', lowerIsBetter: false },
+  { key: 'chest', label: 'Pecho', unit: 'cm', color: '#4CAF7D', lowerIsBetter: false },
+  { key: 'waist', label: 'Cintura', unit: 'cm', color: 'var(--danger-color)', lowerIsBetter: true },
+  { key: 'hips', label: 'Cadera', unit: 'cm', color: '#B8914D', lowerIsBetter: false },
+  { key: 'bicep', label: 'Bícep', unit: 'cm', color: '#E1C27A', lowerIsBetter: false },
+  { key: 'thigh', label: 'Muslo', unit: 'cm', color: '#6FC79B', lowerIsBetter: false },
+  { key: 'calf', label: 'Pantorrilla', unit: 'cm', color: '#7A9E87', lowerIsBetter: false },
 ];
 
 // ─── Empty form helper ────────────────────────────────────────────────────────
@@ -193,63 +193,63 @@ export const MeasurementsView: React.FC<MeasurementsViewProps> = ({ tokens }) =>
   const [showForm, setShowForm] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
-  const loadMeasurements = async () => {
-    setLoading(true);
-    try {
-      // 1. Check if localStorage has old measurements that need migration
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        try {
-          const localList = JSON.parse(raw);
-          if (Array.isArray(localList) && localList.length > 0) {
-            for (const item of localList) {
-              if (item && item.date) {
-                await api.saveMeasurement(tokens.accessToken, {
-                  date: item.date,
-                  weight: item.weight !== null && item.weight !== undefined ? Number(item.weight) : null,
-                  neck: item.neck !== null && item.neck !== undefined ? Number(item.neck) : null,
-                  shoulders: item.shoulders !== null && item.shoulders !== undefined ? Number(item.shoulders) : null,
-                  chest: item.chest !== null && item.chest !== undefined ? Number(item.chest) : null,
-                  waist: item.waist !== null && item.waist !== undefined ? Number(item.waist) : null,
-                  hips: item.hips !== null && item.hips !== undefined ? Number(item.hips) : null,
-                  bicep: item.bicep !== null && item.bicep !== undefined ? Number(item.bicep) : null,
-                  thigh: item.thigh !== null && item.thigh !== undefined ? Number(item.thigh) : null,
-                  calf: item.calf !== null && item.calf !== undefined ? Number(item.calf) : null,
-                  bodyFat: item.bodyFat !== null && item.bodyFat !== undefined ? Number(item.bodyFat) : null,
-                });
+  useEffect(() => {
+    const loadMeasurements = async () => {
+      setLoading(true);
+      try {
+        // 1. Check if localStorage has old measurements that need migration
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          try {
+            const localList = JSON.parse(raw);
+            if (Array.isArray(localList) && localList.length > 0) {
+              for (const item of localList) {
+                if (item && item.date) {
+                  await api.saveMeasurement(tokens.accessToken, {
+                    date: item.date,
+                    weight: item.weight !== null && item.weight !== undefined ? Number(item.weight) : null,
+                    neck: item.neck !== null && item.neck !== undefined ? Number(item.neck) : null,
+                    shoulders: item.shoulders !== null && item.shoulders !== undefined ? Number(item.shoulders) : null,
+                    chest: item.chest !== null && item.chest !== undefined ? Number(item.chest) : null,
+                    waist: item.waist !== null && item.waist !== undefined ? Number(item.waist) : null,
+                    hips: item.hips !== null && item.hips !== undefined ? Number(item.hips) : null,
+                    bicep: item.bicep !== null && item.bicep !== undefined ? Number(item.bicep) : null,
+                    thigh: item.thigh !== null && item.thigh !== undefined ? Number(item.thigh) : null,
+                    calf: item.calf !== null && item.calf !== undefined ? Number(item.calf) : null,
+                    bodyFat: item.bodyFat !== null && item.bodyFat !== undefined ? Number(item.bodyFat) : null,
+                  });
+                }
               }
             }
+            localStorage.removeItem(STORAGE_KEY);
+          } catch (e) {
+            console.error('Error migrating local measurements:', e);
           }
-          localStorage.removeItem(STORAGE_KEY);
-        } catch (e) {
-          console.error('Error migrating local measurements:', e);
         }
+
+        // 2. Fetch measurements from backend
+        const data = await api.listMeasurements(tokens.accessToken);
+        setEntries(data.map((m) => ({
+          id: m.id,
+          date: m.date.slice(0, 10),
+          weight: m.weight,
+          neck: m.neck,
+          shoulders: m.shoulders,
+          chest: m.chest,
+          waist: m.waist,
+          hips: m.hips,
+          bicep: m.bicep,
+          thigh: m.thigh,
+          calf: m.calf,
+          bodyFat: m.bodyFat,
+        })));
+      } catch {
+        // Ignore
+      } finally {
+        setLoading(false);
       }
+    };
 
-      // 2. Fetch measurements from backend
-      const data = await api.listMeasurements(tokens.accessToken);
-      setEntries(data.map((m) => ({
-        id: m.id,
-        date: m.date.slice(0, 10),
-        weight: m.weight,
-        neck: m.neck,
-        shoulders: m.shoulders,
-        chest: m.chest,
-        waist: m.waist,
-        hips: m.hips,
-        bicep: m.bicep,
-        thigh: m.thigh,
-        calf: m.calf,
-        bodyFat: m.bodyFat,
-      })));
-    } catch {
-      // Ignore
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
     loadMeasurements();
   }, [tokens]);
 
@@ -448,7 +448,7 @@ export const MeasurementsView: React.FC<MeasurementsViewProps> = ({ tokens }) =>
                       </div>
                     </div>
                     <button style={styles.deleteBtn} onClick={() => setConfirmDelete(e.id)}>
-                      <Trash2 size={15} color="#ef4444" />
+                      <Trash2 size={15} color="var(--danger-color)" />
                     </button>
                   </div>
                 ))}
@@ -518,11 +518,11 @@ export const MeasurementsView: React.FC<MeasurementsViewProps> = ({ tokens }) =>
       {confirmDelete && (
         <div className="modal-overlay" onClick={() => setConfirmDelete(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px', textAlign: 'center' }}>
-            <Trash2 size={32} color="#ef4444" style={{ margin: '0 auto 1rem' }} />
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#E6EEF3', marginBottom: '0.5rem' }}>
+            <Trash2 size={32} color="var(--danger-color)" style={{ margin: '0 auto 1rem' }} />
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
               ¿Eliminar esta entrada?
             </h3>
-            <p style={{ color: '#94a3b8', marginBottom: '1.5rem' }}>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
               Se eliminarán todos los datos de esta fecha. Esta acción no se puede deshacer.
             </p>
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
@@ -560,9 +560,9 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '0.6rem',
     backgroundColor: 'var(--accent-teal)',
-    color: '#0b0f19',
+    color: 'var(--bg-color)',
     padding: '0.85rem 1.75rem',
-    borderRadius: '14px',
+    borderRadius: 'var(--radius-container)',
     fontWeight: 700,
     fontSize: '1rem',
     border: 'none',
@@ -571,7 +571,7 @@ const styles: Record<string, React.CSSProperties> = {
   formCard: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '20px',
+    borderRadius: 'var(--radius-container)',
     padding: '2rem 2.5rem',
     display: 'flex',
     flexDirection: 'column',
@@ -605,7 +605,7 @@ const styles: Record<string, React.CSSProperties> = {
   input: {
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
-    borderRadius: '10px',
+    borderRadius: 'var(--radius-control)',
     padding: '0.75rem 1rem',
     fontSize: '1rem',
     color: 'var(--text-primary)',
@@ -614,9 +614,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
   saveBtn: {
     backgroundColor: 'var(--accent-teal)',
-    color: '#0b0f19',
+    color: 'var(--bg-color)',
     padding: '0.85rem 2rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     fontWeight: 700,
     fontSize: '1rem',
     border: 'none',
@@ -643,7 +643,7 @@ const styles: Record<string, React.CSSProperties> = {
   card: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '20px',
+    borderRadius: 'var(--radius-container)',
     padding: '1.75rem 2rem',
     display: 'flex',
     flexDirection: 'column',
@@ -685,15 +685,15 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: '0.65rem 0.85rem',
-    borderRadius: '10px',
+    borderRadius: 'var(--radius-control)',
     cursor: 'pointer',
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
     transition: 'all 0.15s',
   },
   measureRowActive: {
-    backgroundColor: 'rgba(34,240,197,0.08)',
-    border: '1px solid rgba(34,240,197,0.3)',
+    backgroundColor: 'rgba(192,138,90,0.08)',
+    border: '1px solid rgba(192,138,90,0.3)',
   },
   measureDot: {
     width: '9px',
@@ -725,7 +725,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '0.65rem 0.85rem',
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
-    borderRadius: '10px',
+    borderRadius: 'var(--radius-control)',
   },
   historyDate: {
     fontSize: '0.9rem',
@@ -739,9 +739,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
   deleteBtn: {
     padding: '0.35rem',
-    borderRadius: '7px',
+    borderRadius: 'var(--radius-element)',
     cursor: 'pointer',
-    backgroundColor: 'rgba(239,68,68,0.1)',
+    backgroundColor: 'rgba(217,108,108,0.1)',
     border: 'none',
     display: 'flex',
     alignItems: 'center',
@@ -749,7 +749,7 @@ const styles: Record<string, React.CSSProperties> = {
   chartTabsCard: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '16px',
+    borderRadius: 'var(--radius-container)',
     padding: '1rem 1.5rem',
   },
   chartTabsRow: {
@@ -759,7 +759,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   chartTab: {
     padding: '0.4rem 0.9rem',
-    borderRadius: '8px',
+    borderRadius: 'var(--radius-element)',
     fontSize: '0.82rem',
     fontWeight: 600,
     color: 'var(--text-muted)',
@@ -769,7 +769,7 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'all 0.15s',
   },
   chartTabActive: {
-    backgroundColor: 'rgba(34,240,197,0.08)',
+    backgroundColor: 'rgba(192,138,90,0.08)',
     borderColor: 'var(--accent-teal)',
     color: 'var(--text-primary)',
     borderWidth: '1.5px',
@@ -811,7 +811,7 @@ const styles: Record<string, React.CSSProperties> = {
   miniChartCard: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '16px',
+    borderRadius: 'var(--radius-container)',
     padding: '1.25rem 1.5rem',
     cursor: 'pointer',
     display: 'flex',
@@ -838,7 +838,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   cancelModalBtn: {
     padding: '0.75rem 1.5rem',
-    borderRadius: '10px',
+    borderRadius: 'var(--radius-control)',
     color: 'var(--text-muted)',
     fontWeight: 600,
     fontSize: '1rem',
@@ -847,10 +847,10 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--input-bg)',
   },
   confirmDeleteBtn: {
-    backgroundColor: '#ef4444',
+    backgroundColor: 'var(--danger-color)',
     color: '#fff',
     padding: '0.75rem 1.5rem',
-    borderRadius: '10px',
+    borderRadius: 'var(--radius-control)',
     fontWeight: 700,
     fontSize: '1rem',
     border: 'none',

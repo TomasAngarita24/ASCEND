@@ -10,6 +10,7 @@ import {
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 import { api, type ExerciseSummary, type RoutineDetail, type Tokens } from '../api/api';
 import { matchesSearch } from '../utils/text';
 import { ConfirmModal } from './ConfirmModal';
@@ -25,6 +26,7 @@ export interface RoutineEditorExercise {
   routineExerciseId: string | null;
   exerciseId: string;
   name: string;
+  mediaUrl?: string | null;
   targetMuscleGroups: string[];
   equipment: string | null;
   notes: string;
@@ -81,6 +83,37 @@ const REST_TIMER_OPTIONS = [
   { value: 300, label: '5 min (300s)' },
 ];
 
+const ThumbImg: React.FC<{ url: string; name: string }> = ({ url, name }) => {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <Dumbbell size={16} color="var(--accent-teal)" />;
+
+  return (
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        backgroundColor: '#fff',
+        overflow: 'hidden',
+      }}
+    >
+      <img
+        src={url}
+        alt={name}
+        draggable={false}
+        onError={() => setFailed(true)}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          objectPosition: '-26% 0%',
+          transform: 'translateY(2.5px)',
+          display: 'block',
+        }}
+      />
+    </div>
+  );
+};
+
 export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
   tokens,
   isNew,
@@ -91,6 +124,7 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
   onClose,
   onSaved,
 }) => {
+  const navigate = useNavigate();
   const [routineName, setRoutineName] = useState(initialName || 'Nueva rutina');
   const [exercises, setExercises] = useState<RoutineEditorExercise[]>(() => {
     if (initialExercises && initialExercises.length > 0) {
@@ -108,6 +142,7 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
           routineExerciseId: e.id ?? null,
           exerciseId: exId,
           name: exName,
+          mediaUrl: e.mediaUrl || e.exercise?.mediaUrl || null,
           targetMuscleGroups: e.targetMuscleGroups || e.exercise?.targetMuscleGroups || [],
           equipment: e.equipment || e.exercise?.equipment || null,
           notes: e.notes || '',
@@ -173,6 +208,24 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
       .catch(() => {})
       .finally(() => setLibraryLoading(false));
   }, [tokens]);
+
+  // Backfill thumbnails from the catalog for exercises loaded from a saved routine
+  useEffect(() => {
+    if (catalogExercises.length === 0) return;
+    setExercises((prev) => {
+      let changed = false;
+      const next = prev.map((ex) => {
+        if (ex.mediaUrl) return ex;
+        const match = catalogExercises.find((c) => c.id === ex.exerciseId);
+        if (match && match.mediaUrl) {
+          changed = true;
+          return { ...ex, mediaUrl: match.mediaUrl };
+        }
+        return ex;
+      });
+      return changed ? next : prev;
+    });
+  }, [catalogExercises]);
 
   // Auto-save draft in localStorage if it's a new routine
   useEffect(() => {
@@ -269,6 +322,7 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
         routineExerciseId: null,
         exerciseId: catalogItem.id,
         name: catalogItem.name,
+        mediaUrl: catalogItem.mediaUrl || null,
         targetMuscleGroups: catalogItem.targetMuscleGroups || [],
         equipment: catalogItem.equipment || null,
         notes: '',
@@ -621,10 +675,20 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
                         >
                           <GripVertical size={18} color="var(--accent-teal)" />
                         </div>
-                        <div style={styles.exerciseThumbBadge}>
-                          <Dumbbell size={18} color="var(--accent-teal)" />
+<div
+                          style={styles.exerciseLink}
+                          onClick={() => navigate(`/exercises/${ex.exerciseId}`)}
+                          title="Ver ejercicio en la biblioteca"
+                        >
+                          <div style={styles.exerciseThumbBadge}>
+                            {ex.mediaUrl ? (
+                              <ThumbImg url={ex.mediaUrl} name={ex.name} />
+                            ) : (
+                              <Dumbbell size={18} color="var(--accent-teal)" />
+                            )}
+                          </div>
+                          <span style={styles.exerciseCardTitle}>{ex.name}</span>
                         </div>
-                        <span style={styles.exerciseCardTitle}>{ex.name}</span>
                       </div>
 
                     <div style={styles.cardHeaderActions}>
@@ -890,7 +954,11 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
                       </button>
 
                       <div style={styles.libraryItemThumb}>
-                        <Dumbbell size={16} color="var(--accent-teal)" />
+                        {item.mediaUrl ? (
+                          <ThumbImg url={item.mediaUrl} name={item.name} />
+                        ) : (
+                          <Dumbbell size={16} color="var(--accent-teal)" />
+                        )}
                       </div>
 
                       <div style={styles.libraryItemInfo}>
@@ -1048,7 +1116,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     width: '40px',
     height: '40px',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
     color: 'var(--text-primary)',
@@ -1070,17 +1138,17 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--accent-teal)',
     color: 'var(--bg-color)',
     padding: '0.75rem 1.6rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     fontWeight: 800,
     fontSize: '0.95rem',
     cursor: 'pointer',
     border: 'none',
-    boxShadow: '0 4px 16px var(--accent-teal-glow)',
+    
     transition: 'all 0.15s ease',
   },
   cancelBtn: {
     padding: '0.7rem 1.25rem',
-    borderRadius: '10px',
+    borderRadius: 'var(--radius-control)',
     backgroundColor: 'var(--input-bg)',
     color: 'var(--text-muted)',
     fontWeight: 600,
@@ -1124,7 +1192,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '14px',
+    borderRadius: 'var(--radius-container)',
     color: 'var(--text-primary)',
     outline: 'none',
     boxSizing: 'border-box',
@@ -1133,7 +1201,7 @@ const styles: Record<string, React.CSSProperties> = {
   emptyBuilderState: {
     backgroundColor: 'var(--surface-color)',
     border: '1px dashed var(--border-color)',
-    borderRadius: '20px',
+    borderRadius: 'var(--radius-container)',
     padding: '4rem 2rem',
     textAlign: 'center',
     display: 'flex',
@@ -1144,8 +1212,8 @@ const styles: Record<string, React.CSSProperties> = {
   emptyIconCircle: {
     width: '64px',
     height: '64px',
-    borderRadius: '20px',
-    backgroundColor: 'rgba(6, 182, 212, 0.1)',
+    borderRadius: 'var(--radius-container)',
+    backgroundColor: 'rgba(192, 138, 90, 0.1)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1169,7 +1237,7 @@ const styles: Record<string, React.CSSProperties> = {
   exerciseCard: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '20px',
+    borderRadius: 'var(--radius-container)',
     padding: '1.5rem',
     display: 'flex',
     flexDirection: 'column',
@@ -1192,14 +1260,25 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
   },
+  exerciseLink: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    cursor: 'pointer',
+    flex: 1,
+    minWidth: 0,
+    transition: 'opacity 0.15s ease',
+  },
   exerciseThumbBadge: {
-    width: '38px',
-    height: '38px',
-    borderRadius: '10px',
-    backgroundColor: 'rgba(6, 182, 212, 0.1)',
+    width: '42px',
+    height: '42px',
+    borderRadius: '50%',
+    overflow: 'hidden',
+    backgroundColor: 'rgba(192, 138, 90, 0.1)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   exerciseCardTitle: {
     fontSize: '1.15rem',
@@ -1214,7 +1293,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   cardMiniBtn: {
     padding: '0.35rem 0.6rem',
-    borderRadius: '8px',
+    borderRadius: 'var(--radius-element)',
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
     color: 'var(--text-muted)',
@@ -1224,9 +1303,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
   cardDeleteBtn: {
     padding: '0.45rem',
-    borderRadius: '8px',
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    border: '1px solid rgba(239, 68, 68, 0.2)',
+    borderRadius: 'var(--radius-element)',
+    backgroundColor: 'rgba(192, 105, 105, 0.1)',
+    border: '1px solid rgba(192, 105, 105, 0.2)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1242,7 +1321,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.92rem',
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     color: 'var(--text-primary)',
     boxSizing: 'border-box',
     outline: 'none',
@@ -1258,7 +1337,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     color: 'var(--text-primary)',
     appearance: 'none',
     cursor: 'pointer',
@@ -1277,7 +1356,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '0.65rem',
     backgroundColor: 'var(--input-bg)',
     padding: '1rem',
-    borderRadius: '16px',
+    borderRadius: 'var(--radius-container)',
     border: '1px solid var(--border-color)',
   },
   setsTableHeader: {
@@ -1314,7 +1393,7 @@ const styles: Record<string, React.CSSProperties> = {
   setNumberBadge: {
     width: '32px',
     height: '32px',
-    borderRadius: '8px',
+    borderRadius: 'var(--radius-element)',
     backgroundColor: 'var(--surface-color)',
     color: 'var(--text-primary)',
     fontSize: '0.85rem',
@@ -1339,7 +1418,7 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'center',
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '10px',
+    borderRadius: 'var(--radius-control)',
     color: 'var(--text-primary)',
     outline: 'none',
   },
@@ -1362,7 +1441,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     gap: '0.4rem',
     padding: '0.75rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     backgroundColor: 'var(--surface-color)',
     border: '1px dashed var(--border-color)',
     color: 'var(--text-primary)',
@@ -1382,7 +1461,7 @@ const styles: Record<string, React.CSSProperties> = {
   summaryCard: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '20px',
+    borderRadius: 'var(--radius-container)',
     padding: '1.35rem 1.5rem',
     display: 'flex',
     flexDirection: 'column',
@@ -1411,7 +1490,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'space-around',
     width: '100%',
     backgroundColor: 'var(--input-bg)',
-    borderRadius: '14px',
+    borderRadius: 'var(--radius-container)',
     padding: '1rem',
     border: '1px solid var(--border-color)',
   },
@@ -1443,14 +1522,14 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     padding: '0.2rem 0.55rem',
     borderRadius: '6px',
-    backgroundColor: 'rgba(6, 182, 212, 0.1)',
+    backgroundColor: 'rgba(192, 138, 90, 0.1)',
     color: 'var(--accent-teal)',
-    border: '1px solid rgba(6, 182, 212, 0.2)',
+    border: '1px solid rgba(192, 138, 90, 0.2)',
   },
   libraryCard: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '20px',
+    borderRadius: 'var(--radius-container)',
     padding: '1.35rem 1.5rem',
     display: 'flex',
     flexDirection: 'column',
@@ -1484,7 +1563,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
-    borderRadius: '10px',
+    borderRadius: 'var(--radius-control)',
     color: 'var(--text-primary)',
     appearance: 'none',
     cursor: 'pointer',
@@ -1507,7 +1586,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.85rem',
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
-    borderRadius: '10px',
+    borderRadius: 'var(--radius-control)',
     color: 'var(--text-primary)',
     outline: 'none',
     boxSizing: 'border-box',
@@ -1543,7 +1622,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '0.75rem',
     padding: '0.65rem 0.75rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
     cursor: 'pointer',
@@ -1566,9 +1645,10 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--accent-blue)',
   },
   libraryItemThumb: {
-    width: '32px',
-    height: '32px',
-    borderRadius: '8px',
+    width: '42px',
+    height: '42px',
+    borderRadius: '50%',
+    overflow: 'hidden',
     backgroundColor: 'var(--surface-color)',
     display: 'flex',
     alignItems: 'center',

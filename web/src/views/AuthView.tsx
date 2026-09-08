@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Dumbbell, Sun, Moon, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { Sun, Moon, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { api, type AuthSession } from '../api/api';
 import { useTheme } from '../context/ThemeContext';
 import { GoogleSignIn } from '../components/GoogleSignIn';
@@ -90,7 +90,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
       right: '1.25rem',
       width: '44px',
       height: '44px',
-      borderRadius: '12px',
+      borderRadius: 'var(--radius-element)',
       backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
       border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
       display: 'flex',
@@ -100,31 +100,28 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
       transition: 'all 0.2s ease',
     },
     card: {
-      backgroundColor: isDark ? '#0b1120' : '#ffffff',
-      border: isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid #e2e8f0',
-      borderRadius: '24px',
+      backgroundColor: 'var(--surface-color)',
+      border: '1px solid var(--border-color)',
+      borderRadius: 'var(--radius-container)',
       padding: '2.5rem 2.25rem',
       width: '100%',
       maxWidth: '420px',
-      boxShadow: isDark
-        ? '0 25px 60px -12px rgba(0, 0, 0, 0.7), 0 0 80px rgba(34, 240, 197, 0.03)'
-        : '0 25px 60px -12px rgba(0, 0, 0, 0.1)',
+      boxShadow: '0 24px 60px -24px rgba(0, 0, 0, 0.6)',
     },
     logoContainer: {
       textAlign: 'center',
       marginBottom: '2rem',
     },
-    logoIcon: {
-      width: '72px',
-      height: '72px',
-      borderRadius: '50%',
-      background: isDark
-        ? 'linear-gradient(135deg, rgba(34,240,197,0.12), rgba(34,240,197,0.04))'
-        : 'linear-gradient(135deg, rgba(13,148,136,0.12), rgba(13,148,136,0.04))',
+logoIcon: {
+      width: '76px',
+      height: '76px',
+      borderRadius: 'var(--radius-container)',
+      background: 'var(--accent-teal-glow)',
       display: 'inline-flex',
       alignItems: 'center',
       justifyContent: 'center',
       marginBottom: '0.75rem',
+      border: '1px solid var(--border-highlight)',
     },
     brandName: {
       fontSize: '1.6rem',
@@ -155,7 +152,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
     input: {
       width: '100%',
       padding: '0.85rem 1rem',
-      borderRadius: '12px',
+      borderRadius: 'var(--radius-control)',
       backgroundColor: 'var(--input-bg)',
       border: '1px solid var(--border-color)',
       color: 'var(--text-primary)',
@@ -172,7 +169,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
     passwordInput: {
       width: '100%',
       padding: '0.85rem 3rem 0.85rem 1rem',
-      borderRadius: '12px',
+      borderRadius: 'var(--radius-control)',
       backgroundColor: 'var(--input-bg)',
       border: '1px solid var(--border-color)',
       color: 'var(--text-primary)',
@@ -195,24 +192,23 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
     submitButton: {
       width: '100%',
       padding: '0.9rem',
-      borderRadius: '14px',
+      borderRadius: 'var(--radius-control)',
       fontWeight: 700,
       fontSize: '1rem',
       letterSpacing: '0.5px',
       border: 'none',
       cursor: 'pointer',
-      background: 'var(--accent-gradient)',
-      color: '#ffffff',
-      transition: 'opacity 0.2s ease, transform 0.1s ease',
+      background: 'var(--accent-teal)',
+      color: '#0B0D0F',
+      transition: 'background-color 0.2s ease',
       marginTop: '0.5rem',
-      textShadow: '0 1px 2px rgba(0,0,0,0.2)',
     },
     errorAlert: {
-      backgroundColor: 'rgba(239, 68, 68, 0.12)',
-      border: '1px solid rgba(239, 68, 68, 0.3)',
-      color: '#ef4444',
+      backgroundColor: 'rgba(192, 105, 105, 0.12)',
+      border: '1px solid rgba(192, 105, 105, 0.3)',
+      color: 'var(--danger-color)',
       padding: '0.75rem',
-      borderRadius: '10px',
+      borderRadius: 'var(--radius-element)',
       fontSize: '0.85rem',
       textAlign: 'center',
     },
@@ -245,9 +241,9 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
       lineHeight: 1.5,
     },
     resetSentBox: {
-      backgroundColor: 'rgba(34, 240, 197, 0.08)',
+      backgroundColor: 'rgba(76, 175, 125, 0.1)',
       border: '1px solid var(--border-color)',
-      borderRadius: '12px',
+      borderRadius: 'var(--radius-control)',
       color: 'var(--text-secondary)',
       fontSize: '0.9rem',
       lineHeight: 1.6,
@@ -299,8 +295,8 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
         title={isDark ? 'Modo claro' : 'Modo oscuro'}
       >
         {isDark
-          ? <Sun size={20} color="#f59e0b" />
-          : <Moon size={20} color="#475569" />
+          ? <Sun size={20} color="var(--accent-gold)" />
+          : <Moon size={20} color="var(--text-secondary)" />
         }
       </button>
 
@@ -308,7 +304,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
         {/* Logo & Brand */}
         <div style={s.logoContainer}>
           <div style={s.logoIcon}>
-            <Dumbbell size={36} color="var(--accent-teal)" />
+            <img src="/logo.png" alt="ASCEND" style={{ height: 40, width: 'auto', display: 'block' }} />
           </div>
           <span style={s.brandName}>
             ASC<span style={s.brandAccent}>END</span>
@@ -418,8 +414,8 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
                     tabIndex={-1}
                   >
                     {showPassword
-                      ? <EyeOff size={18} color={isDark ? '#94a3b8' : '#64748b'} />
-                      : <Eye size={18} color={isDark ? '#94a3b8' : '#64748b'} />
+                      ? <EyeOff size={18} color="var(--text-muted)" />
+                      : <Eye size={18} color="var(--text-muted)" />
                     }
                   </button>
                 </div>

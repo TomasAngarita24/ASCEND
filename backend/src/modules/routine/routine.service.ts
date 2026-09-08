@@ -1,4 +1,4 @@
-import type { Prisma, Routine, RoutineExercise } from '../../generated/prisma/client';
+import type { Prisma, RoutineExercise } from '../../generated/prisma/client';
 import { prisma } from '../../database/prisma';
 import { HttpError } from '../../errors/http-error';
 import type { RoutineExerciseResponse, RoutineResponse, RoutineSummary, RoutineFolderResponse } from './routine.types';

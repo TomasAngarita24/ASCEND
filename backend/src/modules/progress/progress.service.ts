@@ -3,6 +3,7 @@ import { prisma } from '../../database/prisma';
 import { HttpError } from '../../errors/http-error';
 import { estimateOneRepMax } from './one-rep-max';
 import { getPersonalRecords } from './personal-record.service';
+import { getWeekAndDayStartUtc } from './week-boundaries';
 import type {
   EstimatedOneRepMaxResponse, ExerciseProgressionResponse, ProgressChartResponse, ProgressStatisticsResponse,
   MuscleGroupStatisticsResponse, WeeklyMuscleSetsResponse,
@@ -383,16 +384,8 @@ export async function getMuscleGroupStatistics(userId: string): Promise<MuscleGr
   };
 }
 
-export async function getWeeklyMuscleSets(userId: string): Promise<WeeklyMuscleSetsResponse> {
-  const now = new Date();
-  const dayOfWeek = now.getDay();
-  const diffToMonday = (dayOfWeek + 6) % 7;
-  const weekStart = new Date(now);
-  weekStart.setDate(now.getDate() - diffToMonday);
-  weekStart.setHours(0, 0, 0, 0);
-
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
+export async function getWeeklyMuscleSets(userId: string, now: Date = new Date()): Promise<WeeklyMuscleSetsResponse> {
+  const { weekStart, todayStart } = getWeekAndDayStartUtc(now);
 
   const workouts = await prisma.workout.findMany({
     where: { userId, status: 'completed' },

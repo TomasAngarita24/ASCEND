@@ -5,6 +5,7 @@ import {
   History,
   User,
   Flame,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 import type { NavTab } from './Sidebar';
@@ -25,6 +26,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     { id: 'routines', label: 'Rutinas', Icon: Dumbbell },
     { id: 'active-workout', label: 'Entrenar', Icon: Flame, isWorkout: true },
     { id: 'history', label: 'Historial', Icon: History },
+    { id: 'social', label: 'Social', Icon: Users },
     { id: 'profile', label: 'Perfil', Icon: User },
   ];
 

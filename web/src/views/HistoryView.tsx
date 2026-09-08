@@ -14,6 +14,7 @@ import {
   Plus,
   FileText,
   Check,
+  Share2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, type WorkoutHistoryEntry, type WorkoutDetailEntry, type Tokens } from '../api/api';
@@ -39,6 +40,9 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [workoutDetail, setWorkoutDetail] = useState<WorkoutDetailEntry | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [shareWorkoutId, setShareWorkoutId] = useState<string | null>(null);
+  const [shareCaption, setShareCaption] = useState('');
+  const [sharingWorkout, setSharingWorkout] = useState(false);
 
   const [confirmState, setConfirmState] = useState<ConfirmState>({
     isOpen: false,
@@ -52,16 +56,16 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
   const closeConfirm = () => setConfirmState((s) => ({ ...s, isOpen: false }));
 
   useEffect(() => {
+    const loadHistory = () => {
+      setLoading(true);
+      api.listWorkoutHistory(tokens.accessToken)
+        .then(setWorkouts)
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    };
+
     loadHistory();
   }, [tokens]);
-
-  const loadHistory = () => {
-    setLoading(true);
-    api.listWorkoutHistory(tokens.accessToken)
-      .then(setWorkouts)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  };
 
   const handleOpenDetail = async (workoutId: string) => {
     setSelectedWorkoutId(workoutId);
@@ -82,6 +86,21 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
     setSelectedWorkoutId(null);
     setWorkoutDetail(null);
     setIsEditing(false);
+  };
+
+  const handlePublishShare = async () => {
+    if (!shareWorkoutId || sharingWorkout) return;
+    setSharingWorkout(true);
+    try {
+      await api.shareWorkout(tokens.accessToken, shareWorkoutId, shareCaption.trim());
+      toast.success('Entrenamiento publicado en el feed social.');
+      setShareWorkoutId(null);
+      setShareCaption('');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo compartir el entrenamiento.');
+    } finally {
+      setSharingWorkout(false);
+    }
   };
 
   const handleDeleteWorkout = (workoutId: string, startedAt?: string) => {
@@ -244,7 +263,6 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
       {/* Header */}
       <div style={styles.headerHero}>
         <div>
-          <div style={styles.eyebrow}>REGISTRO DE SESIONES</div>
           <h1 style={styles.title}>Historial de Entrenamientos</h1>
           <p style={styles.subtitle}>Inspecciona todas tus sesiones completadas, series registradas y marcas estimadas.</p>
         </div>
@@ -289,13 +307,13 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
                   </div>
 
                   <div style={styles.pillItem}>
-                    <Activity size={14} color="#38bdf8" />
+                    <Activity size={14} color="var(--accent-green)" />
                     <span style={styles.pillValue}>{item.setsCompleted}</span>
                     <span style={styles.pillLabel}>series</span>
                   </div>
 
                   <div style={styles.pillItem}>
-                    <Layers size={14} color="#f59e0b" />
+                    <Layers size={14} color="var(--accent-gold)" />
                     <span style={styles.pillValue}>{item.exerciseCount}</span>
                     <span style={styles.pillLabel}>ejercicios</span>
                   </div>
@@ -308,6 +326,18 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
               </div>
 
               <div style={styles.cardRight}>
+                <button
+                  style={styles.shareCardBtn}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShareWorkoutId(item.id);
+                    setShareCaption('');
+                  }}
+                  title="Compartir en el feed social"
+                >
+                  <Share2 size={15} color="var(--accent-teal)" />
+                  <span>Compartir</span>
+                </button>
                 <span style={styles.inspectText}>Ver detalle</span>
                 <ChevronRight size={18} color="var(--accent-teal)" />
                 <button
@@ -331,12 +361,9 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
         <div className="modal-overlay" onClick={handleCloseDetail}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '820px' }}>
             <div style={styles.modalHeader}>
-              <div>
-                <div style={styles.eyebrow}>DETALLE DEL ENTRENAMIENTO</div>
-                <h2 style={styles.modalTitle}>
+              <h2 style={styles.modalTitle}>
                   {selectedSummary ? formatDate(selectedSummary.startedAt) : 'Entrenamiento'}
                 </h2>
-              </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                 <button
                   style={isEditing ? styles.editDoneBtn : styles.editToggleBtn}
@@ -494,16 +521,16 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
                                       borderRadius: '4px',
                                       backgroundColor:
                                         s.setType === 'warmup'
-                                          ? 'rgba(6, 182, 212, 0.15)'
+                                          ? 'rgba(192, 138, 90, 0.15)'
                                           : s.setType === 'drop'
-                                          ? 'rgba(168, 85, 247, 0.15)'
-                                          : 'rgba(239, 68, 68, 0.15)',
+                                          ? 'rgba(192, 194, 198, 0.14)'
+                                          : 'rgba(192, 105, 105, 0.15)',
                                       color:
                                         s.setType === 'warmup'
                                           ? 'var(--accent-teal)'
                                           : s.setType === 'drop'
-                                          ? '#a855f7'
-                                          : '#ef4444',
+                                          ? '#C0C2C6'
+                                          : 'var(--danger-color)',
                                     }}
                                     title={
                                       s.setType === 'warmup'
@@ -562,6 +589,57 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
         </div>
       )}
 
+      {/* Share Workout Modal */}
+      {shareWorkoutId && (
+        <div className="modal-overlay" onClick={() => setShareWorkoutId(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+            <div style={styles.modalHeader}>
+              <h2 style={styles.modalTitle}>Compartir entrenamiento</h2>
+              <button
+                style={styles.closeBtn}
+                onClick={() => setShareWorkoutId(null)}
+                title="Cerrar"
+              >
+                <X size={20} color="var(--text-muted)" />
+              </button>
+            </div>
+
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.55, margin: 0 }}>
+              Tu sesión aparecerá en el feed social de la comunidad con sus series, volumen y ejercicios.
+            </p>
+
+            <textarea
+              value={shareCaption}
+              onChange={(e) => setShareCaption(e.target.value)}
+              placeholder="Añade un comentario a tu publicación (opcional)…"
+              maxLength={280}
+              rows={3}
+              style={styles.shareCaptionInput}
+            />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
+              <span style={styles.shareCharCount}>{shareCaption.length}/280</span>
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button
+                  style={styles.shareCancelBtn}
+                  onClick={() => setShareWorkoutId(null)}
+                  disabled={sharingWorkout}
+                >
+                  Cancelar
+                </button>
+                <button
+                  style={styles.sharePublishBtn}
+                  onClick={handlePublishShare}
+                  disabled={sharingWorkout}
+                >
+                  {sharingWorkout ? 'Publicando...' : 'Publicar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Confirm Modal */}
       <ConfirmModal
         isOpen={confirmState.isOpen}
@@ -592,7 +670,7 @@ const styles: Record<string, React.CSSProperties> = {
   headerHero: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '24px',
+    borderRadius: 'var(--radius-container)',
     padding: '2rem 2.5rem',
     display: 'flex',
     alignItems: 'center',
@@ -622,11 +700,11 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: '0.45rem',
-    backgroundColor: 'rgba(34, 240, 197, 0.1)',
-    border: '1px solid rgba(34, 240, 197, 0.25)',
+    backgroundColor: 'rgba(192, 138, 90, 0.1)',
+    border: '1px solid rgba(192, 138, 90, 0.25)',
     color: 'var(--accent-teal)',
     padding: '0.45rem 0.95rem',
-    borderRadius: '999px',
+    borderRadius: 'var(--radius-full)',
     fontSize: '0.82rem',
     fontWeight: 700,
   },
@@ -638,7 +716,7 @@ const styles: Record<string, React.CSSProperties> = {
   emptyCard: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '24px',
+    borderRadius: 'var(--radius-container)',
     padding: '4rem 2rem',
     textAlign: 'center',
     display: 'flex',
@@ -653,7 +731,7 @@ const styles: Record<string, React.CSSProperties> = {
   card: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '20px',
+    borderRadius: 'var(--radius-container)',
     padding: '1.35rem 1.75rem',
     display: 'flex',
     alignItems: 'center',
@@ -694,7 +772,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '0.4rem',
     backgroundColor: 'var(--input-bg)',
     padding: '0.35rem 0.75rem',
-    borderRadius: '8px',
+    borderRadius: 'var(--radius-element)',
     border: '1px solid var(--border-subtle)',
   },
   pillValue: {
@@ -716,6 +794,59 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.85rem',
     fontWeight: 700,
     color: 'var(--accent-teal)',
+  },
+  shareCardBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.4rem',
+    padding: '0.4rem 0.75rem',
+    borderRadius: 'var(--radius-control)',
+    backgroundColor: 'rgba(192, 138, 90, 0.08)',
+    border: '1px solid rgba(192, 138, 90, 0.25)',
+    color: 'var(--accent-teal)',
+    fontSize: '0.8rem',
+    fontWeight: 700,
+    cursor: 'pointer',
+    marginRight: '0.4rem',
+    transition: 'all 0.15s ease',
+  },
+  shareCaptionInput: {
+    width: '100%',
+    padding: '0.7rem 0.9rem',
+    borderRadius: 'var(--radius-container)',
+    backgroundColor: 'var(--input-bg)',
+    border: '1px solid var(--border-color)',
+    color: 'var(--text-primary)',
+    fontSize: '0.9rem',
+    fontFamily: 'inherit',
+    outline: 'none',
+    resize: 'vertical',
+    boxSizing: 'border-box',
+    margin: '1.25rem 0 0.5rem',
+  },
+  shareCharCount: {
+    fontSize: '0.78rem',
+    color: 'var(--text-dim)',
+  },
+  shareCancelBtn: {
+    padding: '0.6rem 1.25rem',
+    borderRadius: 'var(--radius-container)',
+    backgroundColor: 'var(--input-bg)',
+    border: '1px solid var(--border-color)',
+    color: 'var(--text-secondary)',
+    fontWeight: 600,
+    fontSize: '0.88rem',
+    cursor: 'pointer',
+  },
+  sharePublishBtn: {
+    padding: '0.6rem 1.25rem',
+    borderRadius: 'var(--radius-container)',
+    backgroundColor: 'var(--primary)',
+    border: 'none',
+    color: 'var(--bg-color)',
+    fontWeight: 800,
+    fontSize: '0.88rem',
+    cursor: 'pointer',
   },
   modalHeader: {
     display: 'flex',
@@ -743,7 +874,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '1rem',
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
-    borderRadius: '16px',
+    borderRadius: 'var(--radius-container)',
     padding: '1.1rem',
     textAlign: 'center',
   },
@@ -774,7 +905,7 @@ const styles: Record<string, React.CSSProperties> = {
   detailExCard: {
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
-    borderRadius: '16px',
+    borderRadius: 'var(--radius-container)',
     padding: '1rem 1.25rem',
     display: 'flex',
     flexDirection: 'column',
@@ -788,8 +919,8 @@ const styles: Record<string, React.CSSProperties> = {
   detailIndexBadge: {
     width: '26px',
     height: '26px',
-    borderRadius: '7px',
-    backgroundColor: 'rgba(34, 240, 197, 0.12)',
+    borderRadius: 'var(--radius-element)',
+    backgroundColor: 'rgba(192, 138, 90, 0.12)',
     color: 'var(--accent-teal)',
     fontSize: '0.78rem',
     fontWeight: 800,
@@ -827,14 +958,14 @@ const styles: Record<string, React.CSSProperties> = {
     gridTemplateColumns: '60px 1fr 1fr 1.2fr 100px',
     alignItems: 'center',
     padding: '0.45rem 0.5rem',
-    borderRadius: '8px',
+    borderRadius: 'var(--radius-element)',
     backgroundColor: 'var(--surface-color)',
     fontSize: '0.85rem',
   },
   statusDoneBadge: {
     fontSize: '0.7rem',
-    color: '#22c55e',
-    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    color: 'var(--accent-green)',
+    backgroundColor: 'rgba(76, 175, 125, 0.12)',
     padding: '0.15rem 0.45rem',
     borderRadius: '4px',
     fontWeight: 700,
@@ -849,7 +980,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   deleteCardBtn: {
     padding: '0.45rem',
-    borderRadius: '8px',
+    borderRadius: 'var(--radius-element)',
     backgroundColor: 'transparent',
     border: 'none',
     cursor: 'pointer',
@@ -861,9 +992,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
   deleteModalBtn: {
     padding: '0.45rem',
-    borderRadius: '8px',
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    border: '1px solid rgba(239, 68, 68, 0.25)',
+    borderRadius: 'var(--radius-element)',
+    backgroundColor: 'rgba(192, 105, 105, 0.12)',
+    border: '1px solid rgba(192, 105, 105, 0.25)',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
@@ -875,7 +1006,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '0.4rem',
     padding: '0.45rem 0.85rem',
-    borderRadius: '10px',
+    borderRadius: 'var(--radius-control)',
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
     color: 'var(--text-primary)',
@@ -889,8 +1020,8 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '0.4rem',
     padding: '0.45rem 0.85rem',
-    borderRadius: '10px',
-    backgroundColor: 'rgba(6, 182, 212, 0.15)',
+    borderRadius: 'var(--radius-control)',
+    backgroundColor: 'rgba(192, 138, 90, 0.15)',
     border: '1px solid var(--accent-teal)',
     color: 'var(--accent-teal)',
     fontSize: '0.82rem',
@@ -913,7 +1044,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '0.5rem',
     padding: '0.4rem 0.5rem',
-    borderRadius: '8px',
+    borderRadius: 'var(--radius-element)',
     backgroundColor: 'var(--surface-color)',
     fontSize: '0.85rem',
   },
@@ -955,7 +1086,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '0.35rem',
     marginTop: '0.4rem',
     padding: '0.35rem 0.75rem',
-    borderRadius: '8px',
+    borderRadius: 'var(--radius-element)',
     backgroundColor: 'transparent',
     border: '1px dashed var(--border-color)',
     color: 'var(--accent-teal)',

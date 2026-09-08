@@ -24,6 +24,11 @@ bodyMeasurements BodyMeasurement[]
 workouts        Workout[]
 sessions        Session[]
 passwordResetTokens PasswordResetToken[]
+posts           Post[]     @relation("Posts")
+postLikes       PostLike[] @relation("PostLikes")
+postComments    PostComment[] @relation("UserPostComments")
+followers       UserFollow[] @relation("UserFollowing")
+following       UserFollow[] @relation("UserFollowers")
 
 @@map("users")
 }
@@ -41,9 +46,10 @@ createdByUserId    String?           @map("created_by_user_id") @db.Uuid
 createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
 deletedAt          DateTime?         @map("deleted_at")
 updatedAt          DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-createdByUser      User?             @relation("CustomExercises", fields: [createdByUserId], references: [id], onDelete: Cascade)
+createdByUser      User?                   @relation("CustomExercises", fields: [createdByUserId], references: [id], onDelete: Cascade)
 routineExercises   RoutineExercise[]
 workoutExercises   WorkoutExercise[]
+routineTemplateExercises RoutineTemplateExercise[]
 
 @@index([equipment])
 @@index([createdByUserId])
@@ -61,6 +67,7 @@ user             User              @relation(fields: [userId], references: [id],
 folder           RoutineFolder?    @relation(fields: [folderId], references: [id], onDelete: SetNull)
 routineExercises RoutineExercise[]
 workouts         Workout[]
+posts            Post[]
 
 @@index([userId])
 @@index([folderId])
@@ -86,6 +93,41 @@ exercise             Exercise @relation(fields: [exerciseId], references: [id], 
 @@map("routine_exercise")
 }
 
+model RoutineTemplate {
+id            String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+slug          String                    @unique @db.VarChar(100)
+name          String                    @db.VarChar(255)
+description   String                    @db.VarChar(1000)
+level         String                    @db.VarChar(50)
+goal          String                    @db.VarChar(50)
+equipment     String                    @db.VarChar(50)
+createdAt     DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+exercises     RoutineTemplateExercise[]
+
+@@index([level])
+@@index([goal])
+@@index([equipment])
+@@map("routine_template")
+}
+
+model RoutineTemplateExercise {
+id                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+templateId           String            @map("template_id") @db.Uuid
+exerciseId           String            @map("exercise_id") @db.Uuid
+exerciseName         String            @map("exercise_name") @db.VarChar(255)
+position             Int
+targetSets           Int?              @map("target_sets") @db.SmallInt
+targetRepetitionsMin Int?              @map("target_repetitions_min") @db.SmallInt
+targetRepetitionsMax Int?              @map("target_repetitions_max") @db.SmallInt
+restSeconds          Int?              @map("rest_seconds")
+template             RoutineTemplate   @relation(fields: [templateId], references: [id], onDelete: Cascade)
+exercise             Exercise          @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+@@index([templateId])
+@@index([exerciseId])
+@@map("routine_template_exercise")
+}
+
 model Workout {
 id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 userId           String            @map("user_id") @db.Uuid
@@ -98,6 +140,7 @@ updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at")
 user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 routine          Routine?          @relation(fields: [routineId], references: [id], onDelete: SetNull)
 workoutExercises WorkoutExercise[]
+posts            Post[]
 
 @@index([userId, startedAt(sort: Desc)])
 @@index([userId, status])
@@ -200,4 +243,64 @@ user       User     @relation(fields: [userId], references: [id], onDelete: Casc
 @@unique([userId, date])
 @@index([userId, date])
 @@map("body_measurement")
+}
+
+model Post {
+id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+authorId  String    @map("author_id") @db.Uuid
+postType  String    @default("workout") @map("post_type") @db.VarChar(20)
+workoutId String?   @map("workout_id") @db.Uuid
+routineId String?   @map("routine_id") @db.Uuid
+caption   String?
+createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+author    User       @relation("Posts", fields: [authorId], references: [id], onDelete: Cascade)
+workout   Workout?   @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+routine   Routine?   @relation(fields: [routineId], references: [id], onDelete: Cascade)
+likes     PostLike[]
+comments  PostComment[] @relation("PostComments")
+
+@@index([authorId])
+@@index([workoutId])
+@@index([routineId])
+@@index([createdAt(sort: Desc)])
+@@map("post")
+}
+
+model PostLike {
+postId    String   @map("post_id") @db.Uuid
+userId    String   @map("user_id") @db.Uuid
+createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+user      User     @relation("PostLikes", fields: [userId], references: [id], onDelete: Cascade)
+
+@@id([postId, userId])
+@@index([userId])
+@@map("post_like")
+}
+
+model UserFollow {
+followerId  String   @map("follower_id") @db.Uuid
+followingId String   @map("following_id") @db.Uuid
+createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+follower    User     @relation("UserFollowers", fields: [followerId], references: [id], onDelete: Cascade)
+following   User     @relation("UserFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+
+@@id([followerId, followingId])
+@@index([followingId])
+@@map("user_follow")
+}
+
+model PostComment {
+id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+postId    String   @map("post_id") @db.Uuid
+authorId  String   @map("author_id") @db.Uuid
+body      String
+createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+post      Post     @relation("PostComments", fields: [postId], references: [id], onDelete: Cascade)
+author    User     @relation("UserPostComments", fields: [authorId], references: [id], onDelete: Cascade)
+
+@@index([postId, createdAt(sort: Asc)])
+@@index([authorId])
+@@map("post_comment")
 }

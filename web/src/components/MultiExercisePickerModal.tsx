@@ -169,7 +169,7 @@ export const MultiExercisePickerModal: React.FC<MultiExercisePickerModalProps> =
             <div style={styles.customPanelHeader}>
               <h3 style={styles.customTitle}>Nuevo ejercicio personalizado</h3>
               <button type="button" onClick={() => setIsCreatingCustom(false)} style={styles.customCloseBtn}>
-                <X size={18} color="#94a3b8" />
+                <X size={18} color="var(--text-muted)" />
               </button>
             </div>
 
@@ -220,7 +220,7 @@ export const MultiExercisePickerModal: React.FC<MultiExercisePickerModalProps> =
         {/* Search & Filters */}
         <div style={styles.controlsRow}>
           <div style={styles.searchWrapper}>
-            <Search size={18} color="#94a3b8" style={styles.searchIcon} />
+            <Search size={18} color="var(--text-muted)" style={styles.searchIcon} />
             <input
               type="text"
               placeholder="Buscar ejercicio..."
@@ -230,7 +230,7 @@ export const MultiExercisePickerModal: React.FC<MultiExercisePickerModalProps> =
             />
             {searchQuery && (
               <button style={styles.clearSearch} onClick={() => setSearchQuery('')}>
-                <X size={16} color="#94a3b8" />
+                <X size={16} color="var(--text-muted)" />
               </button>
             )}
           </div>
@@ -267,7 +267,7 @@ export const MultiExercisePickerModal: React.FC<MultiExercisePickerModalProps> =
                   onClick={() => toggleSelect(ex.id)}
                 >
                   <div style={styles.rowLeft}>
-                    {isSelected ? <CheckCircle size={22} color="#2563eb" /> : <Circle size={22} color="#94a3b8" />}
+                    {isSelected ? <CheckCircle size={22} color="var(--accent-blue)" /> : <Circle size={22} color="var(--text-muted)" />}
                     <div>
                       <div style={styles.exName}>{ex.name}</div>
                       <div style={styles.exMuscle}>{ex.targetMuscleGroups.join(', ')}</div>
@@ -308,7 +308,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'space-between',
   },
   cancelBtn: {
-    color: '#10b981',
+    color: 'var(--accent-green)',
     fontWeight: 600,
     fontSize: '0.95rem',
   },
@@ -319,9 +319,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
   customBtn: {
     backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    color: '#10b981',
+    color: 'var(--accent-green)',
     padding: '0.4rem 0.75rem',
-    borderRadius: '8px',
+    borderRadius: 'var(--radius-element)',
     fontWeight: 600,
     fontSize: '0.85rem',
     display: 'flex',
@@ -331,7 +331,7 @@ const styles: Record<string, React.CSSProperties> = {
   customPanel: {
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
-    borderRadius: '14px',
+    borderRadius: 'var(--radius-container)',
     padding: '1.25rem 1.5rem',
     display: 'flex',
     flexDirection: 'column',
@@ -370,9 +370,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
   addCustomBtn: {
     backgroundColor: 'var(--accent-teal)',
-    color: '#0b0f19',
+    color: 'var(--bg-color)',
     padding: '0.65rem 1.25rem',
-    borderRadius: '10px',
+    borderRadius: 'var(--radius-control)',
     fontWeight: 700,
     fontSize: '0.9rem',
     border: 'none',
@@ -380,7 +380,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   cancelCustomBtn: {
     padding: '0.65rem 1rem',
-    borderRadius: '10px',
+    borderRadius: 'var(--radius-control)',
     color: 'var(--text-muted)',
     fontWeight: 600,
     background: 'none',
@@ -438,13 +438,13 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'space-between',
     backgroundColor: 'var(--input-bg)',
     padding: '0.85rem 1rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     cursor: 'pointer',
     border: '1px solid var(--border-color)',
   },
   rowSelected: {
     backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderColor: '#10b981',
+    borderColor: 'var(--accent-green)',
   },
   rowLeft: {
     display: 'flex',
@@ -462,8 +462,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   exEquip: {
     fontSize: '0.75rem',
-    color: '#10b981',
-    backgroundColor: 'rgba(52, 211, 153, 0.15)',
+    color: 'var(--accent-green)',
+    backgroundColor: 'rgba(76, 175, 125, 0.15)',
     padding: '0.2rem 0.5rem',
     borderRadius: '6px',
   },
@@ -473,10 +473,10 @@ const styles: Record<string, React.CSSProperties> = {
     borderTop: '1px solid var(--border-color)',
   },
   confirmBtn: {
-    backgroundColor: '#10b981',
-    color: '#ffffff',
+    backgroundColor: 'var(--accent-green)',
+    color: 'var(--bg-color)',
     padding: '0.85rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     fontWeight: 700,
     fontSize: '0.95rem',
     width: '100%',

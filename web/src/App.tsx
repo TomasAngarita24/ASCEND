@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { api, type ActiveWorkout, type AuthSession, type RoutineDetail, type User } from './api/api';
@@ -22,14 +22,17 @@ const RoutinesView = lazy(() => import('./views/RoutinesView').then((m) => ({ de
 const RoutineEditorView = lazy(() => import('./components/RoutineEditorView').then((m) => ({ default: m.RoutineEditorView })));
 const SettingsView = lazy(() => import('./views/SettingsView').then((m) => ({ default: m.SettingsView })));
 const ResetPasswordView = lazy(() => import('./views/ResetPasswordView').then((m) => ({ default: m.ResetPasswordView })));
+const SocialFeedView = lazy(() => import('./views/SocialFeedView').then((m) => ({ default: m.SocialFeedView })));
+const UserProfileView = lazy(() => import('./views/UserProfileView').then((m) => ({ default: m.UserProfileView })));
 
 /** Maps NavTab ids to URL paths */
-export const TAB_TO_PATH: Record<NavTab, string> = {
+const TAB_TO_PATH: Record<NavTab, string> = {
   'home': '/home',
   'routines': '/routines',
   'exercises': '/exercises',
   'active-workout': '/active-workout',
   'history': '/history',
+  'social': '/social',
   'profile': '/profile',
   'measurements': '/measurements',
   'plate-calculator': '/plate-calculator',
@@ -74,6 +77,23 @@ export function App() {
 
   // Workout celebration summary modal state
   const [completedSummary, setCompletedSummary] = useState<WorkoutSummaryData | null>(null);
+  const [sharingWorkout, setSharingWorkout] = useState(false);
+  const [highlightPostId, setHighlightPostId] = useState<string | null>(null);
+
+  const handleShareWorkout = async (workoutId: string, caption: string) => {
+    if (!session) return;
+    setSharingWorkout(true);
+    try {
+      const post = await api.shareWorkout(session.tokens.accessToken, workoutId, caption);
+      setHighlightPostId(post.id);
+      toast.success('Entrenamiento publicado en el feed social.');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo compartir el entrenamiento.');
+      throw err;
+    } finally {
+      setSharingWorkout(false);
+    }
+  };
 
   // Derive the active tab from the current URL path
   const activeTab: NavTab = PATH_TO_TAB[location.pathname] ?? 'home';
@@ -83,19 +103,30 @@ export function App() {
     navigate(TAB_TO_PATH[tab]);
   };
 
+  const handleLogout = useCallback(() => {
+    api.logout().catch(() => {});
+    localStorage.removeItem('ascend_session');
+    localStorage.removeItem('ascend_profile');
+    localStorage.removeItem('ascend_active_workout_id');
+    setSession(null);
+    setActiveWorkout(null);
+    setProfileData({ fullName: '', bio: '', avatarUrl: null, email: '' });
+    navigate('/', { replace: true });
+  }, [navigate]);
+
   // Registers the callback so api.ts can auto-logout when the session expires
   useEffect(() => {
     api.setSessionExpiredCallback(() => {
       handleLogout();
       toast.error('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
     });
-  }, []);
+  }, [handleLogout]);
 
   // Process offline queue automatically when network is re-established
   useEffect(() => {
     if (isOnline) {
       offlineQueue.processQueue((syncedCount) => {
-        toast.success(`⚡ Sincronización en la nube`, {
+        toast.success(`Sincronización en la nube`, {
           description: `Se guardaron ${syncedCount} cambio${syncedCount > 1 ? 's' : ''} pendiente${syncedCount > 1 ? 's' : ''} en el servidor.`,
         });
       });
@@ -172,7 +203,7 @@ export function App() {
       }
     }
     setLoadingSession(false);
-  }, []);
+  }, [navigate]);
 
   const handleAuthSuccess = (newSession: AuthSession) => {
     setSession(newSession);
@@ -201,17 +232,6 @@ export function App() {
         avatarUrl: data.avatarUrl,
       }).catch(() => {});
     }
-  };
-
-  const handleLogout = () => {
-    api.logout().catch(() => {});
-    localStorage.removeItem('ascend_session');
-    localStorage.removeItem('ascend_profile');
-    localStorage.removeItem('ascend_active_workout_id');
-    setSession(null);
-    setActiveWorkout(null);
-    setProfileData({ fullName: '', bio: '', avatarUrl: null, email: '' });
-    navigate('/', { replace: true });
   };
 
   const handleStartWorkout = async (routineId?: string) => {
@@ -264,7 +284,6 @@ export function App() {
       {/* Offline banner — fixed top bar when connectivity is lost */}
       {!isOnline && (
         <div style={offlineBannerStyle}>
-          <span>⚡</span>
           <span>Sin conexión — los datos se sincronizarán al reconectarse</span>
         </div>
       )}
@@ -325,6 +344,10 @@ export function App() {
             path="/exercises"
             element={<ExerciseLibraryView tokens={session.tokens} />}
           />
+          <Route
+            path="/exercises/:exerciseId"
+            element={<ExerciseLibraryView tokens={session.tokens} />}
+          />
 
           <Route
             path="/active-workout"
@@ -350,6 +373,16 @@ export function App() {
           <Route
             path="/history"
             element={<HistoryView tokens={session.tokens} />}
+          />
+
+          <Route
+            path="/social"
+            element={<SocialFeedView tokens={session.tokens} currentUserId={session.user.id} highlightPostId={highlightPostId} onHighlightConsumed={() => setHighlightPostId(null)} />}
+          />
+
+          <Route
+            path="/users/:userId"
+            element={<UserProfileView tokens={session.tokens} viewerUserId={session.user.id} />}
           />
 
           <Route
@@ -406,9 +439,15 @@ export function App() {
         <WorkoutSummaryModal
           isOpen={true}
           data={completedSummary}
+          onShare={handleShareWorkout}
+          isSharing={sharingWorkout}
           onClose={() => {
             setCompletedSummary(null);
             navigate('/history');
+          }}
+          onGoToFeed={() => {
+            setCompletedSummary(null);
+            navigate('/social');
           }}
         />
       )}
@@ -455,7 +494,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '3rem 2rem',
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '20px',
+    borderRadius: 'var(--radius-container)',
     textAlign: 'center',
     display: 'flex',
     flexDirection: 'column',
@@ -472,10 +511,10 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.95rem',
   },
   startEmptyBtn: {
-    backgroundColor: 'var(--accent-blue)',
-    color: '#ffffff',
+    backgroundColor: 'var(--primary)',
+    color: '#0B0D0F',
     padding: '0.85rem 1.75rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-control)',
     fontWeight: 700,
     fontSize: '0.95rem',
     marginTop: '0.5rem',
@@ -494,8 +533,8 @@ const offlineBannerStyle: React.CSSProperties = {
   left: 0,
   right: 0,
   zIndex: 9999,
-  backgroundColor: '#f59e0b',
-  color: '#000000',
+  backgroundColor: 'var(--accent-gold)',
+  color: 'var(--bg-color)',
   textAlign: 'center',
   padding: '0.55rem 1rem',
   fontSize: '0.87rem',
@@ -505,5 +544,5 @@ const offlineBannerStyle: React.CSSProperties = {
   justifyContent: 'center',
   gap: '0.5rem',
   letterSpacing: '-0.01em',
-  boxShadow: '0 2px 12px rgba(245, 158, 11, 0.4)',
+  boxShadow: '0 2px 12px rgba(0, 0, 0, 0.25)',
 };

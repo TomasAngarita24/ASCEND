@@ -168,7 +168,6 @@ const ActivityCalendar: React.FC<CalendarProps> = ({ workoutDays }) => {
                       height: CELL_SIZE,
                       borderRadius: 3,
                       backgroundColor: isWorkout ? 'var(--accent-teal)' : 'var(--heat-empty, #172033)',
-                      boxShadow: isWorkout ? '0 0 6px var(--accent-teal-glow)' : 'none',
                       transition: 'background 0.12s',
                     }}
                   />
@@ -182,7 +181,7 @@ const ActivityCalendar: React.FC<CalendarProps> = ({ workoutDays }) => {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Menos</span>
         <div style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: 'var(--heat-empty, #172033)' }} />
-        <div style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: 'rgba(6,182,212,0.35)' }} />
+        <div style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: 'rgba(192,138,90,0.35)' }} />
         <div style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: 'var(--accent-teal)' }} />
         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Más</span>
       </div>
@@ -313,14 +312,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
         <div style={styles.statMetricCard}>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>REPETICIONES TOTALES</div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#3b82f6', marginTop: '0.2rem' }}>
+          <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-gold)', marginTop: '0.2rem' }}>
             {stats.totalReps} <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>reps</span>
           </div>
         </div>
 
         <div style={styles.statMetricCard}>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>VOLUMEN 7 DÍAS</div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#eab308', marginTop: '0.2rem' }}>
+          <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-gold)', marginTop: '0.2rem' }}>
             {stats.thisWeekVol} <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>kg</span>
           </div>
         </div>
@@ -341,7 +340,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         {/* Racha Semanal Panel */}
         <div style={styles.card}>
           <div style={styles.titleRow}>
-            <Flame size={22} color="#f97316" />
+            <Flame size={22} color="var(--accent-gold)" />
             <h2 style={styles.cardTitle}>Racha semanal</h2>
           </div>
 
@@ -366,7 +365,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         <div style={styles.cardLarge}>
           <div style={styles.cardHeaderBetween}>
             <div style={styles.titleRow}>
-              <Dumbbell size={22} color="#2563eb" />
+              <Dumbbell size={22} color="var(--accent-blue)" />
               <h2 style={styles.cardTitle}>Tus rutinas</h2>
             </div>
             <button style={styles.seeAllBtn} onClick={() => onNavigate('routines')}>
@@ -397,7 +396,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         {/* Marcas Personales */}
         <div style={styles.cardLarge}>
           <div style={styles.titleRow}>
-            <Trophy size={22} color="#eab308" />
+            <Trophy size={22} color="var(--accent-gold)" />
             <h2 style={styles.cardTitle}>Marcas personales</h2>
           </div>
 
@@ -494,7 +493,7 @@ const styles: Record<string, React.CSSProperties> = {
   headerCard: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '24px',
+    borderRadius: 'var(--radius-container)',
     padding: '2.5rem',
     display: 'flex',
     alignItems: 'center',
@@ -531,6 +530,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '2rem',
     width: '100%',
     alignItems: 'stretch',
+    marginTop: '1.25rem',
   },
   twoColGrid: {
     display: 'grid',
@@ -541,7 +541,7 @@ const styles: Record<string, React.CSSProperties> = {
   statMetricCard: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '16px',
+    borderRadius: 'var(--radius-container)',
     padding: '1.15rem 1.5rem',
     display: 'flex',
     flexDirection: 'column',
@@ -551,7 +551,7 @@ const styles: Record<string, React.CSSProperties> = {
   card: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '20px',
+    borderRadius: 'var(--radius-container)',
     padding: '0.65rem 2.25rem',
     display: 'flex',
     flexDirection: 'column',
@@ -561,7 +561,7 @@ const styles: Record<string, React.CSSProperties> = {
   cardLarge: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '20px',
+    borderRadius: 'var(--radius-container)',
     padding: '2rem 2.25rem',
     display: 'flex',
     flexDirection: 'column',
@@ -575,7 +575,7 @@ const styles: Record<string, React.CSSProperties> = {
   streakOnlyBox: {
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
-    borderRadius: '16px',
+    borderRadius: 'var(--radius-container)',
     padding: '0.4rem 1rem',
     display: 'flex',
     flexDirection: 'column',
@@ -585,13 +585,13 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'center',
     flex: 1,
   },
-  streakBigNumber: { fontSize: '4rem', fontWeight: 800, color: '#f97316', lineHeight: 1 },
+  streakBigNumber: { fontSize: '4rem', fontWeight: 800, color: 'var(--accent-gold)', lineHeight: 1 },
   streakBigLabel: { fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-secondary)' },
   streakSub: { fontSize: '0.85rem', color: 'var(--text-muted)' },
   streakTotalBox: {
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-element)',
     padding: '0.3rem 1rem',
     display: 'flex',
     flexDirection: 'column',
@@ -609,11 +609,11 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
     padding: '0.85rem 1.15rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-element)',
   },
   prName: { fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   prDate: { fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.15rem' },
-  prWeight: { fontSize: '1rem', fontWeight: 800, color: '#d97706', whiteSpace: 'nowrap' },
+  prWeight: { fontSize: '1rem', fontWeight: 800, color: 'var(--accent-gold)', whiteSpace: 'nowrap' },
   prReps: { fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap' },
 
   seeAllBtn: { color: 'var(--accent-teal)', fontWeight: 600, fontSize: '0.9rem' },
@@ -627,15 +627,15 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
     padding: '1rem 1.35rem',
-    borderRadius: '14px',
+    borderRadius: 'var(--radius-container)',
     cursor: 'pointer',
   },
   feedLeft: { display: 'flex', alignItems: 'center', gap: '1rem' },
   feedIconBadge: {
     width: '40px',
     height: '40px',
-    borderRadius: '11px',
-    backgroundColor: 'rgba(34,240,197,0.12)',
+    borderRadius: 'var(--radius-control)',
+    backgroundColor: 'rgba(192,138,90,0.12)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -649,7 +649,7 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
     padding: '1rem 1.25rem',
-    borderRadius: '13px',
+    borderRadius: 'var(--radius-control)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -658,9 +658,9 @@ const styles: Record<string, React.CSSProperties> = {
   routineMiniSub: { fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '0.15rem' },
   startMiniBtn: {
     backgroundColor: 'var(--accent-teal)',
-    color: '#0b0f19',
+    color: 'var(--bg-color)',
     padding: '0.45rem 0.9rem',
-    borderRadius: '99px',
+    borderRadius: 'var(--radius-full)',
     fontWeight: 700,
     fontSize: '0.82rem',
     display: 'flex',

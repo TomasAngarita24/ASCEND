@@ -1,10 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Search,
   Plus,
   Dumbbell,
-  ChevronRight,
   X,
+  Heart,
+  Play,
+  SlidersHorizontal,
+  ChevronDown,
+  ArrowUpDown,
+  Check,
   TrendingUp,
   Trophy,
   Zap,
@@ -13,8 +18,10 @@ import {
   Trash2,
   Sparkles,
   Layers,
+  Maximize2,
   BookOpen,
 } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { matchesSearch } from '../utils/text';
 import {
@@ -63,6 +70,29 @@ const EQUIPMENT_OPTIONS = [
   'Otros',
 ];
 
+const CHIP_DEFS: { label: string; muscles: string[] }[] = [
+  { label: 'Todos', muscles: [] },
+  { label: 'Pecho', muscles: ['Pecho'] },
+  { label: 'Espalda', muscles: ['Dorsal', 'Espalda baja', 'Trapecio'] },
+  { label: 'Piernas', muscles: ['Cuadriceps', 'Femoral', 'Pantorrillas', 'Adductor'] },
+  { label: 'Glúteos', muscles: ['Gluteos'] },
+  { label: 'Hombros', muscles: ['Hombros'] },
+  { label: 'Bíceps', muscles: ['Biceps'] },
+  { label: 'Tríceps', muscles: ['Triceps'] },
+  { label: 'Abdomen', muscles: ['Abdominales'] },
+  { label: 'Cardio', muscles: ['Cardio'] },
+];
+
+const SORT_OPTIONS = [
+  { key: 'default', label: 'Relevancia' },
+  { key: 'az', label: 'Nombre A → Z' },
+  { key: 'za', label: 'Nombre Z → A' },
+] as const;
+
+type SortKey = typeof SORT_OPTIONS[number]['key'];
+
+const FAVORITES_KEY = 'ascend_exercise_favorites';
+
 // ─── Brzycki 1RM formula ────────────────────────────────────────────────────
 function calc1RM(weight: number, reps: number): number {
   if (reps <= 0 || reps === 1) return weight;
@@ -79,15 +109,19 @@ const LineChart: React.FC<{ data: ChartPoint[]; color: string; label: string }> 
   const PAD = { top: 25, right: 25, bottom: 36, left: 55 };
 
   if (data.length === 0) return (
-    <div style={{ height: H, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontSize: '0.9rem' }}>
+    <div style={{ height: H, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)', fontSize: '0.9rem' }}>
       Sin datos de historial para este ejercicio
     </div>
   );
 
   const vals = data.map(d => d.value);
-  const minV = Math.min(...vals);
-  const maxV = Math.max(...vals);
-  const range = maxV - minV || 1;
+  const rawMin = Math.min(...vals);
+  const rawMax = Math.max(...vals);
+  const spread = rawMax - rawMin;
+  const padY = spread > 0 ? spread * 0.18 : Math.max(Math.abs(rawMax) * 0.12, 1);
+  const minV = rawMin - padY;
+  const maxV = rawMax + padY;
+  const range = maxV - minV;
   const innerW = W - PAD.left - PAD.right;
   const innerH = H - PAD.top - PAD.bottom;
 
@@ -112,7 +146,7 @@ const LineChart: React.FC<{ data: ChartPoint[]; color: string; label: string }> 
           right: '1rem',
           backgroundColor: 'var(--surface-color)',
           border: '1px solid var(--border-color)',
-          borderRadius: '8px',
+          borderRadius: 'var(--radius-element)',
           padding: '0.35rem 0.65rem',
           fontSize: '0.78rem',
           color: 'var(--text-primary)',
@@ -139,8 +173,8 @@ const LineChart: React.FC<{ data: ChartPoint[]; color: string; label: string }> 
       >
         {yTicks.map((t, i) => (
           <g key={i}>
-            <line x1={PAD.left} y1={py(t)} x2={W - PAD.right} y2={py(t)} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
-            <text x={PAD.left - 8} y={py(t) + 4} textAnchor="end" fill="#64748b" fontSize="11">{t.toLocaleString()}</text>
+            <line x1={PAD.left} y1={py(t)} x2={W - PAD.right} y2={py(t)} stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="3 6" />
+            <text x={PAD.left - 8} y={py(t) + 4} textAnchor="end" fill="var(--text-dim)" fontSize="11">{t.toLocaleString()}</text>
           </g>
         ))}
         <defs>
@@ -160,7 +194,7 @@ const LineChart: React.FC<{ data: ChartPoint[]; color: string; label: string }> 
                 cy={py(d.value)}
                 r={isHovered ? 7 : 4}
                 fill={color}
-                stroke="#0b0f19"
+                stroke="var(--bg-color)"
                 strokeWidth={isHovered ? 3 : 2}
                 style={{ transition: 'r 0.15s ease' }}
               />
@@ -171,38 +205,16 @@ const LineChart: React.FC<{ data: ChartPoint[]; color: string; label: string }> 
         {data.filter((_, i) => i % xStep === 0 || i === data.length - 1).map((d) => {
           const idx = data.indexOf(d);
           return (
-            <text key={idx} x={px(idx)} y={H - 8} textAnchor="middle" fill="#64748b" fontSize="10">
-              {new Date(d.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
-            </text>
+            <g key={idx}>
+              <line x1={px(idx)} y1={PAD.top} x2={px(idx)} y2={PAD.top + innerH} stroke="rgba(255,255,255,0.035)" strokeWidth="1" strokeDasharray="2 5" />
+              <text x={px(idx)} y={H - 8} textAnchor="middle" fill="var(--text-dim)" fontSize="10">
+                {new Date(d.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+              </text>
+            </g>
           );
         })}
-        <text x={14} y={H / 2} fill="#64748b" fontSize="10" transform={`rotate(-90, 14, ${H / 2})`} textAnchor="middle">{label}</text>
+        <text x={14} y={H / 2} fill="var(--text-dim)" fontSize="10" transform={`rotate(-90, 14, ${H / 2})`} textAnchor="middle">{label}</text>
       </svg>
-    </div>
-  );
-};
-
-// ─── Image Avatar with Fallback ─────────────────────────────────────────────
-const ExerciseAvatar: React.FC<{ url?: string | null; name: string; size?: number }> = ({ url, name, size = 52 }) => {
-  const [hasError, setHasError] = useState(false);
-
-  if (!url || hasError) {
-    return (
-      <div style={{ width: size, height: size, borderRadius: 12, backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <Dumbbell size={size * 0.45} color="#94a3b8" />
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ width: size, height: size, borderRadius: 12, overflow: 'hidden', backgroundColor: '#0f172a', border: '1px solid var(--border-color)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <img
-        src={url}
-        alt={name}
-        onError={() => setHasError(true)}
-        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-        loading="lazy"
-      />
     </div>
   );
 };
@@ -222,6 +234,19 @@ const ExerciseDetailPanel: React.FC<ExerciseDetailPanelProps> = ({ exercise, tok
   const [loadedWorkouts, setLoadedWorkouts] = useState<WorkoutDetailEntry[]>([]);
   const [loadingDetails, setLoadingDetails] = useState(true);
   const [activeChart, setActiveChart] = useState<'1rm' | 'weight' | 'volume' | 'reps'>('1rm');
+  const [zoomOpen, setZoomOpen] = useState(false);
+
+  useEffect(() => {
+    if (!zoomOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setZoomOpen(false); };
+    window.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [zoomOpen]);
 
   useEffect(() => {
     setLoadingDetails(true);
@@ -289,16 +314,16 @@ const ExerciseDetailPanel: React.FC<ExerciseDetailPanelProps> = ({ exercise, tok
   }, [progressionData]);
 
   const chartConfig = {
-    '1rm': { label: '1RM (kg)', color: 'var(--accent-teal)' },
-    'weight': { label: 'Peso máx. (kg)', color: '#38bdf8' },
-    'volume': { label: 'Volumen (kg)', color: '#818cf8' },
-    'reps': { label: 'Reps totales', color: '#34d399' },
+    '1rm': { label: '1RM (kg)', color: '#C8A45D' },
+    'weight': { label: 'Peso máx. (kg)', color: '#E1C27A' },
+    'volume': { label: 'Volumen (kg)', color: '#B6914F' },
+    'reps': { label: 'Reps totales', color: '#92959A' },
   }[activeChart];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#94a3b8', fontSize: '0.9rem', fontWeight: 600, width: 'fit-content', background: 'none', border: 'none', cursor: 'pointer' }}>
+        <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 600, width: 'fit-content', background: 'none', border: 'none', cursor: 'pointer' }}>
           <ArrowLeft size={18} /> Volver a la biblioteca
         </button>
         {exercise.isCustom && (
@@ -317,60 +342,82 @@ const ExerciseDetailPanel: React.FC<ExerciseDetailPanelProps> = ({ exercise, tok
         )}
       </div>
 
-      {/* Header with Exercise Image */}
-      <div style={dS.header}>
-        <ExerciseAvatar url={exercise.mediaUrl} name={exercise.name} size={90} />
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.25rem' }}>
-            <h1 style={dS.title}>{exercise.name}</h1>
-            {exercise.isCustom && <span style={dS.customBadge}>Personalizado</span>}
-          </div>
-          {exercise.description && (
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.6rem', fontStyle: 'italic' }}>
-              {exercise.description}
-            </p>
+      {/* Two-column layout: illustration left, info right */}
+      <div style={dS.detailGrid}>
+        {/* Left column — full illustration (object-fit contain, no crop) */}
+        <div
+          onClick={() => exercise.mediaUrl && setZoomOpen(true)}
+          style={{ ...dS.heroMedia, ...(exercise.mediaUrl ? {} : { cursor: 'default' }) }}
+          role={exercise.mediaUrl ? 'button' : undefined}
+          aria-label={exercise.mediaUrl ? 'Ampliar imagen' : undefined}
+        >
+          {exercise.mediaUrl ? (
+            <img src={exercise.mediaUrl} alt={exercise.name} style={dS.heroImg} />
+          ) : (
+            <div style={dS.heroFallback}><Dumbbell size={76} strokeWidth={1.2} /></div>
           )}
-          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-            {exercise.targetMuscleGroups.map(g => <span key={g} style={dS.tagM}>{g}</span>)}
-            {exercise.equipment && <span style={dS.tagE}>{exercise.equipment}</span>}
-          </div>
+          {exercise.mediaUrl && (
+            <div style={dS.heroHint}><Maximize2 size={15} /><span>Click para ampliar</span></div>
+          )}
         </div>
-      </div>
 
-      {/* Instructions if available */}
-      {exercise.instructions && (
-        <div style={dS.instructionsCard}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-teal)', fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.5rem' }}>
-            <BookOpen size={18} />
-            <span>Instrucciones de ejecución</span>
+        {/* Right column — exercise info */}
+        <div style={dS.detailLeft}>
+          {/* Header with Exercise Info */}
+          <div style={dS.header}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
+                <h1 style={dS.title}>{exercise.name}</h1>
+                {exercise.isCustom && <span style={dS.customBadge}>Personalizado</span>}
+              </div>
+              {exercise.description && (
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.6rem', fontStyle: 'italic' }}>
+                  {exercise.description}
+                </p>
+              )}
+              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                {exercise.targetMuscleGroups.map(g => <span key={g} style={dS.tagM}>{g}</span>)}
+                {exercise.equipment && <span style={dS.tagE}>{exercise.equipment}</span>}
+              </div>
+            </div>
           </div>
-          <div style={{ color: 'var(--text-primary)', fontSize: '0.9rem', lineHeight: '1.6', whiteSpace: 'pre-line' }}>
-            {exercise.instructions}
-          </div>
-        </div>
-      )}
 
-      {/* Stats Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem' }}>
-        <div style={dS.stat}>
-          <Trophy size={20} color="#eab308" />
-          <div style={dS.statV}>{maxWeight !== null ? `${maxWeight} kg` : '—'}</div>
-          <div style={dS.statL}>Peso máximo histórico</div>
-        </div>
-        <div style={dS.stat}>
-          <Zap size={20} color="var(--accent-teal)" />
-          <div style={dS.statV}>{max1RM !== null ? `${max1RM} kg` : '—'}</div>
-          <div style={dS.statL}>1RM estimado máx.</div>
-        </div>
-        <div style={dS.stat}>
-          <TrendingUp size={20} color="#818cf8" />
-          <div style={dS.statV}>{totalVolumeLifetime > 0 ? `${totalVolumeLifetime.toLocaleString()} kg` : '—'}</div>
-          <div style={dS.statL}>Volumen total acumulado</div>
-        </div>
-        <div style={dS.stat}>
-          <Layers size={20} color="#34d399" />
-          <div style={dS.statV}>{progressionData.length}</div>
-          <div style={dS.statL}>Sesiones registradas</div>
+          {/* Stats Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '1rem' }}>
+            <div style={dS.stat}>
+              <Trophy size={20} color="var(--accent-gold)" />
+              <div style={dS.statV}>{maxWeight !== null ? `${maxWeight} kg` : '—'}</div>
+              <div style={dS.statL}>Peso máximo histórico</div>
+            </div>
+            <div style={dS.stat}>
+              <Zap size={20} color="var(--accent-teal)" />
+              <div style={dS.statV}>{max1RM !== null ? `${max1RM} kg` : '—'}</div>
+              <div style={dS.statL}>1RM estimado máx.</div>
+            </div>
+            <div style={dS.stat}>
+              <TrendingUp size={20} color="var(--accent-gold)" />
+              <div style={dS.statV}>{totalVolumeLifetime > 0 ? `${totalVolumeLifetime.toLocaleString()} kg` : '—'}</div>
+              <div style={dS.statL}>Volumen total acumulado</div>
+            </div>
+            <div style={dS.stat}>
+              <Layers size={20} color="var(--accent-gold)" />
+              <div style={dS.statV}>{progressionData.length}</div>
+              <div style={dS.statL}>Sesiones registradas</div>
+            </div>
+          </div>
+
+          {/* Instructions if available */}
+          {exercise.instructions && (
+            <div style={dS.instructionsCard}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-teal)', fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.5rem' }}>
+                <BookOpen size={18} />
+                <span>Instrucciones de ejecución</span>
+              </div>
+              <div style={{ color: 'var(--text-primary)', fontSize: '0.9rem', lineHeight: '1.6', whiteSpace: 'pre-line' }}>
+                {exercise.instructions}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -393,14 +440,14 @@ const ExerciseDetailPanel: React.FC<ExerciseDetailPanelProps> = ({ exercise, tok
                 onClick={() => setActiveChart(t.key)}
                 style={{
                   padding: '0.35rem 0.85rem',
-                  borderRadius: '8px',
+                  borderRadius: 'var(--radius-element)',
                   fontSize: '0.82rem',
                   fontWeight: 700,
                   border: '1px solid var(--border-color)',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
                   ...(activeChart === t.key
-                    ? { backgroundColor: 'rgba(6,182,212,0.15)', color: 'var(--accent-teal)', borderColor: 'rgba(6,182,212,0.35)' }
+                    ? { backgroundColor: 'rgba(192,138,90,0.15)', color: 'var(--accent-teal)', borderColor: 'rgba(192,138,90,0.35)' }
                     : { backgroundColor: 'transparent', color: 'var(--text-muted)' }),
                 }}
               >
@@ -426,7 +473,7 @@ const ExerciseDetailPanel: React.FC<ExerciseDetailPanelProps> = ({ exercise, tok
               <span>Fecha</span><span>Peso</span><span>Reps</span><span>1RM est.</span>
             </div>
             {[...exerciseSets].reverse().slice(0, 12).map((s, i) => (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', padding: '0.55rem 0.75rem', borderRadius: '8px', fontSize: '0.85rem', ...(i % 2 === 0 ? { backgroundColor: 'rgba(255,255,255,0.03)' } : {}) }}>
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', padding: '0.55rem 0.75rem', borderRadius: 'var(--radius-element)', fontSize: '0.85rem', ...(i % 2 === 0 ? { backgroundColor: 'rgba(255,255,255,0.03)' } : {}) }}>
                 <span style={{ color: 'var(--text-muted)' }}>{new Date(s.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit' })}</span>
                 <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{s.weight} kg</span>
                 <span style={{ color: 'var(--text-primary)' }}>{s.reps}</span>
@@ -436,35 +483,187 @@ const ExerciseDetailPanel: React.FC<ExerciseDetailPanelProps> = ({ exercise, tok
           </div>
         </div>
       )}
+
+      {/* Lightbox Zoom */}
+      {zoomOpen && exercise.mediaUrl && (
+        <div className="modal-overlay" onClick={() => setZoomOpen(false)}>
+          <div style={dS.lightbox} onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => setZoomOpen(false)}
+              style={dS.lightboxClose}
+              aria-label="Cerrar imagen"
+            >
+              <X size={22} color="var(--text-primary)" />
+            </button>
+            <img src={exercise.mediaUrl} alt={exercise.name} style={dS.lightboxImg} />
+            <div style={dS.lightboxCaption}>{exercise.name}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 const dS: Record<string, React.CSSProperties> = {
-  header: { display: 'flex', alignItems: 'center', gap: '1.5rem', backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '18px', padding: '1.5rem 2rem' },
+  header: { display: 'flex', alignItems: 'center', gap: '1.5rem', backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-container)', padding: '1.5rem 2rem' },
   title: { fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0' },
-  customBadge: { backgroundColor: 'rgba(234, 179, 8, 0.15)', color: '#eab308', border: '1px solid rgba(234, 179, 8, 0.3)', padding: '0.2rem 0.6rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 700 },
-  tagM: { backgroundColor: 'rgba(52,211,153,0.15)', color: '#10b981', padding: '0.15rem 0.5rem', borderRadius: 6, fontSize: '0.75rem', fontWeight: 600 },
-  tagE: { backgroundColor: 'rgba(96,165,250,0.15)', color: '#3b82f6', padding: '0.15rem 0.5rem', borderRadius: 6, fontSize: '0.75rem', fontWeight: 600 },
-  instructionsCard: { backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: 16, padding: '1.25rem 1.5rem' },
-  stat: { backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: 16, padding: '1.25rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' },
+  customBadge: { backgroundColor: 'rgba(192, 138, 90, 0.15)', color: 'var(--accent-gold)', border: '1px solid rgba(192, 138, 90, 0.3)', padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: 700 },
+  tagM: { backgroundColor: 'rgba(192, 138, 90, 0.15)', color: 'var(--accent-gold)', border: '1px solid rgba(192, 138, 90, 0.28)', padding: '0.15rem 0.5rem', borderRadius: 6, fontSize: '0.75rem', fontWeight: 600 },
+  tagE: { backgroundColor: 'rgba(255, 255, 255, 0.06)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)', padding: '0.15rem 0.5rem', borderRadius: 6, fontSize: '0.75rem', fontWeight: 600 },
+  instructionsCard: { backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-container)', padding: '1.25rem 1.5rem' },
+  stat: { backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-container)', padding: '1.25rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' },
   statV: { fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.1 },
   statL: { fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 },
-  chartCard: { backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: 18, padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '1rem' },
-  actionEditBtn: { display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', padding: '0.5rem 0.9rem', borderRadius: '10px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' },
-  actionDeleteBtn: { display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.25)', padding: '0.5rem 0.9rem', borderRadius: '10px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' },
+  detailGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))',
+    gap: '1.5rem',
+    alignItems: 'stretch',
+  },
+  detailLeft: { display: 'flex', flexDirection: 'column', gap: '1.5rem', minWidth: 0 },
+  heroMedia: {
+    position: 'relative',
+    width: '100%',
+    minHeight: '440px',
+    borderRadius: 'var(--radius-container)',
+    border: '1px solid var(--border-color)',
+    overflow: 'hidden',
+    cursor: 'zoom-in',
+    backgroundColor: 'var(--surface-color)',
+    background: 'radial-gradient(120% 90% at 20% 0%, rgba(192, 138, 90, 0.1), transparent 60%), linear-gradient(160deg, var(--surface-elevated), var(--surface-color))',
+  },
+  heroImg: { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', display: 'block', padding: '1.5rem' },
+  heroFallback: {
+    position: 'absolute',
+    inset: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'rgba(192, 138, 90, 0.28)',
+  },
+  heroHint: {
+    position: 'absolute',
+    left: '1rem',
+    bottom: '1rem',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.45rem',
+    padding: '0.5rem 0.95rem',
+    borderRadius: 'var(--radius-pill)',
+    backgroundColor: 'rgba(9, 10, 11, 0.6)',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    border: '1px solid rgba(255, 255, 255, 0.16)',
+    color: '#f4f4f2',
+    fontSize: '0.78rem',
+    fontWeight: 700,
+    pointerEvents: 'none',
+  },
+  lightbox: {
+    position: 'relative',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '0.75rem',
+    width: 'fit-content',
+    maxWidth: '100%',
+    maxHeight: '88vh',
+  },
+  lightboxImg: {
+    display: 'block',
+    width: 'auto',
+    height: 'auto',
+    maxWidth: 'calc(100vw - 3.5rem)',
+    maxHeight: '78vh',
+    objectFit: 'contain',
+    borderRadius: 'var(--radius-container)',
+    border: '1px solid var(--border-color)',
+    boxShadow: '0 30px 80px -20px rgba(0, 0, 0, 0.7)',
+  },
+  lightboxClose: {
+    position: 'absolute',
+    top: '0.75rem',
+    right: '0.75rem',
+    width: '44px',
+    height: '44px',
+    borderRadius: 'var(--radius-full)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(18, 20, 22, 0.9)',
+    backdropFilter: 'blur(8px)',
+    WebkitBackdropFilter: 'blur(8px)',
+    border: '1px solid var(--border-color)',
+    cursor: 'pointer',
+    zIndex: 10,
+  },
+  lightboxCaption: { fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-secondary)' },
+  chartCard: { backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-container)', padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '1rem' },
+  actionEditBtn: { display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', padding: '0.5rem 0.9rem', borderRadius: 'var(--radius-element)', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' },
+  actionDeleteBtn: { display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: 'rgba(192, 105, 105, 0.12)', color: 'var(--danger-color)', border: '1px solid rgba(192, 105, 105, 0.25)', padding: '0.5rem 0.9rem', borderRadius: 'var(--radius-element)', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' },
+};
+
+// ─── Card Image (media with fallback) ────────────────────────────────────────
+const CardImage: React.FC<{ url?: string | null; name: string }> = ({ url, name }) => {
+  const [hasError, setHasError] = useState(false);
+
+  if (!url || hasError) {
+    return <div className="exercise-fallback-icon"><Dumbbell size={44} strokeWidth={1.5} /></div>;
+  }
+
+  return (
+    <img
+      src={url}
+      alt={name}
+      onError={() => setHasError(true)}
+      loading="lazy"
+    />
+  );
 };
 
 // ─── Main View ───────────────────────────────────────────────────────────────
 export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens }) => {
   const [exercises, setExercises] = useState<ExerciseSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'catalog' | 'custom'>('catalog');
+  const [activeTab, setActiveTab] = useState<'all' | 'custom' | 'favorites'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState('Todos');
   const [selectedEquipment, setSelectedEquipment] = useState('Todos');
+  const [activeChip, setActiveChip] = useState('Todos');
+  const [sortBy, setSortBy] = useState<SortKey>('default');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState<ExerciseSummary | null>(null);
   const [workoutHistory, setWorkoutHistory] = useState<WorkoutHistoryEntry[]>([]);
+
+  const [favoriteIds, setFavoriteIds] = useState<string[]>(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]');
+      return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const filtersRef = useRef<HTMLDivElement>(null);
+  const sortRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(FAVORITES_KEY, JSON.stringify(favoriteIds));
+    } catch {
+      // storage unavailable — favorites remain session-only
+    }
+  }, [favoriteIds]);
+
+  useEffect(() => {
+    const onDocMouseDown = (e: MouseEvent) => {
+      if (filtersRef.current && !filtersRef.current.contains(e.target as Node)) setFiltersOpen(false);
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) setSortOpen(false);
+    };
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, []);
 
   // Create / Edit Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -482,34 +681,67 @@ export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens
   const [deletingExercise, setDeletingExercise] = useState<ExerciseSummary | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const fetchExercises = () => {
-    setLoading(true);
-    Promise.all([
-      api.listExercises(tokens.accessToken),
-      api.listWorkoutHistory(tokens.accessToken).catch(() => []),
-    ])
-      .then(([exList, hist]) => {
-        setExercises(exList);
-        setWorkoutHistory(hist);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  };
+  const navigate = useNavigate();
+  const { exerciseId } = useParams<{ exerciseId?: string }>();
 
   useEffect(() => {
+    const fetchExercises = () => {
+      setLoading(true);
+      Promise.all([
+        api.listExercises(tokens.accessToken),
+        api.listWorkoutHistory(tokens.accessToken).catch(() => []),
+      ])
+        .then(([exList, hist]) => {
+          setExercises(exList);
+          setWorkoutHistory(hist);
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    };
+
     fetchExercises();
   }, [tokens]);
+
+  // The URL is the source of truth: /exercises shows the grid, /exercises/:id shows that exercise's detail
+  useEffect(() => {
+    if (!exerciseId) {
+      setSelectedExercise(null);
+      return;
+    }
+    const target = exercises.find((ex) => ex.id === exerciseId);
+    if (target) setSelectedExercise(target);
+  }, [exerciseId, exercises]);
 
   const customExercises = useMemo(() => {
     return exercises.filter(ex => ex.isCustom === true);
   }, [exercises]);
 
-  const currentTabList = activeTab === 'custom' ? customExercises : exercises;
+  const favoriteExercises = useMemo(() => {
+    return exercises.filter(ex => favoriteIds.includes(ex.id));
+  }, [exercises, favoriteIds]);
+
+  const toggleFavorite = (id: string) => {
+    setFavoriteIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const baseList = activeTab === 'custom'
+    ? customExercises
+    : activeTab === 'favorites'
+      ? favoriteExercises
+      : exercises;
 
   const filteredExercises = useMemo(() => {
-    return currentTabList.filter((ex) => {
+    return baseList.filter((ex) => {
       if (searchQuery.trim() && !matchesSearch(ex.name, searchQuery)) return false;
-      if (selectedMuscle !== 'Todos' && !ex.targetMuscleGroups.some(m => matchesSearch(m, selectedMuscle))) return false;
+
+      if (activeChip !== 'Todos') {
+        const def = CHIP_DEFS.find(d => d.label === activeChip);
+        const syns = def ? def.muscles : [];
+        if (syns.length > 0 && !ex.targetMuscleGroups.some(g => syns.some(s => matchesSearch(g, s)))) return false;
+      } else if (selectedMuscle !== 'Todos' && !ex.targetMuscleGroups.some(m => matchesSearch(m, selectedMuscle))) {
+        return false;
+      }
+
       if (selectedEquipment !== 'Todos') {
         const t = selectedEquipment.toLowerCase().trim();
         if (t === 'ninguno') {
@@ -520,7 +752,39 @@ export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens
       }
       return true;
     });
-  }, [currentTabList, searchQuery, selectedMuscle, selectedEquipment]);
+  }, [baseList, searchQuery, activeChip, selectedMuscle, selectedEquipment]);
+
+  const sortedExercises = useMemo(() => {
+    const arr = [...filteredExercises];
+    if (sortBy === 'az') arr.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    else if (sortBy === 'za') arr.sort((a, b) => b.name.localeCompare(a.name, 'es'));
+    return arr;
+  }, [filteredExercises, sortBy]);
+
+  const activeFilterCount = (activeChip !== 'Todos' ? 1 : 0) + (selectedEquipment !== 'Todos' ? 1 : 0);
+
+  const selectChip = (label: string) => {
+    setActiveChip(label);
+    const def = CHIP_DEFS.find(d => d.label === label);
+    setSelectedMuscle(def && def.muscles.length > 0 ? def.muscles[0] : 'Todos');
+  };
+
+  const chipForMuscle = (m: string) => {
+    if (m === 'Todos') return 'Todos';
+    const def = CHIP_DEFS.find(d => d.label !== 'Todos' && d.muscles.some(s => matchesSearch(m, s)));
+    return def ? def.label : 'Todos';
+  };
+
+  const onMuscleFilterChange = (m: string) => {
+    setSelectedMuscle(m);
+    setActiveChip(chipForMuscle(m));
+  };
+
+  const clearFilters = () => {
+    setActiveChip('Todos');
+    setSelectedMuscle('Todos');
+    setSelectedEquipment('Todos');
+  };
 
   const openCreateModal = () => {
     setEditingExercise(null);
@@ -554,7 +818,6 @@ export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens
 
     try {
       if (editingExercise) {
-        // Update
         const updated = await api.updateExercise(tokens.accessToken, editingExercise.id, {
           name: formName.trim(),
           targetMuscleGroups: [formMuscle],
@@ -568,7 +831,6 @@ export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens
           setSelectedExercise(prev => prev ? { ...prev, ...updated } : null);
         }
       } else {
-        // Create
         const created = await api.createExercise(tokens.accessToken, {
           name: formName.trim(),
           targetMuscleGroups: [formMuscle],
@@ -594,6 +856,7 @@ export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens
     try {
       await api.deleteExercise(tokens.accessToken, deletingExercise.id);
       setExercises(prev => prev.filter(ex => ex.id !== deletingExercise.id));
+      setFavoriteIds(prev => prev.filter(id => id !== deletingExercise.id));
       if (selectedExercise && selectedExercise.id === deletingExercise.id) {
         setSelectedExercise(null);
       }
@@ -613,7 +876,7 @@ export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens
           exercise={selectedExercise}
           tokens={tokens}
           history={workoutHistory}
-          onBack={() => setSelectedExercise(null)}
+          onBack={() => navigate('/exercises')}
           onEdit={openEditModal}
           onDelete={setDeletingExercise}
         />
@@ -621,97 +884,161 @@ export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens
     );
   }
 
+  const tabs = [
+    { key: 'all' as const, label: 'Todos', count: exercises.length },
+    { key: 'custom' as const, label: 'Mis ejercicios', count: customExercises.length },
+    { key: 'favorites' as const, label: 'Favoritos', count: favoriteExercises.length },
+  ];
+
   return (
     <div style={styles.container}>
       {/* Header */}
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>Biblioteca de Ejercicios</h1>
-          <p style={styles.subtitle}>Explora el catálogo ilustrado o gestiona tus propios ejercicios personalizados</p>
+          <h1 style={styles.title}>Ejercicios</h1>
+          <p style={styles.subtitle}>
+            {exercises.length} ejercicios · Explora, filtra y encuentra tu próximo movimiento
+          </p>
         </div>
         <button style={styles.createBtn} onClick={openCreateModal}>
           <Plus size={18} /><span>Crear ejercicio</span>
         </button>
       </div>
 
-      {/* Navigation Tabs */}
-      <div style={styles.tabsContainer}>
-        <button
-          onClick={() => setActiveTab('catalog')}
-          style={{
-            ...styles.tabButton,
-            ...(activeTab === 'catalog' ? styles.tabButtonActive : {}),
-          }}
-        >
-          <Layers size={18} />
-          <span>Catálogo General</span>
-          <span style={activeTab === 'catalog' ? styles.tabBadgeActive : styles.tabBadge}>
-            {exercises.length}
-          </span>
-        </button>
-        <button
-          onClick={() => setActiveTab('custom')}
-          style={{
-            ...styles.tabButton,
-            ...(activeTab === 'custom' ? styles.tabButtonActive : {}),
-          }}
-        >
-          <Sparkles size={18} />
-          <span>Mis Ejercicios Creados</span>
-          <span style={activeTab === 'custom' ? styles.tabBadgeActive : styles.tabBadge}>
-            {customExercises.length}
-          </span>
-        </button>
+      {/* Text tabs */}
+      <div style={styles.tabsRow}>
+        {tabs.map(t => (
+          <button
+            key={t.key}
+            onClick={() => setActiveTab(t.key)}
+            style={{
+              ...styles.tabButton,
+              ...(activeTab === t.key ? styles.tabButtonActive : {}),
+            }}
+          >
+            <span>{t.label}</span>
+            <span style={activeTab === t.key ? styles.tabCountActive : styles.tabCount}>{t.count}</span>
+          </button>
+        ))}
       </div>
 
-      {/* Filter / Search Controls */}
-      <div style={styles.controlsCard}>
-        <div style={styles.searchWrapper}>
-          <Search size={18} color="#94a3b8" style={styles.searchIcon} />
+      {/* Quick category chips */}
+      <div className="exercise-chip-row">
+        {CHIP_DEFS.map(chip => (
+          <button
+            key={chip.label}
+            onClick={() => selectChip(chip.label)}
+            className={`exercise-chip${activeChip === chip.label ? ' is-active' : ''}`}
+          >
+            {chip.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Search + filters + sort */}
+      <div style={styles.searchBar}>
+        <div style={styles.searchInputWrap}>
+          <Search size={17} color="var(--text-muted)" style={styles.searchIcon} />
           <input
             type="text"
-            placeholder={activeTab === 'custom' ? "Buscar en mis ejercicios..." : "Buscar ejercicio por nombre..."}
+            placeholder="Buscar ejercicios..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={styles.searchInput}
           />
           {searchQuery && (
             <button style={styles.clearSearch} onClick={() => setSearchQuery('')}>
-              <X size={16} color="#94a3b8" />
+              <X size={15} color="var(--text-muted)" />
             </button>
           )}
         </div>
-        <div style={styles.filtersRow}>
-          <div style={styles.filterGroup}>
-            <label style={styles.filterLabel}>Músculo:</label>
-            <select value={selectedMuscle} onChange={(e) => setSelectedMuscle(e.target.value)} style={styles.select}>
-              {MUSCLE_GROUPS.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
-          </div>
-          <div style={styles.filterGroup}>
-            <label style={styles.filterLabel}>Equipo:</label>
-            <select value={selectedEquipment} onChange={(e) => setSelectedEquipment(e.target.value)} style={styles.select}>
-              {EQUIPMENT_OPTIONS.map(eq => <option key={eq} value={eq}>{eq}</option>)}
-            </select>
-          </div>
+
+        <div ref={filtersRef} style={styles.dropdownWrap}>
+          <button
+            onClick={() => setFiltersOpen(o => !o)}
+            style={{
+              ...styles.dropdownBtn,
+              ...(activeFilterCount > 0 ? styles.dropdownBtnActive : {}),
+            }}
+          >
+            <SlidersHorizontal size={16} />
+            <span>Filtros{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}</span>
+            <ChevronDown size={15} style={{ transform: filtersOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
+          </button>
+          {filtersOpen && (
+            <div style={styles.popover}>
+              <div style={styles.popoverLabel}>Músculo</div>
+              <select value={selectedMuscle} onChange={(e) => onMuscleFilterChange(e.target.value)} style={styles.popoverSelect}>
+                {MUSCLE_GROUPS.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+              <div style={styles.popoverLabel}>Equipamiento</div>
+              <select value={selectedEquipment} onChange={(e) => setSelectedEquipment(e.target.value)} style={styles.popoverSelect}>
+                {EQUIPMENT_OPTIONS.map(eq => <option key={eq} value={eq}>{eq}</option>)}
+              </select>
+              {activeFilterCount > 0 && (
+                <button style={styles.popoverClear} onClick={clearFilters}>
+                  Limpiar filtros
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div ref={sortRef} style={styles.dropdownWrap}>
+          <button
+            onClick={() => setSortOpen(o => !o)}
+            style={{ ...styles.dropdownBtn, ...(sortBy !== 'default' ? styles.dropdownBtnActive : {}) }}
+          >
+            <ArrowUpDown size={16} />
+            <span>Ordenar</span>
+            <ChevronDown size={15} style={{ transform: sortOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
+          </button>
+          {sortOpen && (
+            <div style={styles.sortMenu}>
+              {SORT_OPTIONS.map(o => (
+                <button
+                  key={o.key}
+                  onClick={() => { setSortBy(o.key); setSortOpen(false); }}
+                  style={{ ...styles.sortItem, ...(sortBy === o.key ? styles.sortItemActive : {}) }}
+                >
+                  <span>{o.label}</span>
+                  {sortBy === o.key && <Check size={15} />}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Section Header */}
-      <div style={styles.sectionHeader}>
-        <h2 style={styles.sectionTitle}>
-          {activeTab === 'custom' ? 'Mis Ejercicios Personalizados' : 'Ejercicios Disponibles'}
-        </h2>
-        <span style={styles.countBadge}>{filteredExercises.length} resultado(s)</span>
-      </div>
+      {/* Results meta */}
+      {!loading && (
+        <div style={styles.resultsLine}>
+          <span>
+            {sortedExercises.length} {sortedExercises.length === 1 ? 'ejercicio' : 'ejercicios'}
+          </span>
+          {searchQuery.trim() && <span style={styles.resultsMeta}>{` · búsqueda "${searchQuery.trim()}"`}</span>}
+        </div>
+      )}
 
       {/* Grid of Exercises */}
       {loading ? (
         <div style={styles.loadingText}>Cargando ejercicios...</div>
-      ) : filteredExercises.length === 0 ? (
-        activeTab === 'custom' ? (
+      ) : sortedExercises.length === 0 ? (
+        activeTab === 'favorites' ? (
           <div style={styles.emptyCard}>
-            <Sparkles size={40} color="#eab308" style={{ marginBottom: '1rem' }} />
+            <div style={styles.emptyIcon}>
+              <Heart size={36} fill="var(--accent-gold)" color="var(--accent-gold)" />
+            </div>
+            <h3 style={{ color: 'var(--text-primary)', fontSize: '1.2rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+              Sin favoritos todavía
+            </h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', maxWidth: '400px', margin: '0 auto' }}>
+              Toca el corazón en cualquier ejercicio para guardarlo aquí y tenerlo siempre a mano.
+            </p>
+          </div>
+        ) : activeTab === 'custom' ? (
+          <div style={styles.emptyCard}>
+            <Sparkles size={40} color="var(--accent-gold)" style={{ marginBottom: '1rem' }} />
             <h3 style={{ color: 'var(--text-primary)', fontSize: '1.2rem', fontWeight: 700, marginBottom: '0.5rem' }}>
               No tienes ejercicios personalizados aún
             </h3>
@@ -723,62 +1050,76 @@ export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens
             </button>
           </div>
         ) : (
-          <div style={styles.emptyCard}>No se encontraron ejercicios con los filtros seleccionados.</div>
+          <div style={styles.emptyCard}>
+            <Search size={36} color="var(--text-muted)" style={{ marginBottom: '1rem' }} />
+            <h3 style={{ color: 'var(--text-primary)', fontSize: '1.2rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+              Sin resultados
+            </h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', maxWidth: '400px', margin: '0 auto' }}>
+              No se encontraron ejercicios con los filtros seleccionados. Prueba con otros términos o limpia los filtros.
+            </p>
+          </div>
         )
       ) : (
-        <div style={styles.grid}>
-          {filteredExercises.map((ex) => (
+        <div className="exercise-grid">
+          {sortedExercises.map((ex) => (
             <div
               key={ex.id}
-              style={styles.exerciseCard}
-              onClick={() => setSelectedExercise(ex)}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(34,240,197,0.35)';
-                (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)';
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border-color)';
-                (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)';
+              className="exercise-card"
+              onClick={() => {
+                setSelectedExercise(ex);
+                navigate(`/exercises/${ex.id}`);
               }}
             >
-              {/* Exercise Image Thumbnail */}
-              <ExerciseAvatar url={ex.mediaUrl} name={ex.name} size={54} />
+              {/* Media */}
+              <div className="exercise-card-media">
+                <CardImage url={ex.mediaUrl} name={ex.name} />
+                <div className="exercise-overlay">
+                  <span className="exercise-play">
+                    <Play size={16} fill="currentColor" /> Ver ejercicio
+                  </span>
+                </div>
+                <button
+                  className={`exercise-fav${favoriteIds.includes(ex.id) ? ' is-active' : ''}`}
+                  title={favoriteIds.includes(ex.id) ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+                  onClick={(e) => { e.stopPropagation(); toggleFavorite(ex.id); }}
+                >
+                  <Heart size={17} fill={favoriteIds.includes(ex.id) ? 'currentColor' : 'none'} />
+                </button>
+              </div>
 
-              <div style={styles.cardInfo}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              {/* Info */}
+              <div className="exercise-card-body">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0 }}>
                   <h3 style={styles.cardTitle}>{ex.name}</h3>
                   {ex.isCustom && <span style={styles.customBadgeSmall}>Mío</span>}
                 </div>
                 {ex.description && (
                   <span style={styles.cardSubtitle}>{ex.description}</span>
                 )}
-                <div style={styles.tagsRow}>
-                  {ex.targetMuscleGroups.map(group => <span key={group} style={styles.tagMuscle}>{group}</span>)}
+                <div className="exercise-tags">
+                  {ex.targetMuscleGroups.slice(0, 2).map(group => <span key={group} style={styles.tagMuscle}>{group}</span>)}
                   {ex.equipment && <span style={styles.tagEquipment}>{ex.equipment}</span>}
                 </div>
+                {ex.isCustom && (
+                  <div style={styles.cardTools} onClick={e => e.stopPropagation()}>
+                    <button
+                      title="Editar ejercicio"
+                      onClick={(e) => { e.stopPropagation(); openEditModal(ex); }}
+                      style={styles.cardToolBtn}
+                    >
+                      <Edit2 size={14} color="var(--text-muted)" />
+                    </button>
+                    <button
+                      title="Eliminar ejercicio"
+                      onClick={(e) => { e.stopPropagation(); setDeletingExercise(ex); }}
+                      style={styles.cardToolBtnDelete}
+                    >
+                      <Trash2 size={14} color="var(--danger-color)" />
+                    </button>
+                  </div>
+                )}
               </div>
-
-              {/* Action buttons for custom exercises */}
-              {ex.isCustom ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }} onClick={e => e.stopPropagation()}>
-                  <button
-                    title="Editar ejercicio"
-                    onClick={(e) => { e.stopPropagation(); openEditModal(ex); }}
-                    style={styles.cardActionBtn}
-                  >
-                    <Edit2 size={16} color="var(--text-muted)" />
-                  </button>
-                  <button
-                    title="Eliminar ejercicio"
-                    onClick={(e) => { e.stopPropagation(); setDeletingExercise(ex); }}
-                    style={styles.cardActionBtnDelete}
-                  >
-                    <Trash2 size={16} color="#ef4444" />
-                  </button>
-                </div>
-              ) : (
-                <ChevronRight size={20} color="#94a3b8" />
-              )}
             </div>
           ))}
         </div>
@@ -796,7 +1137,7 @@ export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens
                 </h2>
               </div>
               <button style={styles.closeBtn} onClick={() => setIsModalOpen(false)}>
-                <X size={20} color="#94a3b8" />
+                <X size={20} color="var(--text-muted)" />
               </button>
             </div>
             <form onSubmit={handleFormSubmit} style={styles.modalForm}>
@@ -875,7 +1216,7 @@ export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens
       {deletingExercise && (
         <div className="modal-overlay" onClick={() => setDeletingExercise(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', textAlign: 'center' }}>
-            <div style={{ width: 50, height: 50, borderRadius: '50%', backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+            <div style={{ width: 50, height: 50, borderRadius: '50%', backgroundColor: 'rgba(192, 105, 105, 0.15)', color: 'var(--danger-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
               <Trash2 size={24} />
             </div>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
@@ -895,7 +1236,7 @@ export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens
               </button>
               <button
                 type="button"
-                style={{ ...styles.saveBtn, backgroundColor: '#dc2626' }}
+                style={{ ...styles.saveBtn, backgroundColor: 'var(--danger-color)' }}
                 onClick={handleDeleteExercise}
                 disabled={deleting}
               >
@@ -910,41 +1251,44 @@ export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens
 };
 
 const styles: Record<string, React.CSSProperties> = {
-  container: { width: '100%', padding: '2.5rem 3rem', display: 'flex', flexDirection: 'column', gap: '2rem', boxSizing: 'border-box' },
+  container: { width: '100%', padding: '2.5rem 3rem', display: 'flex', flexDirection: 'column', gap: '1.75rem', boxSizing: 'border-box' },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' },
-  title: { fontSize: '2.4rem', fontWeight: 800, color: 'var(--text-primary)' },
-  subtitle: { color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.25rem' },
-  createBtn: { backgroundColor: '#2563eb', color: '#ffffff', padding: '0.75rem 1.25rem', borderRadius: '12px', fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', border: 'none' },
-  tabsContainer: { display: 'flex', gap: '0.75rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' },
-  tabButton: { display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.7rem 1.25rem', borderRadius: '12px', backgroundColor: 'transparent', color: 'var(--text-muted)', border: '1px solid transparent', fontSize: '0.92rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s ease' },
-  tabButtonActive: { backgroundColor: 'var(--surface-color)', color: 'var(--accent-teal)', borderColor: 'rgba(34, 240, 197, 0.3)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' },
-  tabBadge: { backgroundColor: 'var(--input-bg)', color: 'var(--text-muted)', padding: '0.15rem 0.55rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 700 },
-  tabBadgeActive: { backgroundColor: 'rgba(34, 240, 197, 0.15)', color: 'var(--accent-teal)', padding: '0.15rem 0.55rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 700 },
-  controlsCard: { backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '1.25rem', display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' },
-  searchWrapper: { position: 'relative', display: 'flex', alignItems: 'center', flex: 1, minWidth: '280px' },
-  searchIcon: { position: 'absolute', left: '14px' },
-  searchInput: { width: '100%', paddingLeft: '2.75rem', paddingRight: '2.5rem' },
-  clearSearch: { position: 'absolute', right: '12px', padding: '4px', background: 'none', border: 'none', cursor: 'pointer' },
-  filtersRow: { display: 'flex', gap: '1rem', alignItems: 'center' },
-  filterGroup: { display: 'flex', alignItems: 'center', gap: '0.5rem' },
-  filterLabel: { fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 },
-  select: { backgroundColor: 'var(--input-bg)', color: 'var(--text-primary)', minWidth: '150px' },
-  sectionHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.25rem' },
-  sectionTitle: { fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' },
-  countBadge: { backgroundColor: 'var(--border-color)', color: 'var(--text-muted)', padding: '0.25rem 0.75rem', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 600 },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1rem' },
-  exerciseCard: { backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', transition: 'transform 0.15s ease, border-color 0.15s ease' },
-  cardInfo: { flex: 1, display: 'flex', flexDirection: 'column', gap: '0.3rem', minWidth: 0 },
-  cardTitle: { fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  title: { fontSize: 'clamp(1.8rem, 3vw, 2.4rem)', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-primary)', margin: 0 },
+  subtitle: { color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.35rem' },
+  createBtn: { backgroundColor: 'var(--primary)', color: 'var(--bg-color)', padding: '0.7rem 1.2rem', borderRadius: 'var(--radius-element)', fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', border: 'none' },
+  tabsRow: { display: 'flex', gap: '1.5rem', borderBottom: '1px solid var(--border-color)' },
+  tabButton: { background: 'none', border: 'none', padding: '0.4rem 0 0.65rem', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '2px solid transparent', marginBottom: '-1px', transition: 'color 0.15s ease, border-color 0.15s ease' },
+  tabButtonActive: { color: 'var(--primary)', borderBottomColor: 'var(--primary)', fontWeight: 700 },
+  tabCount: { fontSize: '0.72rem', backgroundColor: 'var(--input-bg)', color: 'var(--text-muted)', padding: '0.1rem 0.5rem', borderRadius: 'var(--radius-full)', fontWeight: 600 },
+  tabCountActive: { fontSize: '0.72rem', backgroundColor: 'rgba(192, 138, 90, 0.16)', color: 'var(--primary)', padding: '0.1rem 0.5rem', borderRadius: 'var(--radius-full)', fontWeight: 700 },
+  searchBar: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.15rem', backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-control)', padding: '0.35rem 0.5rem', boxShadow: '0 2px 10px rgba(0,0,0,0.08)' },
+  searchInputWrap: { position: 'relative', flex: 1, display: 'flex', alignItems: 'center', minWidth: '220px' },
+  searchIcon: { position: 'absolute', left: '12px' },
+  searchInput: { width: '100%', padding: '0.7rem 2.5rem 0.7rem 2.75rem', backgroundColor: 'transparent', border: 'none', outline: 'none', fontSize: '0.92rem', color: 'var(--text-primary)' },
+  clearSearch: { position: 'absolute', right: '10px', padding: '4px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' },
+  dropdownWrap: { position: 'relative' },
+  dropdownBtn: { display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.6rem 0.9rem', borderRadius: 'var(--radius-element)', fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-muted)', background: 'transparent', border: 'none', cursor: 'pointer', transition: 'color 0.15s ease, background-color 0.15s ease' },
+  dropdownBtnActive: { color: 'var(--primary)', backgroundColor: 'rgba(192, 138, 90, 0.12)' },
+  popover: { position: 'absolute', top: 'calc(100% + 8px)', right: 0, minWidth: '240px', backgroundColor: 'var(--surface-elevated)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-control)', padding: '1rem', boxShadow: '0 18px 45px -12px rgba(0,0,0,0.45)', zIndex: 30, display: 'flex', flexDirection: 'column', gap: '0.5rem', animation: 'fadeIn 0.18s ease' },
+  popoverLabel: { fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginTop: '0.35rem' },
+  popoverSelect: { width: '100%', backgroundColor: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-element)', padding: '0.55rem 0.75rem', fontSize: '0.88rem', outline: 'none' },
+  popoverClear: { marginTop: '0.5rem', padding: '0.55rem 0.75rem', borderRadius: 'var(--radius-element)', background: 'rgba(192, 105, 105, 0.1)', color: 'var(--danger-color)', border: '1px solid rgba(192, 105, 105, 0.2)', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' },
+  sortMenu: { position: 'absolute', top: 'calc(100% + 8px)', right: 0, minWidth: '200px', backgroundColor: 'var(--surface-elevated)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-control)', padding: '0.4rem', boxShadow: '0 18px 45px -12px rgba(0,0,0,0.45)', zIndex: 30, animation: 'fadeIn 0.18s ease', display: 'flex', flexDirection: 'column' },
+  sortItem: { width: '100%', textAlign: 'left', padding: '0.6rem 0.75rem', borderRadius: 'var(--radius-element)', border: 'none', background: 'none', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.88rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'background-color 0.15s ease' },
+  sortItemActive: { backgroundColor: 'rgba(192, 138, 90, 0.1)', color: 'var(--primary)' },
+  resultsLine: { fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 600 },
+  resultsMeta: { color: 'var(--text-dim)' },
+  cardTitle: { fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 },
   cardSubtitle: { fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-  customBadgeSmall: { backgroundColor: 'rgba(234, 179, 8, 0.15)', color: '#eab308', border: '1px solid rgba(234, 179, 8, 0.3)', padding: '0.1rem 0.4rem', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700, flexShrink: 0 },
-  tagsRow: { display: 'flex', gap: '0.4rem', flexWrap: 'wrap' },
-  tagMuscle: { backgroundColor: 'rgba(52, 211, 153, 0.15)', color: '#10b981', padding: '0.15rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600 },
-  tagEquipment: { backgroundColor: 'rgba(96, 165, 250, 0.15)', color: '#3b82f6', padding: '0.15rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600 },
-  cardActionBtn: { padding: '0.45rem', borderRadius: '8px', backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-color)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  cardActionBtnDelete: { padding: '0.45rem', borderRadius: '8px', backgroundColor: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  customBadgeSmall: { backgroundColor: 'rgba(192, 138, 90, 0.15)', color: 'var(--accent-gold)', border: '1px solid rgba(192, 138, 90, 0.3)', padding: '0.1rem 0.4rem', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700, flexShrink: 0 },
+  tagMuscle: { backgroundColor: 'rgba(192, 138, 90, 0.15)', color: 'var(--accent-gold)', border: '1px solid rgba(192, 138, 90, 0.28)', padding: '0.15rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600 },
+  tagEquipment: { backgroundColor: 'rgba(255, 255, 255, 0.06)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)', padding: '0.15rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600 },
+  cardTools: { display: 'flex', gap: '0.4rem', marginTop: '0.15rem' },
+  cardToolBtn: { padding: '0.4rem', borderRadius: 'var(--radius-element)', backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-color)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  cardToolBtnDelete: { padding: '0.4rem', borderRadius: 'var(--radius-element)', backgroundColor: 'rgba(192, 105, 105, 0.12)', border: '1px solid rgba(192, 105, 105, 0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   loadingText: { textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' },
-  emptyCard: { backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '3.5rem 2rem', textAlign: 'center', color: 'var(--text-muted)' },
+  emptyCard: { backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-container)', padding: '3.5rem 2rem', textAlign: 'center', color: 'var(--text-muted)' },
+  emptyIcon: { width: 64, height: 64, borderRadius: '50%', backgroundColor: 'rgba(192, 138, 90, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' },
   modalHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' },
   modalTitle: { fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' },
   closeBtn: { padding: '0.25rem', background: 'none', border: 'none', cursor: 'pointer' },
@@ -952,8 +1296,8 @@ const styles: Record<string, React.CSSProperties> = {
   inputGroup: { display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 },
   label: { fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' },
   formRow: { display: 'flex', gap: '1rem' },
-  errorAlert: { backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', padding: '0.75rem', borderRadius: '10px', fontSize: '0.85rem' },
+  errorAlert: { backgroundColor: 'rgba(192, 105, 105, 0.15)', color: 'var(--danger-color)', padding: '0.75rem', borderRadius: 'var(--radius-control)', fontSize: '0.85rem' },
   modalActions: { display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' },
-  cancelBtn: { padding: '0.75rem 1.25rem', borderRadius: '10px', color: 'var(--text-muted)', fontWeight: 600, background: 'none', border: '1px solid var(--border-color)', cursor: 'pointer' },
-  saveBtn: { backgroundColor: '#2563eb', color: '#ffffff', padding: '0.75rem 1.25rem', borderRadius: '10px', fontWeight: 700, border: 'none', cursor: 'pointer' },
+  cancelBtn: { padding: '0.75rem 1.25rem', borderRadius: 'var(--radius-element)', color: 'var(--text-muted)', fontWeight: 600, background: 'none', border: '1px solid var(--border-color)', cursor: 'pointer' },
+  saveBtn: { backgroundColor: 'var(--primary)', color: 'var(--bg-color)', padding: '0.75rem 1.25rem', borderRadius: 'var(--radius-element)', fontWeight: 700, border: 'none', cursor: 'pointer' },
 };

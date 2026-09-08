@@ -1,7 +1,8 @@
-import React from 'react';
-import { Trophy, Clock, Dumbbell, Repeat, Flame, ArrowRight, CheckCircle2 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Trophy, Clock, Dumbbell, Repeat, Flame, ArrowRight, CheckCircle2, Share2 } from 'lucide-react';
 
 export interface WorkoutSummaryData {
+  workoutId?: string;
   durationSeconds: number;
   totalVolume: number;
   completedSetsCount: number;
@@ -22,18 +23,44 @@ interface WorkoutSummaryModalProps {
   isOpen: boolean;
   data: WorkoutSummaryData;
   onClose: () => void;
+  onShare?: (workoutId: string, caption: string) => Promise<void> | void;
+  onGoToFeed?: () => void;
+  isSharing?: boolean;
 }
 
 export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
   isOpen,
   data,
   onClose,
+  onShare,
+  onGoToFeed,
+  isSharing = false,
 }) => {
+  const [caption, setCaption] = useState('');
+  const [shared, setShared] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setCaption('');
+    setShared(false);
+  }, [isOpen, data.workoutId]);
+
   if (!isOpen) return null;
 
   const minutes = Math.floor(data.durationSeconds / 60);
   const seconds = data.durationSeconds % 60;
   const timeFormatted = `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+  const canShare = Boolean(onShare) && Boolean(data.workoutId) && !shared;
+
+  const handleShare = async () => {
+    if (!canShare || !data.workoutId) return;
+    try {
+      await onShare?.(data.workoutId, caption.trim());
+      setShared(true);
+    } catch {
+      setShared(false);
+    }
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -74,7 +101,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
           </div>
 
           <div style={styles.statCard}>
-            <CheckCircle2 size={20} color="#22c55e" style={{ marginBottom: '0.35rem' }} />
+            <CheckCircle2 size={20} color="var(--accent-green)" style={{ marginBottom: '0.35rem' }} />
             <span style={styles.statValue}>{data.completedSetsCount}</span>
             <span style={styles.statLabel}>Series Efectivas</span>
           </div>
@@ -125,9 +152,51 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
           </div>
         )}
 
+        {/* Share to Social */}
+        {onShare && (
+          <div style={styles.shareBox}>
+            <div style={styles.shareHeader}>
+              <Share2 size={17} color={shared ? 'var(--accent-green)' : 'var(--accent-teal)'} />
+              <span style={styles.shareTitle}>
+                {shared ? '¡Entrenamiento publicado en Social!' : 'Compartir en Social'}
+              </span>
+            </div>
+            {!shared ? (
+              <>
+                <textarea
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
+                  placeholder="Cuéntale a la comunidad cómo fue la sesión… (opcional)"
+                  rows={2}
+                  maxLength={280}
+                  style={styles.captionInput}
+                />
+                <button
+                  style={{
+                    ...styles.shareBtn,
+                    ...(isSharing || !data.workoutId ? { opacity: 0.55, cursor: 'default' } : {}),
+                  }}
+                  onClick={handleShare}
+                  disabled={isSharing || !data.workoutId}
+                >
+                  <Share2 size={15} />
+                  {isSharing ? 'Publicando...' : 'Publicar entrenamiento'}
+                </button>
+              </>
+            ) : (
+              <div style={styles.sharedRow}>
+                <CheckCircle2 size={18} color="var(--accent-green)" />
+                <span style={styles.sharedText}>
+                  Tu sesión ya está en el feed de la comunidad.
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Primary CTA button */}
-        <button style={styles.ctaButton} onClick={onClose}>
-          <span>Continuar al Historial</span>
+        <button style={styles.ctaButton} onClick={shared && onGoToFeed ? onGoToFeed : onClose}>
+          <span>{shared ? (onGoToFeed ? 'Ver mi publicación' : 'Listo') : 'Continuar al Historial'}</span>
           <ArrowRight size={18} />
         </button>
       </div>
@@ -139,21 +208,20 @@ const styles: Record<string, React.CSSProperties> = {
   trophyWrapper: {
     width: '88px',
     height: '88px',
-    borderRadius: '28px',
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-    border: '1px solid rgba(245, 158, 11, 0.28)',
+    borderRadius: 'var(--radius-container)',
+    backgroundColor: 'rgba(192, 138, 90, 0.12)',
+    border: '1px solid rgba(192, 138, 90, 0.28)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     margin: '0 auto 1.25rem',
     position: 'relative',
-    boxShadow: '0 0 32px rgba(245, 158, 11, 0.2)',
   },
   trophyHalo: {
     position: 'absolute',
     inset: -8,
-    borderRadius: '32px',
-    background: 'radial-gradient(circle, rgba(245, 158, 11, 0.18) 0%, transparent 70%)',
+    borderRadius: 'var(--radius-container)',
+    background: 'radial-gradient(circle, rgba(192, 138, 90, 0.18) 0%, transparent 70%)',
     pointerEvents: 'none',
   },
   celebrationSub: {
@@ -186,7 +254,7 @@ const styles: Record<string, React.CSSProperties> = {
   statCard: {
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
-    borderRadius: '16px',
+    borderRadius: 'var(--radius-element)',
     padding: '1.15rem 1rem',
     display: 'flex',
     flexDirection: 'column',
@@ -208,9 +276,9 @@ const styles: Record<string, React.CSSProperties> = {
     letterSpacing: '0.04em',
   },
   prSection: {
-    backgroundColor: 'rgba(245, 158, 11, 0.08)',
-    border: '1px solid rgba(245, 158, 11, 0.25)',
-    borderRadius: '16px',
+    backgroundColor: 'rgba(192, 138, 90, 0.08)',
+    border: '1px solid rgba(192, 138, 90, 0.25)',
+    borderRadius: 'var(--radius-element)',
     padding: '1rem 1.25rem',
     marginBottom: '1.5rem',
   },
@@ -239,7 +307,7 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--surface-color)',
     padding: '0.6rem 0.85rem',
     borderRadius: '10px',
-    border: '1px solid rgba(245, 158, 11, 0.15)',
+    border: '1px solid rgba(192, 138, 90, 0.15)',
   },
   prExName: {
     fontSize: '0.86rem',
@@ -254,7 +322,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.78rem',
     fontWeight: 800,
     color: 'var(--accent-gold)',
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    backgroundColor: 'rgba(192, 138, 90, 0.12)',
     padding: '0.25rem 0.55rem',
     borderRadius: '6px',
   },
@@ -285,9 +353,9 @@ const styles: Record<string, React.CSSProperties> = {
   ctaButton: {
     width: '100%',
     padding: '1rem',
-    borderRadius: '14px',
+    borderRadius: 'var(--radius-control)',
     backgroundColor: 'var(--accent-teal)',
-    color: '#000000',
+    color: 'var(--bg-color)',
     fontSize: '1rem',
     fontWeight: 800,
     border: 'none',
@@ -296,7 +364,68 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     gap: '0.5rem',
-    boxShadow: '0 4px 20px var(--accent-teal-glow)',
+    transition: 'background-color 0.15s ease',
+  },
+  shareBox: {
+    backgroundColor: 'var(--input-bg)',
+    border: '1px solid var(--border-color)',
+    borderRadius: 'var(--radius-element)',
+    padding: '1rem 1.15rem',
+    marginBottom: '1rem',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.7rem',
+  },
+  shareHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.45rem',
+  },
+  shareTitle: {
+    fontSize: '0.88rem',
+    fontWeight: 800,
+    color: 'var(--text-primary)',
+    letterSpacing: '-0.01em',
+    textAlign: 'left',
+  },
+  captionInput: {
+    width: '100%',
+    boxSizing: 'border-box',
+    resize: 'vertical',
+    minHeight: '56px',
+    backgroundColor: 'var(--surface-color)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '10px',
+    padding: '0.65rem 0.8rem',
+    color: 'var(--text-primary)',
+    fontSize: '0.88rem',
+    fontFamily: 'inherit',
+    outline: 'none',
+  },
+  shareBtn: {
+    alignSelf: 'flex-start',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.45rem',
+    backgroundColor: 'rgba(192, 138, 90, 0.12)',
+    border: '1px solid rgba(192, 138, 90, 0.3)',
+    color: 'var(--accent-gold)',
+    padding: '0.6rem 1rem',
+    borderRadius: '10px',
+    fontWeight: 700,
+    fontSize: '0.85rem',
+    cursor: 'pointer',
     transition: 'all 0.15s ease',
+  },
+  sharedRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+  },
+  sharedText: {
+    fontSize: '0.85rem',
+    color: 'var(--accent-green)',
+    fontWeight: 600,
+    textAlign: 'left',
   },
 };

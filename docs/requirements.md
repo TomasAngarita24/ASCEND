@@ -101,13 +101,6 @@ ASCEND should provide an integrated rest timer. When a user completes a set, the
 
 Users should be able to start the timer automatically or manually, pause it, skip it, and adjust its duration. The timer should remain accessible while navigating through the active workout.
 
-## Supersets
-
-### FR-SUPER-001 — Superset Management
-
-ASCEND should support grouping two or more exercises into supersets. Users should be able to create a superset, add and remove exercises, perform exercises sequentially, and track sets independently for each exercise.
-
-
 ## Workout History
 
 ### FR-HIST-001 — Previous Workouts

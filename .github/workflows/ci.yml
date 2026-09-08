@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  web:
+    name: Web (lint, build, tests)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Lint (oxlint)
+        working-directory: web
+        run: npm run lint
+
+      - name: Typecheck + build (tsc -b && vite build)
+        working-directory: web
+        run: npm run build
+
+      - name: Tests (vitest)
+        working-directory: web
+        run: npm test
+
+  backend:
+    name: Backend (lint, typecheck, tests, build)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: ascend
+          POSTGRES_USER: ascend
+          POSTGRES_PASSWORD: ascend_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ascend -d ascend"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ascend:ascend_ci_password@localhost:5432/ascend?schema=public
+      JWT_ACCESS_SECRET: asc_ci_secret_key_at_least_32_chars_long_123456
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install system build tools (argon2 native addon)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends python3 make g++
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Generate Prisma client
+        working-directory: backend
+        run: npm run prisma:generate
+
+      - name: Apply migrations
+        working-directory: backend
+        run: npm run prisma:migrate:deploy
+
+      - name: Lint (oxlint)
+        working-directory: backend
+        run: npm run lint
+
+      - name: Typecheck
+        working-directory: backend
+        run: npm run typecheck
+
+      - name: Build
+        working-directory: backend
+        run: npm run build
+
+      - name: Tests (integration, against service Postgres)
+        working-directory: backend
+        run: npm test

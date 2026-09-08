@@ -4,16 +4,20 @@
   "private": true,
   "description": "ASCEND Node.js + Express backend API",
   "main": "dist/server.js",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
+    "lint": "oxlint src tests",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
-    "test": "tsx --test tests/auth.integration.test.ts tests/auth.cookies.integration.test.ts tests/google-auth.integration.test.ts tests/exercise.integration.test.ts tests/routine.integration.test.ts tests/workout.integration.test.ts tests/cloud-sync.integration.test.ts"
+    "test": "tsx --test tests/auth.integration.test.ts tests/auth.cookies.integration.test.ts tests/auth-rate-limit.integration.test.ts tests/google-auth.integration.test.ts tests/exercise.integration.test.ts tests/routine.integration.test.ts tests/workout.integration.test.ts tests/cloud-sync.integration.test.ts tests/social.integration.test.ts tests/users.integration.test.ts tests/comments.integration.test.ts tests/routine-social.integration.test.ts tests/routine-template.integration.test.ts tests/progress.week-boundary.test.ts tests/progress.integration.test.ts tests/measurement.integration.test.ts"
   },
   "keywords": [
     "node",
@@ -45,6 +49,7 @@
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.14.10",
+    "oxlint": "^1.75.0",
     "prisma": "^7.9.1",
     "tsx": "^4.16.2",
     "typescript": "^5.5.4"

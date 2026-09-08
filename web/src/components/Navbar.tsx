@@ -27,7 +27,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Brand */}
         <div style={styles.brand} onClick={() => onTabChange('routines')}>
           <div style={styles.logoBadge}>
-            <Dumbbell size={20} color="#22c55e" />
+            <img src="/logo.png" alt="ASCEND" style={{ height: 24, width: 'auto', display: 'block' }} />
           </div>
           <span style={styles.brandName}>ASCEND</span>
         </div>
@@ -100,7 +100,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           <button style={styles.logoutBtn} onClick={onLogout} title="Cerrar sesión">
-            <LogOut size={18} color="#ef4444" />
+            <LogOut size={18} color="var(--danger-color)" />
           </button>
         </div>
       </div>
@@ -110,8 +110,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
 const styles: Record<string, React.CSSProperties> = {
   header: {
-    backgroundColor: '#0f1417',
-    borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'var(--sidebar-bg)',
+    borderBottom: '1px solid var(--border-color)',
     position: 'sticky',
     top: 0,
     zIndex: 100,
@@ -132,7 +132,7 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
   },
   logoBadge: {
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    backgroundColor: 'rgba(192, 138, 90, 0.12)',
     padding: '0.5rem',
     borderRadius: '12px',
     display: 'flex',
@@ -143,7 +143,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '1.25rem',
     fontWeight: 800,
     letterSpacing: '1px',
-    color: '#E6EEF3',
+    color: 'var(--text-primary)',
   },
   nav: {
     display: 'flex',
@@ -155,24 +155,25 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '0.5rem',
     padding: '0.5rem 1rem',
-    borderRadius: '10px',
-    color: '#94a3b8',
+    borderRadius: 'var(--radius-element)',
+    color: 'var(--text-muted)',
     fontSize: '0.9rem',
     fontWeight: 600,
     position: 'relative',
   },
   navBtnActive: {
-    backgroundColor: '#2563eb',
-    color: '#ffffff',
+    backgroundColor: 'var(--surface-elevated)',
+    color: 'var(--accent-teal)',
+    border: '1px solid var(--border-color)',
   },
   navBtnPulse: {
-    borderColor: '#22c55e',
+    borderColor: 'var(--accent-green)',
   },
   activeDot: {
     width: '8px',
     height: '8px',
     borderRadius: '50%',
-    backgroundColor: '#22c55e',
+    backgroundColor: 'var(--accent-green)',
     marginLeft: '4px',
   },
   userSection: {
@@ -190,8 +191,8 @@ const styles: Record<string, React.CSSProperties> = {
     width: '34px',
     height: '34px',
     borderRadius: '50%',
-    backgroundColor: '#2563eb',
-    color: '#ffffff',
+    backgroundColor: 'var(--accent-teal)',
+    color: 'var(--bg-color)',
     fontWeight: 700,
     fontSize: '0.9rem',
     display: 'flex',
@@ -201,12 +202,12 @@ const styles: Record<string, React.CSSProperties> = {
   username: {
     fontSize: '0.9rem',
     fontWeight: 600,
-    color: '#E6EEF3',
+    color: 'var(--text-primary)',
   },
   logoutBtn: {
     padding: '0.5rem',
-    borderRadius: '10px',
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: 'var(--radius-element)',
+    backgroundColor: 'rgba(192, 105, 105, 0.1)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',

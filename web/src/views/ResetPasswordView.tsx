@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Dumbbell, Lock, ArrowLeft } from 'lucide-react';
+import { Lock, ArrowLeft } from 'lucide-react';
 import { api } from '../api/api';
 
 export const ResetPasswordView: React.FC = () => {
@@ -55,7 +55,7 @@ export const ResetPasswordView: React.FC = () => {
     card: {
       backgroundColor: 'var(--surface-color)',
       border: '1px solid var(--border-color)',
-      borderRadius: '24px',
+      borderRadius: 'var(--radius-container)',
       padding: '2.5rem 2.25rem',
       width: '100%',
       maxWidth: '420px',
@@ -65,10 +65,10 @@ export const ResetPasswordView: React.FC = () => {
       marginBottom: '1.5rem',
     },
     logoIcon: {
-      width: '60px',
-      height: '60px',
+      width: '72px',
+      height: '72px',
       borderRadius: '50%',
-      background: 'linear-gradient(135deg, rgba(34,240,197,0.12), rgba(34,240,197,0.04))',
+      background: 'linear-gradient(135deg, rgba(192,138,90,0.12), rgba(192,138,90,0.04))',
       display: 'inline-flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -106,7 +106,7 @@ export const ResetPasswordView: React.FC = () => {
     input: {
       width: '100%',
       padding: '0.85rem 1rem',
-      borderRadius: '12px',
+      borderRadius: 'var(--radius-control)',
       backgroundColor: 'var(--input-bg)',
       border: '1px solid var(--border-color)',
       color: 'var(--text-primary)',
@@ -115,24 +115,24 @@ export const ResetPasswordView: React.FC = () => {
       outline: 'none',
     },
     errorAlert: {
-      backgroundColor: 'rgba(239, 68, 68, 0.12)',
-      border: '1px solid rgba(239, 68, 68, 0.3)',
-      color: '#ef4444',
+      backgroundColor: 'rgba(192, 105, 105, 0.12)',
+      border: '1px solid rgba(192, 105, 105, 0.3)',
+      color: 'var(--danger-color)',
       padding: '0.75rem',
-      borderRadius: '10px',
+      borderRadius: 'var(--radius-element)',
       fontSize: '0.85rem',
       textAlign: 'center',
     },
     submitButton: {
       width: '100%',
       padding: '0.9rem',
-      borderRadius: '14px',
+      borderRadius: 'var(--radius-element)',
       fontWeight: 700,
       fontSize: '1rem',
       border: 'none',
       cursor: 'pointer',
       background: 'var(--accent-gradient)',
-      color: '#ffffff',
+      color: 'var(--bg-color)',
       marginTop: '0.5rem',
     },
     backLink: {
@@ -157,7 +157,7 @@ export const ResetPasswordView: React.FC = () => {
       <div style={s.card}>
         <div style={s.logoContainer}>
           <div style={s.logoIcon}>
-            <Dumbbell size={30} color="var(--accent-teal)" />
+            <img src="/logo.png" alt="ASCEND" style={{ height: 34, width: 'auto', display: 'block' }} />
           </div>
           <h1 style={s.title}>Restablecer contraseña</h1>
           <p style={s.subtitle}>Elige una nueva contraseña para tu cuenta ASCEND</p>

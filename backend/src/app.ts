@@ -12,6 +12,9 @@ import { exerciseRouter } from './modules/exercise/exercise.routes';
 import { measurementRouter } from './modules/measurement/measurement.routes';
 import { progressRouter } from './modules/progress/progress.routes';
 import { routineRouter } from './modules/routine/routine.routes';
+import { routineTemplatesRouter } from './modules/routine-template/routine-template.routes';
+import { routineShareRouter, socialRouter, workoutShareRouter } from './modules/social/social.routes';
+import { usersRouter } from './modules/users/users.routes';
 import { workoutRouter } from './modules/workout/workout.routes';
 import { healthRouter } from './routes/health.routes';
 
@@ -52,7 +55,12 @@ app.use(healthRouter);
 app.use('/auth', authLimiter, authRouter);
 app.use('/exercises', exerciseRouter);
 app.use('/routines', routineRouter);
+app.use('/routines', routineShareRouter);
+app.use('/routine-templates', routineTemplatesRouter);
 app.use('/workouts', workoutRouter);
+app.use('/workouts', workoutShareRouter);
+app.use('/social', socialRouter);
+app.use('/users', usersRouter);
 app.use('/progress', progressRouter);
 app.use('/measurements', measurementRouter);
 

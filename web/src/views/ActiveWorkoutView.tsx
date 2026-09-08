@@ -188,6 +188,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
     if (workout.exercises.length > 0) {
       fetchBaselines();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tokens, exerciseIdsKey]);
 
   const checkIsPR = (exerciseId: string, weight: number | null, reps: number | null) => {
@@ -468,6 +469,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
           }
 
           const summary: WorkoutSummaryData = {
+            workoutId: workout.id,
             durationSeconds: elapsedSeconds,
             totalVolume,
             completedSetsCount,
@@ -702,9 +704,9 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
                   // Styling for setType
                   const setTypeConfig: Record<string, { label: string; color: string; bg: string; title: string }> = {
                     normal: { label: `${set.setNumber}`, color: 'var(--text-primary)', bg: 'transparent', title: 'Serie Normal (clic para cambiar a Calentamiento)' },
-                    warmup: { label: 'W', color: 'var(--accent-teal)', bg: 'rgba(6, 182, 212, 0.15)', title: 'Calentamiento (W) - no cuenta en series pesadas (clic para Drop set)' },
-                    drop: { label: 'D', color: '#a855f7', bg: 'rgba(168, 85, 247, 0.15)', title: 'Drop Set (D) - serie descendente (clic para Fallo)' },
-                    failure: { label: 'F', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)', title: 'Fallo muscular (F) - RPE 10 (clic para Normal)' },
+                    warmup: { label: 'W', color: 'var(--accent-teal)', bg: 'rgba(192, 138, 90, 0.15)', title: 'Calentamiento (W) - no cuenta en series pesadas (clic para Drop set)' },
+                    drop: { label: 'D', color: '#C0C2C6', bg: 'rgba(192, 194, 198, 0.15)', title: 'Drop Set (D) - serie descendente (clic para Fallo)' },
+                    failure: { label: 'F', color: 'var(--danger-color)', bg: 'rgba(192, 105, 105, 0.15)', title: 'Fallo muscular (F) - RPE 10 (clic para Normal)' },
                   };
                   const currentConfig = setTypeConfig[setType] || setTypeConfig.normal;
 
@@ -731,7 +733,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
                         </button>
                         {prInfo.isPR && (
                           <span style={styles.prBadge} title={prInfo.reason}>
-                            <Trophy size={11} color="#f59e0b" />
+                            <Trophy size={11} color="var(--accent-gold)" />
                             <span>PR</span>
                           </span>
                         )}
@@ -897,7 +899,7 @@ const styles: Record<string, React.CSSProperties> = {
   topCard: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '24px',
+    borderRadius: 'var(--radius-container)',
     padding: '1.75rem 2.25rem',
     display: 'flex',
     alignItems: 'center',
@@ -917,7 +919,6 @@ const styles: Record<string, React.CSSProperties> = {
     height: '7px',
     borderRadius: '50%',
     backgroundColor: 'var(--accent-teal)',
-    boxShadow: '0 0 8px var(--accent-teal)',
   },
   eyebrow: {
     fontSize: '0.72rem',
@@ -944,7 +945,7 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
     padding: '0.65rem 1rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
   },
   timerText: {
     fontSize: '1.15rem',
@@ -959,17 +960,17 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--accent-teal)',
     color: 'var(--bg-color)',
     padding: '0.7rem 1.25rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     fontWeight: 800,
     fontSize: '0.9rem',
-    boxShadow: '0 4px 16px var(--accent-teal-glow)',
+    
   },
   cancelBtn: {
     padding: '0.7rem',
-    borderRadius: '12px',
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    border: '1px solid rgba(239, 68, 68, 0.25)',
-    color: '#ef4444',
+    borderRadius: 'var(--radius-container)',
+    backgroundColor: 'rgba(192, 105, 105, 0.12)',
+    border: '1px solid rgba(192, 105, 105, 0.25)',
+    color: 'var(--danger-color)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -977,12 +978,12 @@ const styles: Record<string, React.CSSProperties> = {
   restBanner: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-highlight)',
-    borderRadius: '18px',
+    borderRadius: 'var(--radius-container)',
     padding: '1.1rem 1.75rem',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    boxShadow: '0 4px 20px var(--accent-teal-glow)',
+    
   },
   restLeft: {
     display: 'flex',
@@ -992,8 +993,8 @@ const styles: Record<string, React.CSSProperties> = {
   restIconRing: {
     width: '42px',
     height: '42px',
-    borderRadius: '12px',
-    backgroundColor: 'rgba(6, 182, 212, 0.12)',
+    borderRadius: 'var(--radius-container)',
+    backgroundColor: 'rgba(192, 138, 90, 0.12)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1019,7 +1020,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid var(--border-color)',
     color: 'var(--text-primary)',
     padding: '0.5rem 0.9rem',
-    borderRadius: '10px',
+    borderRadius: 'var(--radius-control)',
     fontWeight: 700,
     fontSize: '0.85rem',
   },
@@ -1027,7 +1028,7 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
     padding: '0.45rem 0.65rem',
-    borderRadius: '10px',
+    borderRadius: 'var(--radius-control)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1037,7 +1038,7 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'transparent',
     color: 'var(--text-muted)',
     padding: '0.5rem 0.9rem',
-    borderRadius: '10px',
+    borderRadius: 'var(--radius-control)',
     fontWeight: 600,
     fontSize: '0.85rem',
   },
@@ -1049,7 +1050,7 @@ const styles: Record<string, React.CSSProperties> = {
   exerciseCard: {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
-    borderRadius: '22px',
+    borderRadius: 'var(--radius-container)',
     padding: '1.5rem 1.75rem',
     display: 'flex',
     flexDirection: 'column',
@@ -1066,8 +1067,8 @@ const styles: Record<string, React.CSSProperties> = {
   exNumberBadge: {
     width: '28px',
     height: '28px',
-    borderRadius: '8px',
-    backgroundColor: 'rgba(6, 182, 212, 0.12)',
+    borderRadius: 'var(--radius-element)',
+    backgroundColor: 'rgba(192, 138, 90, 0.12)',
     color: 'var(--accent-teal)',
     fontSize: '0.85rem',
     fontWeight: 800,
@@ -1091,7 +1092,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   deleteExIconBtn: {
     padding: '0.45rem',
-    borderRadius: '8px',
+    borderRadius: 'var(--radius-element)',
     backgroundColor: 'transparent',
     display: 'flex',
     alignItems: 'center',
@@ -1117,14 +1118,14 @@ const styles: Record<string, React.CSSProperties> = {
     gridTemplateColumns: '74px 1.4fr 1fr 1fr 60px 40px',
     alignItems: 'center',
     padding: '0.45rem 0.75rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-subtle)',
     transition: 'all 0.18s ease',
   },
   tableRowCompleted: {
-    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-    borderColor: 'rgba(34, 197, 94, 0.25)',
+    backgroundColor: 'rgba(76, 175, 125, 0.1)',
+    borderColor: 'rgba(76, 175, 125, 0.25)',
   },
   setNumber: {
     fontSize: '0.88rem',
@@ -1138,9 +1139,9 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '2px',
     padding: '1px 5px',
     borderRadius: '6px',
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    border: '1px solid rgba(245, 158, 11, 0.45)',
-    color: '#f59e0b',
+    backgroundColor: 'rgba(192, 138, 90, 0.15)',
+    border: '1px solid rgba(192, 138, 90, 0.45)',
+    color: 'var(--accent-gold)',
     fontSize: '0.68rem',
     fontWeight: 800,
     letterSpacing: '0.02em',
@@ -1181,18 +1182,18 @@ const styles: Record<string, React.CSSProperties> = {
   inputField: {
     width: '85%',
     padding: '0.45rem 0.65rem',
-    borderRadius: '8px',
+    borderRadius: 'var(--radius-element)',
     fontSize: '0.92rem',
     fontWeight: 700,
     textAlign: 'center',
   },
   inputFieldCompleted: {
-    color: '#22c55e',
+    color: 'var(--accent-green)',
   },
   checkBtn: {
     width: '34px',
     height: '34px',
-    borderRadius: '9px',
+    borderRadius: 'var(--radius-control)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1205,9 +1206,8 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-dim)',
   },
   checkBtnCompleted: {
-    backgroundColor: '#22c55e',
+    backgroundColor: 'var(--accent-green)',
     color: 'var(--bg-color)',
-    boxShadow: '0 0 12px rgba(34, 197, 94, 0.4)',
   },
   deleteSetBtn: {
     padding: '0.35rem',
@@ -1223,7 +1223,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     gap: '0.45rem',
     padding: '0.65rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     backgroundColor: 'var(--input-bg)',
     border: '1px dashed var(--border-color)',
     color: 'var(--text-secondary)',
@@ -1237,7 +1237,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     gap: '0.75rem',
     padding: '1rem',
-    borderRadius: '18px',
+    borderRadius: 'var(--radius-container)',
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
     color: 'var(--text-primary)',
@@ -1295,7 +1295,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: '0.85rem 1rem',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-container)',
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
     cursor: 'pointer',
@@ -1313,16 +1313,16 @@ const styles: Record<string, React.CSSProperties> = {
   },
   modalTagM: {
     fontSize: '0.7rem',
-    backgroundColor: 'rgba(52, 211, 153, 0.15)',
-    color: '#10b981',
+    backgroundColor: 'rgba(76, 175, 125, 0.15)',
+    color: 'var(--accent-green)',
     padding: '0.1rem 0.4rem',
     borderRadius: '4px',
     fontWeight: 600,
   },
   modalTagE: {
     fontSize: '0.7rem',
-    backgroundColor: 'rgba(96, 165, 250, 0.15)',
-    color: '#3b82f6',
+    backgroundColor: 'rgba(192, 194, 198, 0.14)',
+    color: '#C0C2C6',
     padding: '0.1rem 0.4rem',
     borderRadius: '4px',
     fontWeight: 600,
