@@ -7,8 +7,9 @@
 # testing without touching Let's Encrypt.
 
 {$APP_DOMAIN:localhost} {
-	# Terminate TLS, then hand everything to the web container (SPA + API proxy).
-	reverse_proxy web:8080
+	# Terminate TLS, then hand everything to the web container's nginx (SPA + API
+	# proxy). Inside the container nginx listens on port 80.
+	reverse_proxy web:80
 
 	encode gzip zstd
 
