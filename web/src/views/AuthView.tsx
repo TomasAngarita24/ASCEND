@@ -113,15 +113,10 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
       marginBottom: '2rem',
     },
 logoIcon: {
-      width: '76px',
-      height: '76px',
-      borderRadius: 'var(--radius-container)',
-      background: 'var(--accent-teal-glow)',
       display: 'inline-flex',
       alignItems: 'center',
       justifyContent: 'center',
       marginBottom: '0.75rem',
-      border: '1px solid var(--border-highlight)',
     },
     brandName: {
       fontSize: '1.6rem',
