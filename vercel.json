@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/auth/:path*", "destination": "https://ascend-backend.onrender.com/auth/:path*" },
+    { "source": "/exercises/:path*", "destination": "https://ascend-backend.onrender.com/exercises/:path*" },
+    { "source": "/routines/:path*", "destination": "https://ascend-backend.onrender.com/routines/:path*" },
+    { "source": "/routine-templates/:path*", "destination": "https://ascend-backend.onrender.com/routine-templates/:path*" },
+    { "source": "/workouts/:path*", "destination": "https://ascend-backend.onrender.com/workouts/:path*" },
+    { "source": "/social/:path*", "destination": "https://ascend-backend.onrender.com/social/:path*" },
+    { "source": "/users/:path*", "destination": "https://ascend-backend.onrender.com/users/:path*" },
+    { "source": "/progress/:path*", "destination": "https://ascend-backend.onrender.com/progress/:path*" },
+    { "source": "/measurements/:path*", "destination": "https://ascend-backend.onrender.com/measurements/:path*" },
+    { "source": "/health", "destination": "https://ascend-backend.onrender.com/health" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

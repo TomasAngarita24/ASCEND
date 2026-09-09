@@ -1,0 +1,28 @@
+# ASCEND backend on Render (Supabase supplies PostgreSQL).
+# Usable two ways:
+#   1. Render Dashboard -> New -> Blueprint -> this repository.
+#   2. Manual Web Service, Root Directory = backend, Runtime = Docker,
+#      Health check path = /health, then set the env vars below.
+services:
+  - type: web
+    name: ascend-backend
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # Secrets are NOT baked into the repo; configure them in the Render
+      # service (DATABASE_URL = Supabase Session pooler URL).
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false

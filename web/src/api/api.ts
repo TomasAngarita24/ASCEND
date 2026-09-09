@@ -1,6 +1,14 @@
 import { offlineQueue } from '../utils/offlineQueue';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000';
+const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL;
+// An explicitly empty VITE_API_BASE_URL means "same origin" (Vercel proxies the
+// API prefixes to the backend). Leave it unset in dev to talk to localhost.
+const API_BASE_URL =
+  configuredBaseUrl !== undefined && configuredBaseUrl !== ''
+    ? configuredBaseUrl
+    : import.meta.env.DEV
+      ? 'http://localhost:3000'
+      : '';
 
 /**
  * Session architecture: access and refresh tokens live only in httpOnly,
