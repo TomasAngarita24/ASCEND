@@ -10,6 +10,7 @@ services:
     rootDir: backend
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
+    plan: free
     autoDeploy: true
     envVars:
       # Secrets are NOT baked into the repo; configure them in the Render
