@@ -13,8 +13,12 @@ services:
     autoDeploy: true
     envVars:
       # Secrets are NOT baked into the repo; configure them in the Render
-      # service (DATABASE_URL = Supabase Session pooler URL).
+      # service. Paste the same DATABASE_URL / DIRECT_URL used in backend/.env:
+      #   DATABASE_URL = Supabase session pooler (port 5432)
+      #   DIRECT_URL   = same URL + "?pgbouncer=true"  (Prisma migrate needs it)
       - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
         sync: false
       - key: JWT_ACCESS_SECRET
         sync: false
