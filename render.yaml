@@ -27,7 +27,9 @@ services:
         sync: false
       - key: APP_URL
         sync: false
-      - key: CORS_ORIGINS
+      - key: NODE_ENV
+        sync: false
+      - key: GOOGLE_CLIENT_ID
         sync: false
       - key: RESEND_API_KEY
         sync: false
