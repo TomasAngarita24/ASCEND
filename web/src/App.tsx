@@ -394,6 +394,7 @@ export function App() {
                 profileData={profileData}
                 onNavigate={navigateToTab}
                 onStartWorkout={handleStartWorkout}
+                onLogout={handleLogout}
               />
             }
           />

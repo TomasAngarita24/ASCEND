@@ -327,9 +327,18 @@ input::-ms-clear {
   display: none;
 }
 
+/* Mobile-only account shortcuts: hidden on desktop */
+.mobile-only-options {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .desktop-sidebar {
     display: none !important;
+  }
+
+  .mobile-only-options {
+    display: flex;
   }
 
   .bottom-nav-container {

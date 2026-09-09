@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Dumbbell, Flame, Trophy, Calendar, Award, Play, ChevronRight } from 'lucide-react';
+import { Dumbbell, Flame, Trophy, Calendar, Award, Play, ChevronRight, BookOpen, Ruler, Calculator, Settings, LogOut } from 'lucide-react';
 import { api, type RoutineSummary, type WorkoutHistoryEntry, type WorkoutDetailEntry, type User as UserType, type Tokens } from '../api/api';
 import type { UserProfileCustomData } from './SettingsView';
 import type { NavTab } from '../components/Sidebar';
@@ -10,6 +10,7 @@ interface ProfileViewProps {
   profileData: UserProfileCustomData;
   onNavigate: (tab: NavTab) => void;
   onStartWorkout: (routineId?: string) => void;
+  onLogout: () => void;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -196,6 +197,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   profileData,
   onNavigate,
   onStartWorkout,
+  onLogout,
 }) => {
   const [routines, setRoutines] = useState<RoutineSummary[]>([]);
   const [workouts, setWorkouts] = useState<WorkoutHistoryEntry[]>([]);
@@ -322,6 +324,41 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-gold)', marginTop: '0.2rem' }}>
             {stats.thisWeekVol} <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>kg</span>
           </div>
+        </div>
+      </div>
+
+      {/* Mobile-only shortcuts: full access to every section + logout (mobile hides the sidebar) */}
+      <div className="mobile-only-options" style={styles.mobileOptionsCard}>
+        <div style={styles.titleRow}>
+          <Settings size={22} color="var(--accent-teal)" />
+          <h2 style={styles.cardTitle}>Opciones</h2>
+        </div>
+        <div style={styles.mobileOptionsList}>
+          <button style={styles.mobileOptionRow} onClick={() => onNavigate('exercises')}>
+            <BookOpen size={20} color="var(--accent-blue)" />
+            <span style={styles.mobileOptionLabel}>Biblioteca de ejercicios</span>
+            <ChevronRight size={18} color="var(--text-muted)" />
+          </button>
+          <button style={styles.mobileOptionRow} onClick={() => onNavigate('measurements')}>
+            <Ruler size={20} color="var(--accent-gold)" />
+            <span style={styles.mobileOptionLabel}>Medidas</span>
+            <ChevronRight size={18} color="var(--text-muted)" />
+          </button>
+          <button style={styles.mobileOptionRow} onClick={() => onNavigate('plate-calculator')}>
+            <Calculator size={20} color="var(--accent-teal)" />
+            <span style={styles.mobileOptionLabel}>Calculadora de discos</span>
+            <ChevronRight size={18} color="var(--text-muted)" />
+          </button>
+          <button style={styles.mobileOptionRow} onClick={() => onNavigate('settings')}>
+            <Settings size={20} color="var(--text-primary)" />
+            <span style={styles.mobileOptionLabel}>Ajustes</span>
+            <ChevronRight size={18} color="var(--text-muted)" />
+          </button>
+          <div style={styles.mobileOptionsDivider} />
+          <button style={{ ...styles.mobileOptionRow, ...styles.mobileLogoutRow }} onClick={onLogout}>
+            <LogOut size={20} color="var(--danger-color)" />
+            <span style={styles.mobileOptionLabel}>Cerrar sesión</span>
+          </button>
         </div>
       </div>
 
@@ -618,6 +655,42 @@ const styles: Record<string, React.CSSProperties> = {
 
   seeAllBtn: { color: 'var(--accent-teal)', fontWeight: 600, fontSize: '0.9rem' },
   emptyCardText: { color: 'var(--text-muted)', fontSize: '0.95rem' },
+
+  mobileOptionsCard: {
+    backgroundColor: 'var(--surface-color)',
+    border: '1px solid var(--border-color)',
+    borderRadius: 'var(--radius-container)',
+    padding: 'clamp(1.25rem, 3.5vw, 2rem) clamp(1.25rem, 4vw, 2.25rem)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1rem',
+    boxSizing: 'border-box',
+    width: '100%',
+  },
+  mobileOptionsList: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
+  mobileOptionRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.85rem',
+    backgroundColor: 'var(--input-bg)',
+    border: '1px solid var(--border-color)',
+    padding: '0.9rem 1.15rem',
+    borderRadius: 'var(--radius-control)',
+    cursor: 'pointer',
+    width: '100%',
+  },
+  mobileOptionLabel: {
+    flex: 1,
+    textAlign: 'left',
+    fontWeight: 600,
+    color: 'var(--text-primary)',
+    fontSize: '0.95rem',
+  },
+  mobileOptionsDivider: { height: '1px', backgroundColor: 'var(--border-subtle)', margin: '0.25rem 0' },
+  mobileLogoutRow: {
+    borderColor: 'rgba(192, 105, 105, 0.35)',
+    backgroundColor: 'rgba(192, 105, 105, 0.08)',
+  },
 
   workoutFeedList: { display: 'flex', flexDirection: 'column', gap: '0.65rem' },
   workoutFeedItem: {
