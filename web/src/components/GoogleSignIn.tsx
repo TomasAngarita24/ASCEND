@@ -48,6 +48,7 @@ export const GoogleSignIn: React.FC<GoogleSignInProps> = ({ onCredential }) => {
 
     const initializeButton = () => {
       if (cancelled || !window.google?.accounts?.id || !containerRef.current) return;
+      const baseWidth = containerRef.current.clientWidth || 320;
       window.google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
         callback: (response) => callbackRef.current(response.credential),
@@ -57,7 +58,7 @@ export const GoogleSignIn: React.FC<GoogleSignInProps> = ({ onCredential }) => {
         size: 'large',
         shape: 'rectangular',
         text: 'continue_with',
-        width: 320,
+        width: Math.min(400, baseWidth),
       });
     };
 
@@ -82,16 +83,23 @@ export const GoogleSignIn: React.FC<GoogleSignInProps> = ({ onCredential }) => {
   if (!GOOGLE_CLIENT_ID) return null;
 
   return (
-    <div style={styles.dividerWrap}>
-      <div style={styles.divider} />
-      <span style={styles.dividerText}>o continúa con</span>
-      <div style={styles.divider} />
+    <div style={styles.wrap}>
+      <div style={styles.dividerWrap}>
+        <div style={styles.divider} />
+        <span style={styles.dividerText}>o continúa con</span>
+        <div style={styles.divider} />
+      </div>
       <div ref={containerRef} style={styles.button} />
     </div>
   );
 };
 
 const styles: Record<string, React.CSSProperties> = {
+  wrap: {
+    display: 'flex',
+    flexDirection: 'column',
+    width: '100%',
+  },
   dividerWrap: {
     display: 'flex',
     alignItems: 'center',
@@ -112,6 +120,8 @@ const styles: Record<string, React.CSSProperties> = {
   button: {
     display: 'flex',
     justifyContent: 'center',
-    marginTop: '0.35rem',
+    width: '100%',
+    marginTop: '0.75rem',
+    minHeight: '44px',
   },
 };
