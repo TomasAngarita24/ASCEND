@@ -518,7 +518,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ tokens, onNavigate, onStartW
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    padding: '2.5rem 3rem',
+    padding: 'clamp(1.5rem, 4vw, 2.5rem) clamp(1rem, 5vw, 3rem)',
     display: 'flex',
     flexDirection: 'column',
     gap: '2rem',
@@ -637,7 +637,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   bentoGrid: {
     display: 'grid',
-    gridTemplateColumns: '2fr 1.2fr',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))',
     gap: '1.5rem',
   },
   chartCard: {
@@ -914,7 +914,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   bottomBento: {
     display: 'grid',
-    gridTemplateColumns: '1.8fr 1.2fr',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))',
     gap: '1.5rem',
   },
   recentWorkoutsCard: {

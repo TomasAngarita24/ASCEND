@@ -295,7 +295,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       </div>
 
       {/* Stats Summary Cards Row (FR-PROG-002 & FR-PROG-003) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.25rem', width: '100%' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1.25rem', width: '100%' }}>
         <div style={styles.statMetricCard}>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>VOLUMEN TOTAL</div>
           <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.2rem' }}>
@@ -476,7 +476,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    padding: '2.5rem 3rem',
+    padding: 'clamp(1.5rem, 4vw, 2.5rem) clamp(1rem, 5vw, 3rem)',
     display: 'flex',
     flexDirection: 'column',
     gap: '2rem',

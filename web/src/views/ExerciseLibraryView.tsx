@@ -1251,7 +1251,7 @@ export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens
 };
 
 const styles: Record<string, React.CSSProperties> = {
-  container: { width: '100%', padding: '2.5rem 3rem', display: 'flex', flexDirection: 'column', gap: '1.75rem', boxSizing: 'border-box' },
+  container: { width: '100%', padding: 'clamp(1.5rem, 4vw, 2.5rem) clamp(1rem, 5vw, 3rem)', display: 'flex', flexDirection: 'column', gap: '1.75rem', boxSizing: 'border-box' },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' },
   title: { fontSize: 'clamp(1.8rem, 3vw, 2.4rem)', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-primary)', margin: 0 },
   subtitle: { color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.35rem' },

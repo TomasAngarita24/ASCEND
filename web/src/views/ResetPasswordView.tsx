@@ -56,7 +56,7 @@ export const ResetPasswordView: React.FC = () => {
       backgroundColor: 'var(--surface-color)',
       border: '1px solid var(--border-color)',
       borderRadius: 'var(--radius-container)',
-      padding: '2.5rem 2.25rem',
+      padding: 'clamp(2rem, 6vw, 2.5rem) clamp(1.25rem, 5vw, 2.25rem)',
       width: '100%',
       maxWidth: '420px',
     },

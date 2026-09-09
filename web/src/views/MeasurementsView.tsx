@@ -539,7 +539,7 @@ export const MeasurementsView: React.FC<MeasurementsViewProps> = ({ tokens }) =>
 const styles: Record<string, React.CSSProperties> = {
   container: {
     width: '100%',
-    padding: '2.5rem 3rem',
+    padding: 'clamp(1.5rem, 4vw, 2.5rem) clamp(1rem, 5vw, 3rem)',
     display: 'flex',
     flexDirection: 'column',
     gap: '1.75rem',
@@ -805,7 +805,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   miniChartsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
     gap: '1.25rem',
   },
   miniChartCard: {

@@ -576,3 +576,41 @@ input::-ms-clear {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* =========================================================
+   Mobile polish — global layout hardening (<= 768px)
+   ========================================================= */
+@media (max-width: 768px) {
+  html,
+  body {
+    overflow-x: clip;
+  }
+
+  .modal-overlay {
+    padding: 1rem;
+  }
+
+  .modal-content {
+    padding: 1.5rem 1.25rem;
+  }
+
+  /* Keep the login/card views from hugging the screen edges */
+  .modal-content {
+    max-width: calc(100vw - 2rem);
+  }
+}
+
+@media (max-width: 420px) {
+  .modal-content {
+    padding: 1.25rem 1rem;
+  }
+
+  .exercise-chip {
+    padding: 0.4rem 0.85rem;
+    font-size: 0.8rem;
+  }
+
+  .bottom-nav-label {
+    font-size: 0.66rem;
+  }
+}

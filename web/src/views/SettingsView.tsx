@@ -529,7 +529,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 const styles: Record<string, React.CSSProperties> = {
   container: {
     width: '100%',
-    padding: '2.5rem 3rem',
+    padding: 'clamp(1.5rem, 4vw, 2.5rem) clamp(1rem, 5vw, 3rem)',
     display: 'flex',
     flexDirection: 'column',
     gap: '2rem',
@@ -628,7 +628,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   formGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
     gap: '1.5rem',
     width: '100%',
   },
