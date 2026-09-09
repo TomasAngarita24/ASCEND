@@ -12,6 +12,7 @@ import {
   VolumeX,
   ChevronUp,
   ChevronDown,
+  Dumbbell,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, type ActiveWorkout, type ExerciseSummary, type Tokens } from '../api/api';
@@ -634,8 +635,22 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
 
           return (
             <div key={exItem.id} style={styles.exerciseCard}>
-              <div style={styles.exHeader}>
+<div style={styles.exHeader}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                  {/* Exercise thumbnail */}
+                  {exItem.exercise.mediaUrl ? (
+                    <img
+                      src={exItem.exercise.mediaUrl}
+                      alt=""
+                      style={styles.exThumb}
+                      loading="lazy"
+                      onError={(e) => { const img = e.currentTarget; img.style.display = 'none'; }}
+                    />
+                  ) : (
+                    <div style={styles.exThumbFallback}>
+                      <Dumbbell size={18} strokeWidth={1.5} color="var(--text-dim)" />
+                    </div>
+                  )}
                   {/* Reordering Controls */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
                     <button
@@ -681,7 +696,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
 
               {/* Set Table */}
               <div style={styles.setTable}>
-                <div style={styles.tableHeader}>
+                <div className="aw-set-table" style={styles.tableHeader}>
                   <span>Serie / Tipo</span>
                   <span>Anterior</span>
                   <span>Peso (kg)</span>
@@ -713,6 +728,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
                   return (
                     <div
                       key={set.id}
+                      className="aw-set-table"
                       style={{
                         ...styles.tableRow,
                         ...(set.isCompleted ? styles.tableRowCompleted : {}),
@@ -743,7 +759,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
                       <span style={styles.prevSetText}>{prevDisplay}</span>
 
                       {/* Weight Input */}
-                      <div>
+                      <div className="aw-set-cell">
                         <input
                           type="number"
                           step="0.5"
@@ -758,7 +774,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
                       </div>
 
                       {/* Reps Input */}
-                      <div>
+                      <div className="aw-set-cell">
                         <input
                           type="number"
                           placeholder={prevSet?.repetitions?.toString() || '10'}
@@ -852,7 +868,14 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
                   style={styles.modalExItem}
                   onClick={() => handleAddExerciseToWorkout(ex.id)}
                 >
-                  <div style={{ flex: 1 }}>
+                  {ex.mediaUrl ? (
+                    <img src={ex.mediaUrl} alt="" style={styles.modalExThumb} loading="lazy" />
+                  ) : (
+                    <div style={styles.modalExThumbFallback}>
+                      <Dumbbell size={18} strokeWidth={1.5} color="var(--text-dim)" />
+                    </div>
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <h4 style={styles.modalExName}>{ex.name}</h4>
                     <div style={styles.modalExTags}>
                       {ex.targetMuscleGroups.map((m) => (
@@ -1051,7 +1074,7 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
     borderRadius: 'var(--radius-container)',
-    padding: '1.5rem 1.75rem',
+    padding: 'clamp(1rem, 3vw, 1.5rem) clamp(0.9rem, 3vw, 1.75rem)',
     display: 'flex',
     flexDirection: 'column',
     gap: '1.25rem',
@@ -1075,6 +1098,26 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
+  },
+  exThumb: {
+    width: '42px',
+    height: '42px',
+    borderRadius: 'var(--radius-element)',
+    objectFit: 'cover',
+    flexShrink: 0,
+    border: '1px solid var(--border-color)',
+  },
+  exThumbFallback: {
+    width: '42px',
+    height: '42px',
+    borderRadius: 'var(--radius-element)',
+    backgroundColor: 'var(--input-bg)',
+    border: '1px solid var(--border-color)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   exName: {
     fontSize: '1.2rem',
@@ -1105,7 +1148,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   tableHeader: {
     display: 'grid',
-    gridTemplateColumns: '74px 1.4fr 1fr 1fr 60px 40px',
+    gridTemplateColumns: '56px minmax(0, 1.2fr) minmax(0, 1.1fr) minmax(0, 1.1fr) 50px 32px',
     padding: '0.4rem 0.75rem',
     fontSize: '0.72rem',
     fontWeight: 800,
@@ -1115,7 +1158,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   tableRow: {
     display: 'grid',
-    gridTemplateColumns: '74px 1.4fr 1fr 1fr 60px 40px',
+    gridTemplateColumns: '56px minmax(0, 1.2fr) minmax(0, 1.1fr) minmax(0, 1.1fr) 50px 32px',
     alignItems: 'center',
     padding: '0.45rem 0.75rem',
     borderRadius: 'var(--radius-container)',
@@ -1178,14 +1221,20 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.82rem',
     color: 'var(--text-muted)',
     fontFamily: 'var(--font-mono)',
+    overflow: 'hidden',
+    whiteSpace: 'nowrap',
+    textOverflow: 'ellipsis',
+    minWidth: 0,
   },
   inputField: {
-    width: '85%',
-    padding: '0.45rem 0.65rem',
+    width: '100%',
+    minWidth: 0,
+    padding: '0.45rem 0.5rem',
     borderRadius: 'var(--radius-element)',
     fontSize: '0.92rem',
     fontWeight: 700,
     textAlign: 'center',
+    boxSizing: 'border-box',
   },
   inputFieldCompleted: {
     color: 'var(--accent-green)',
@@ -1294,12 +1343,32 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: '0.75rem',
     padding: '0.85rem 1rem',
     borderRadius: 'var(--radius-container)',
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
     cursor: 'pointer',
     transition: 'all 0.15s ease',
+  },
+  modalExThumb: {
+    width: '44px',
+    height: '44px',
+    borderRadius: 'var(--radius-element)',
+    objectFit: 'cover',
+    flexShrink: 0,
+    border: '1px solid var(--border-color)',
+  },
+  modalExThumbFallback: {
+    width: '44px',
+    height: '44px',
+    borderRadius: 'var(--radius-element)',
+    backgroundColor: 'var(--surface-color)',
+    border: '1px solid var(--border-color)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   modalExName: {
     fontSize: '0.92rem',

@@ -614,3 +614,48 @@ input::-ms-clear {
     font-size: 0.66rem;
   }
 }
+
+/* =========================================================
+   Active workout: responsive set table
+   ========================================================= */
+.aw-set-cell {
+  min-width: 0;
+}
+
+@media (max-width: 600px) {
+  .aw-set-table {
+    grid-template-columns: minmax(32px, auto) minmax(0, 0.9fr) minmax(0, 1.15fr) minmax(0, 1.15fr) 36px 26px !important;
+    padding: 0.4rem 0.4rem !important;
+    gap: 0.35rem;
+  }
+
+  .aw-set-table input {
+    font-size: 0.86rem !important;
+    padding: 0.4rem 0.3rem !important;
+  }
+
+  /* Hide native number spinners on small screens for cleaner rows */
+  .aw-set-table input[type='number']::-webkit-outer-spin-button,
+  .aw-set-table input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  .aw-set-table input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+}
+
+/* =========================================================
+   Routine editor: stack the sidebar below the form on small screens
+   ========================================================= */
+.routine-editor-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(352px, 380px);
+}
+
+@media (max-width: 960px) {
+  .routine-editor-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}

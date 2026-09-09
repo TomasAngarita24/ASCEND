@@ -13,7 +13,7 @@ export interface SetResponse {
 export interface WorkoutExerciseResponse {
   id: string;
   position: number;
-  exercise: { id: string; name: string };
+  exercise: { id: string; name: string; mediaUrl: string | null };
   sets: SetResponse[];
 }
 

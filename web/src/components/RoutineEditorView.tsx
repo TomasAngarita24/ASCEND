@@ -615,7 +615,7 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
       </header>
 
       {/* Main Two-Column Layout */}
-      <div style={styles.gridContainer}>
+      <div className="routine-editor-grid" style={styles.gridContainer}>
         {/* LEFT COLUMN: Routine Builder Form */}
         <main style={styles.leftColumn}>
           {/* Routine Title Field */}
@@ -1088,7 +1088,7 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
 
 const styles: Record<string, React.CSSProperties> = {
   workspace: {
-    padding: '2rem 3rem',
+    padding: 'clamp(1.5rem, 4vw, 2.5rem) clamp(1rem, 5vw, 3rem)',
     display: 'flex',
     flexDirection: 'column',
     gap: '1.75rem',

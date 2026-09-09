@@ -198,6 +198,7 @@ export interface WorkoutExercise {
   exercise: {
     id: string;
     name: string;
+    mediaUrl?: string | null;
   };
   sets: WorkoutSet[];
 }

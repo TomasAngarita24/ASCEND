@@ -45,11 +45,11 @@ function toSetResponse(item: WorkoutSet): SetResponse {
   };
 }
 
-function toWorkoutExerciseResponse(item: WorkoutExercise & { exercise: { id: string; name: string }; sets: WorkoutSet[] }): WorkoutExerciseResponse {
+function toWorkoutExerciseResponse(item: WorkoutExercise & { exercise: { id: string; name: string; mediaUrl: string | null }; sets: WorkoutSet[] }): WorkoutExerciseResponse {
   return {
     id: item.id,
     position: item.position,
-    exercise: { id: item.exercise.id, name: item.exercise.name },
+    exercise: { id: item.exercise.id, name: item.exercise.name, mediaUrl: item.exercise.mediaUrl },
     sets: [...item.sets].sort((left, right) => left.setNumber - right.setNumber).map(toSetResponse),
   };
 }
@@ -231,7 +231,7 @@ export async function addWorkoutExercise(userId: string, workoutId: string, exer
     }
     return transaction.workoutExercise.create({
       data: { exerciseId, position, workoutId },
-      include: { exercise: { select: { id: true, name: true } }, sets: true },
+      include: { exercise: { select: { id: true, name: true, mediaUrl: true } }, sets: true },
     });
   });
   return toWorkoutExerciseResponse(item);
