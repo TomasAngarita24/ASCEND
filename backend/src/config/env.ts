@@ -14,11 +14,14 @@ const environmentSchema = z.object({
   JWT_ISSUER: z.string().min(1).default('ascend-api'),
   NODE_ENV: z.string().default('development'),
   PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
-  RESEND_API_KEY: z.string().optional(),
-  RESEND_FROM_EMAIL: z
+  SMTP_HOST: z.string().default('smtp.gmail.com'),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65_535).default(587),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z
     .string()
     .regex(/^(?!\s*$).+@.+\..+/, 'Must be an email or "Name <email>" format')
-    .default('ASCEND <onboarding@resend.dev>'),
+    .optional(),
 });
 
 const parsedEnvironment = environmentSchema.parse(process.env);
@@ -38,6 +41,11 @@ export const env = {
   jwtIssuer: parsedEnvironment.JWT_ISSUER,
   nodeEnv: parsedEnvironment.NODE_ENV,
   port: parsedEnvironment.PORT,
-  resendApiKey: parsedEnvironment.RESEND_API_KEY,
-  resendFromEmail: parsedEnvironment.RESEND_FROM_EMAIL,
+  smtp: {
+    host: parsedEnvironment.SMTP_HOST,
+    port: parsedEnvironment.SMTP_PORT,
+    user: parsedEnvironment.SMTP_USER,
+    pass: parsedEnvironment.SMTP_PASS,
+    from: parsedEnvironment.SMTP_FROM,
+  },
 } as const;
