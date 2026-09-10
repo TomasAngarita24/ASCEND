@@ -573,8 +573,12 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
 
       toast.success('Rutina guardada con éxito.');
       onSaved();
-    } catch {
-      toast.error('Error al guardar la rutina.');
+    } catch (err: unknown) {
+      toast.error(
+        err instanceof Error
+          ? `Error al guardar la rutina: ${err.message}`
+          : 'Error al guardar la rutina.',
+      );
     } finally {
       setSaving(false);
     }
@@ -820,7 +824,7 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
         </main>
 
         {/* RIGHT COLUMN: Sticky Sidebar (Resumen + Biblioteca) */}
-        <aside style={styles.rightColumn}>
+        <aside className="routine-editor-aside" style={styles.rightColumn}>
           {/* Card 1: Resumen */}
           <div style={styles.summaryCard}>
             <div style={styles.summaryHeader}>
@@ -1455,8 +1459,6 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     gap: '1.5rem',
-    position: 'sticky',
-    top: '1.5rem',
   },
   summaryCard: {
     backgroundColor: 'var(--surface-color)',
@@ -1660,6 +1662,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     gap: '0.15rem',
     flex: 1,
+    minWidth: 0,
     overflow: 'hidden',
   },
   libraryItemTitle: {

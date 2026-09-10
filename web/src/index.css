@@ -23,6 +23,7 @@
   --input-bg: #101317;            /* fields */
   --card-color: var(--surface);
   --card-hover: var(--surface-elevated);
+  --surface-color: var(--surface);
   --card-outer: rgba(255, 255, 255, 0.02);
 
   /* --- Accent (copper) --- */
@@ -86,6 +87,7 @@
   --background: #ECEDEE;
   --surface: #F7F8F9;
   --surface-elevated: #E4E6E9;
+  --surface-color: var(--surface);
   --input-bg: #FFFFFF;
 
   --primary: #A9713F;
@@ -282,9 +284,7 @@ input::-ms-clear {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.72);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background-color: rgba(4, 5, 6, 0.88);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -663,8 +663,17 @@ input::-ms-clear {
   grid-template-columns: minmax(0, 1fr) minmax(352px, 380px);
 }
 
+.routine-editor-aside {
+  position: sticky;
+  top: 1.5rem;
+}
+
 @media (max-width: 960px) {
   .routine-editor-grid {
     grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .routine-editor-aside {
+    position: static !important;
   }
 }
