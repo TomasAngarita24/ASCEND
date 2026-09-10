@@ -117,6 +117,74 @@ describe('routines', () => {
     assert.equal(deletedRoutine.status, 404);
   });
 
+  it('saves a routine atomically (create, update, and rollback)', async () => {
+    const accessToken = await registerAndGetAccessToken();
+    const headers = { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' };
+    const firstExerciseId = await createExercise(accessToken);
+    const secondExerciseId = await createExercise(accessToken);
+
+    const created = await request('/routines/save', {
+      body: JSON.stringify({
+        name: 'Atomic routine',
+        exercises: [
+          {
+            exerciseId: firstExerciseId, targetSets: 3, targetRepetitionsMin: 8, targetRepetitionsMax: 12,
+            targetWeight: 20, restSeconds: 90, notes: 'Tight grip',
+          },
+          { exerciseId: secondExerciseId },
+        ],
+      }),
+      headers,
+      method: 'POST',
+    });
+    assert.equal(created.status, 200);
+    const routine = created.body.routine as Record<string, unknown>;
+    const routineId = routine.id as string;
+    assert.equal(routine.name, 'Atomic routine');
+    const exercises = routine.exercises as Array<Record<string, unknown>>;
+    assert.equal(exercises.length, 2);
+    assert.deepEqual(exercises.map((item) => item.position), [1, 2]);
+    assert.equal(exercises[0].targetSets, 3);
+    assert.equal(exercises[0].notes, 'Tight grip');
+
+    const updated = await request('/routines/save', {
+      body: JSON.stringify({
+        id: routineId,
+        name: 'Atomic routine v2',
+        exercises: [
+          { exerciseId: secondExerciseId, targetSets: 4, targetRepetitionsMin: 5, targetRepetitionsMax: 5 },
+        ],
+      }),
+      headers,
+      method: 'POST',
+    });
+    assert.equal(updated.status, 200);
+    const updatedExercises = (updated.body.routine as Record<string, unknown>).exercises as Array<Record<string, unknown>>;
+    assert.equal(updatedExercises.length, 1);
+    assert.equal((updatedExercises[0].exercise as Record<string, unknown>).id, secondExerciseId);
+    assert.equal(updatedExercises[0].position, 1);
+    assert.equal(updatedExercises[0].targetSets, 4);
+
+    const failed = await request('/routines/save', {
+      body: JSON.stringify({
+        id: routineId,
+        name: 'Atomic routine v3',
+        exercises: [
+          { exerciseId: secondExerciseId },
+          { exerciseId: randomUUID() },
+        ],
+      }),
+      headers,
+      method: 'POST',
+    });
+    assert.equal(failed.status, 404);
+    assert.equal((failed.body.error as Record<string, string>).code, 'EXERCISE_NOT_FOUND');
+
+    const afterFailed = await request(`/routines/${routineId}`, { headers: { authorization: `Bearer ${accessToken}` } });
+    assert.equal((afterFailed.body.routine as Record<string, unknown>).name, 'Atomic routine v2');
+    assert.equal(((afterFailed.body.routine as Record<string, unknown>).exercises as unknown[]).length, 1);
+  });
+
   it('does not expose a routine to another user', async () => {
     const ownerToken = await registerAndGetAccessToken();
     const otherUserToken = await registerAndGetAccessToken();

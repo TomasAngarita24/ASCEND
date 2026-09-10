@@ -513,57 +513,19 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
 
     setSaving(true);
     try {
-      const exerciseConfig = (ex: RoutineEditorExercise) => ({
-        targetSets: ex.sets.length,
-        targetWeight: ex.sets[0]?.weight ?? 0,
-        targetRepetitionsMin: Math.max(1, ex.sets[0]?.reps ?? 8),
-        targetRepetitionsMax: Math.max(1, ex.sets[0]?.reps ?? 10),
-        restSeconds: ex.restSeconds,
-        notes: ex.notes?.trim() ? ex.notes.trim() : undefined,
+      await api.saveRoutine(tokens.accessToken, {
+        id: isNew ? undefined : (routineId ?? undefined),
+        name: routineName.trim(),
+        exercises: exercises.map((ex) => ({
+          exerciseId: ex.exerciseId,
+          targetSets: ex.sets.length,
+          targetWeight: ex.sets[0]?.weight ?? 0,
+          targetRepetitionsMin: Math.max(1, ex.sets[0]?.reps ?? 8),
+          targetRepetitionsMax: Math.max(1, ex.sets[0]?.reps ?? 10),
+          restSeconds: ex.restSeconds,
+          notes: ex.notes?.trim() ? ex.notes.trim() : undefined,
+        })),
       });
-
-      if (isNew) {
-        const created = await api.createRoutine(tokens.accessToken, routineName.trim());
-        for (const ex of exercises) {
-          const added = await api.addExerciseToRoutine(tokens.accessToken, created.id, ex.exerciseId);
-          await api.updateRoutineExercise(tokens.accessToken, created.id, added.id, exerciseConfig(ex));
-        }
-      } else if (routineId && initialDetail) {
-        await api.updateRoutine(tokens.accessToken, routineId, routineName.trim());
-
-        // Identify kept routine-exercise rows by their database id (not exercise id),
-        // so exercises repeated in a routine are handled independently.
-        const keptIds = new Set(
-          exercises
-            .map((ex) => ex.routineExerciseId)
-            .filter((id): id is string => Boolean(id)),
-        );
-
-        for (const existingItem of initialDetail.exercises) {
-          if (!keptIds.has(existingItem.id)) {
-            await api.deleteRoutineExercise(tokens.accessToken, routineId, existingItem.id);
-          }
-        }
-
-        const orderedIds: string[] = [];
-        for (const ex of exercises) {
-          const existingItem = ex.routineExerciseId
-            ? initialDetail.exercises.find((e) => e.id === ex.routineExerciseId)
-            : undefined;
-
-          const config = exerciseConfig(ex);
-          if (existingItem) {
-            await api.updateRoutineExercise(tokens.accessToken, routineId, existingItem.id, config);
-            orderedIds.push(existingItem.id);
-          } else {
-            const added = await api.addExerciseToRoutine(tokens.accessToken, routineId, ex.exerciseId);
-            await api.updateRoutineExercise(tokens.accessToken, routineId, added.id, config);
-            orderedIds.push(added.id);
-          }
-        }
-
-        await api.reorderRoutineExercises(tokens.accessToken, routineId, orderedIds);
-      }
 
       try {
         localStorage.removeItem('ascend_routine_draft');

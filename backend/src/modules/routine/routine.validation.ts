@@ -34,6 +34,21 @@ const updateRoutineExerciseSchema = exerciseConfigurationSchema
   );
 const reorderSchema = z.object({ routineExerciseIds: z.array(z.uuid()) });
 
+const saveRoutineExerciseSchema = exerciseConfigurationSchema
+  .omit({ position: true })
+  .extend({ exerciseId: z.uuid() })
+  .refine(
+    (value) => value.targetRepetitionsMin === undefined
+      || value.targetRepetitionsMax === undefined
+      || value.targetRepetitionsMin <= value.targetRepetitionsMax,
+    { message: 'Minimum repetitions cannot exceed maximum repetitions.' },
+  );
+const saveRoutineSchema = z.object({
+  id: z.uuid().optional(),
+  name: routineName,
+  exercises: z.array(saveRoutineExerciseSchema).max(100).default([]),
+}).strict();
+
 const folderNameSchema = z.object({ name: routineName }).strict();
 const setRoutineFolderSchema = z.object({ folderId: z.uuid().nullable() }).strict();
 
@@ -65,6 +80,10 @@ export function validateUpdateRoutineExercise(value: unknown): z.infer<typeof up
 
 export function validateReorder(value: unknown): z.infer<typeof reorderSchema> {
   return parse(reorderSchema, value);
+}
+
+export function validateSaveRoutine(value: unknown): z.infer<typeof saveRoutineSchema> {
+  return parse(saveRoutineSchema, value);
 }
 
 export function validateRoutineId(value: unknown): string {

@@ -5,16 +5,23 @@ import { authenticate } from '../auth/auth.middleware';
 import {
   addRoutineExercise, createRoutine, createRoutineFolder, deleteRoutine, deleteRoutineExercise,
   deleteRoutineFolder, duplicateRoutine, getRoutine, listRoutineFolders, listRoutines,
-  reorderRoutineExercises, setRoutineFolder, updateRoutine, updateRoutineExercise, updateRoutineFolder,
+  reorderRoutineExercises, saveRoutine, setRoutineFolder, updateRoutine, updateRoutineExercise,
+  updateRoutineFolder,
 } from './routine.service';
 import {
   validateAddRoutineExercise, validateCreateRoutine, validateFolderId, validateFolderName,
-  validateReorder, validateRoutineFolder, validateRoutineId, validateUpdateRoutine, validateUpdateRoutineExercise,
+  validateReorder, validateRoutineFolder, validateRoutineId, validateSaveRoutine,
+  validateUpdateRoutine, validateUpdateRoutineExercise,
 } from './routine.validation';
 
 export const routineRouter = Router();
 
 routineRouter.use(authenticate);
+
+routineRouter.post('/save', asyncHandler(async (request, response) => {
+  const input = validateSaveRoutine(request.body);
+  response.status(200).json({ routine: await saveRoutine(request.auth!.userId, input) });
+}));
 
 routineRouter.get('/', asyncHandler(async (request, response) => {
   response.status(200).json(await listRoutines(request.auth!.userId));

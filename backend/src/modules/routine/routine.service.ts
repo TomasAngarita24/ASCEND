@@ -138,6 +138,80 @@ export async function createRoutine(userId: string, name: string): Promise<Routi
   return toRoutineResponse(routine);
 }
 
+interface RoutineSaveExercise {
+  exerciseId: string;
+  notes?: string | null;
+  restSeconds?: number;
+  targetRepetitionsMax?: number;
+  targetRepetitionsMin?: number;
+  targetSets?: number;
+  targetWeight?: number;
+}
+
+interface RoutineSaveInput {
+  id?: string;
+  name: string;
+  exercises: RoutineSaveExercise[];
+}
+
+export async function saveRoutine(userId: string, input: RoutineSaveInput): Promise<RoutineResponse> {
+  const routineId = await prisma.$transaction(async (transaction) => {
+    const exerciseIds = [...new Set(input.exercises.map((item) => item.exerciseId))];
+    if (exerciseIds.length > 0) {
+      const accessible = await transaction.exercise.count({
+        where: {
+          id: { in: exerciseIds },
+          OR: [{ createdByUserId: null }, { createdByUserId: userId }],
+          deletedAt: null,
+        },
+      });
+      if (accessible !== exerciseIds.length) {
+        throw new HttpError(404, 'EXERCISE_NOT_FOUND', 'One or more exercises do not exist or are not accessible.');
+      }
+    }
+
+    let routineId: string;
+    if (input.id) {
+      const existing = await transaction.routine.findFirst({
+        where: { id: input.id, userId },
+        select: { id: true },
+      });
+      if (!existing) {
+        throw new HttpError(404, 'ROUTINE_NOT_FOUND', 'Routine does not exist or is not accessible.');
+      }
+      await transaction.routineExercise.deleteMany({ where: { routineId: input.id } });
+      await transaction.routine.update({ where: { id: input.id }, data: { name: input.name } });
+      routineId = input.id;
+    } else {
+      const created = await transaction.routine.create({
+        data: { name: input.name, userId },
+        select: { id: true },
+      });
+      routineId = created.id;
+    }
+
+    if (input.exercises.length > 0) {
+      await transaction.routineExercise.createMany({
+        data: input.exercises.map((item, index) => ({
+          routineId,
+          exerciseId: item.exerciseId,
+          position: index + 1,
+          targetSets: item.targetSets ?? null,
+          targetRepetitionsMin: item.targetRepetitionsMin ?? null,
+          targetRepetitionsMax: item.targetRepetitionsMax ?? null,
+          targetWeight: item.targetWeight ?? null,
+          restSeconds: item.restSeconds ?? null,
+          notes: item.notes ?? null,
+        })),
+      });
+    }
+
+    return routineId;
+  });
+
+  return getRoutine(userId, routineId);
+}
+
 export async function getRoutine(userId: string, routineId: string): Promise<RoutineResponse> {
   return toRoutineResponse(await findRoutine(userId, routineId));
 }

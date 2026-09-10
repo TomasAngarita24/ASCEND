@@ -144,6 +144,22 @@ export interface RoutineDetail {
   exercises: RoutineExercise[];
 }
 
+export interface RoutineSaveExercise {
+  exerciseId: string;
+  targetSets?: number;
+  targetWeight?: number;
+  targetRepetitionsMin?: number;
+  targetRepetitionsMax?: number;
+  restSeconds?: number;
+  notes?: string;
+}
+
+export interface RoutineSaveInput {
+  id?: string;
+  name: string;
+  exercises: RoutineSaveExercise[];
+}
+
 export type RoutineTemplateLevel = 'beginner' | 'intermediate' | 'advanced';
 export type RoutineTemplateGoal = 'strength' | 'hypertrophy' | 'general';
 
@@ -592,6 +608,15 @@ class ApiClient {
       body: JSON.stringify({ name }),
     });
     return { id: res.routine.id, name: res.routine.name, exerciseCount: 0, totalSets: 0, muscleSets: [] };
+  }
+
+  async saveRoutine(accessToken: string, input: RoutineSaveInput): Promise<RoutineDetail> {
+    const res = await this.request<{ routine: RoutineDetail }>('/routines/save', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify(input),
+    });
+    return res.routine;
   }
 
   async updateRoutine(accessToken: string, routineId: string, name: string): Promise<RoutineDetail> {

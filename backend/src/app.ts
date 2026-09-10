@@ -1,3 +1,4 @@
+import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
@@ -35,6 +36,7 @@ app.use(cors({
 }));
 app.use(cookieParser());
 app.use(express.json());
+app.use(compression());
 
 // Defense-in-depth against CSRF for cookie-authenticated requests: reject
 // state-changing requests that carry a disallowed Origin header.

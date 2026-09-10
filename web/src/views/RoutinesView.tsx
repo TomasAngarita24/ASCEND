@@ -239,18 +239,18 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
   const handleDuplicateRoutine = async (routineId: string) => {
     try {
       const detail = await api.getRoutine(tokens.accessToken, routineId);
-      const newRoutine = await api.createRoutine(tokens.accessToken, `${detail.name} (Copia)`);
-
-      for (const ex of detail.exercises) {
-        const added = await api.addExerciseToRoutine(tokens.accessToken, newRoutine.id, ex.exercise.id);
-        await api.updateRoutineExercise(tokens.accessToken, newRoutine.id, added.id, {
-          targetSets: ex.targetSets,
-          targetRepetitionsMin: ex.targetRepetitionsMin,
-          targetRepetitionsMax: ex.targetRepetitionsMax,
-          targetWeight: ex.targetWeight,
-          restSeconds: ex.restSeconds,
-        });
-      }
+      await api.saveRoutine(tokens.accessToken, {
+        name: `${detail.name} (Copia)`,
+        exercises: detail.exercises.map((ex) => ({
+          exerciseId: ex.exercise.id,
+          targetSets: ex.targetSets ?? undefined,
+          targetWeight: ex.targetWeight ?? undefined,
+          targetRepetitionsMin: ex.targetRepetitionsMin ?? undefined,
+          targetRepetitionsMax: ex.targetRepetitionsMax ?? undefined,
+          restSeconds: ex.restSeconds ?? undefined,
+          notes: ex.notes ?? undefined,
+        })),
+      });
 
       await loadRoutinesAndFolders();
       toast.success('Rutina duplicada con éxito.');
