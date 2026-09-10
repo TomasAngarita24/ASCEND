@@ -5,21 +5,27 @@ import { HttpError } from '../../errors/http-error';
 const credentialsSchema = z.object({
   email: z.email().transform((email) => email.trim().toLowerCase()),
   password: z.string().min(8).max(128),
-});
+}).strict();
 
 const refreshTokenSchema = z.object({
   refreshToken: z.string().min(1),
-});
+}).strict();
 
 const googleAuthSchema = z.object({
   idToken: z.string().min(1),
-});
+}).strict();
 
 const updateProfileSchema = z.object({
   fullName: z.string().trim().max(255).nullable().optional(),
   bio: z.string().max(2000).nullable().optional(),
-  avatarUrl: z.string().max(450000).nullable().optional(),
-});
+  avatarUrl: z.string().trim().max(450000)
+    .refine(
+      (value) => value.startsWith('data:image/') || /^https?:\/\//.test(value),
+      { message: 'avatarUrl must be an http(s) URL or a data image URL.' },
+    )
+    .nullable()
+    .optional(),
+}).strict();
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1).max(128),

@@ -6,16 +6,30 @@ import type { Server } from 'node:http';
 
 import { app } from '../src/app';
 import { prisma } from '../src/database/prisma';
+import { REFRESH_TOKEN_COOKIE } from '../src/modules/auth/auth.cookies';
 import { setPasswordResetLinkHandler } from '../src/modules/auth/email.service';
 
 interface ApiResponse {
   body: Record<string, unknown>;
+  headers: Headers;
   status: number;
 }
 
 let baseUrl: string;
 let server: Server;
 const testEmails = new Set<string>();
+
+function cookieValue(headers: Headers, name: string): string | null {
+  const setCookie = headers.get('set-cookie') ?? '';
+  for (const part of setCookie.split(',')) {
+    const [pair] = part.trim().split(';');
+    const separator = pair.indexOf('=');
+    if (separator > 0 && pair.slice(0, separator).trim() === name) {
+      return pair.slice(separator + 1).trim();
+    }
+  }
+  return null;
+}
 
 function credentials(): { email: string; password: string } {
   const email = `auth.automated.${randomUUID()}@ascend.test`;
@@ -34,7 +48,7 @@ async function request(
   const response = await fetch(`${baseUrl}${path}`, options);
   const body = await response.json() as Record<string, unknown>;
 
-  return { body, status: response.status };
+  return { body, headers: response.headers, status: response.status };
 }
 
 async function startServer(): Promise<void> {
@@ -81,11 +95,17 @@ describe('authentication', () => {
 
     const registeredUser = register.body.user as Record<string, string>;
     const accessToken = register.body.accessToken as string;
-    const refreshToken = register.body.refreshToken as string;
 
     assert.equal(registeredUser.email, userCredentials.email);
     assert.ok(accessToken);
-    assert.ok(refreshToken);
+    assert.equal(
+      register.body.refreshToken,
+      undefined,
+      'the refresh token must only travel in the httpOnly cookie, never in the response body',
+    );
+
+    const refreshToken = cookieValue(register.headers, REFRESH_TOKEN_COOKIE);
+    assert.ok(refreshToken, 'a refresh token cookie should have been issued');
 
     const profile = await request('/auth/me', {
       headers: { authorization: `Bearer ${accessToken}` },
@@ -95,18 +115,26 @@ describe('authentication', () => {
     assert.equal((profile.body.user as Record<string, string>).email, userCredentials.email);
 
     const refresh = await request('/auth/refresh', {
-      body: JSON.stringify({ refreshToken }),
-      headers: { 'content-type': 'application/json' },
+      headers: {
+        'content-type': 'application/json',
+        cookie: `${REFRESH_TOKEN_COOKIE}=${refreshToken}`,
+      },
       method: 'POST',
     });
 
     assert.equal(refresh.status, 200);
 
     const nextAccessToken = refresh.body.accessToken as string;
-    const nextRefreshToken = refresh.body.refreshToken as string;
 
     assert.ok(nextAccessToken);
-    assert.ok(nextRefreshToken);
+    assert.equal(
+      refresh.body.refreshToken,
+      undefined,
+      'the rotated refresh token must only travel in the httpOnly cookie',
+    );
+
+    const nextRefreshToken = cookieValue(refresh.headers, REFRESH_TOKEN_COOKIE);
+    assert.ok(nextRefreshToken, 'a rotated refresh token cookie should have been issued');
     assert.notEqual(nextRefreshToken, refreshToken);
 
     const reusedRefresh = await request('/auth/refresh', {
@@ -125,8 +153,10 @@ describe('authentication', () => {
     assert.equal(refreshedProfile.status, 200);
 
     const logout = await fetch(`${baseUrl}/auth/logout`, {
-      body: JSON.stringify({ refreshToken: nextRefreshToken }),
-      headers: { 'content-type': 'application/json' },
+      headers: {
+        'content-type': 'application/json',
+        cookie: `${REFRESH_TOKEN_COOKIE}=${nextRefreshToken}`,
+      },
       method: 'POST',
     });
 

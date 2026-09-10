@@ -14,7 +14,11 @@ authRouter.post('/register', credentialLimiter, perEmailCredentialLimiter, async
   const result = await register(credentials);
   setAuthCookies(response, result);
 
-  response.status(201).json(result);
+  response.status(201).json({
+    user: result.user,
+    accessToken: result.accessToken,
+    accessTokenExpiresAt: result.accessTokenExpiresAt,
+  });
 }));
 
 authRouter.post('/login', credentialLimiter, perEmailCredentialLimiter, asyncHandler(async (request, response) => {
@@ -22,7 +26,11 @@ authRouter.post('/login', credentialLimiter, perEmailCredentialLimiter, asyncHan
   const result = await login(credentials);
   setAuthCookies(response, result);
 
-  response.status(200).json(result);
+  response.status(200).json({
+    user: result.user,
+    accessToken: result.accessToken,
+    accessTokenExpiresAt: result.accessTokenExpiresAt,
+  });
 }));
 
 authRouter.post('/google', credentialLimiter, asyncHandler(async (request, response) => {
@@ -30,7 +38,11 @@ authRouter.post('/google', credentialLimiter, asyncHandler(async (request, respo
   const result = await authenticateWithGoogle(idToken);
   setAuthCookies(response, result);
 
-  response.status(200).json(result);
+  response.status(200).json({
+    user: result.user,
+    accessToken: result.accessToken,
+    accessTokenExpiresAt: result.accessTokenExpiresAt,
+  });
 }));
 
 authRouter.post('/refresh', asyncHandler(async (request, response) => {
@@ -41,7 +53,10 @@ authRouter.post('/refresh', asyncHandler(async (request, response) => {
   const result = await refresh(refreshToken);
   setAuthCookies(response, result);
 
-  response.status(200).json(result);
+  response.status(200).json({
+    accessToken: result.accessToken,
+    accessTokenExpiresAt: result.accessTokenExpiresAt,
+  });
 }));
 
 authRouter.post('/forgot-password', asyncHandler(async (request, response) => {

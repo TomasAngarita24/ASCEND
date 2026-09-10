@@ -74,8 +74,13 @@ export async function listRoutines(userId: string): Promise<{ data: RoutineSumma
   const routines = await prisma.routine.findMany({
     where: { userId },
     include: {
-      _count: { select: { routineExercises: true } },
+      _count: {
+        select: {
+          routineExercises: { where: { exercise: { deletedAt: null } } },
+        },
+      },
       routineExercises: {
+        where: { exercise: { deletedAt: null } },
         select: {
           targetSets: true,
           exercise: {
@@ -333,7 +338,15 @@ export async function updateRoutineExercise(
 
     return transaction.routineExercise.update({
       where: { id: routineExerciseId },
-      data: input,
+      data: {
+        ...(input.position !== undefined ? { position: input.position } : {}),
+        ...(input.notes !== undefined ? { notes: input.notes } : {}),
+        ...(input.restSeconds !== undefined ? { restSeconds: input.restSeconds } : {}),
+        ...(input.targetRepetitionsMax !== undefined ? { targetRepetitionsMax: input.targetRepetitionsMax } : {}),
+        ...(input.targetRepetitionsMin !== undefined ? { targetRepetitionsMin: input.targetRepetitionsMin } : {}),
+        ...(input.targetSets !== undefined ? { targetSets: input.targetSets } : {}),
+        ...(input.targetWeight !== undefined ? { targetWeight: input.targetWeight } : {}),
+      },
       include: { exercise: { select: { id: true, name: true } } },
     });
   });

@@ -17,6 +17,12 @@ const sharedOptions = {
 
 export const authLimiter = rateLimit(sharedOptions);
 
+export const apiLimiter = rateLimit({
+  ...sharedOptions,
+  limit: 300,
+  windowMs: 60 * 1000,
+});
+
 export const credentialLimiter = rateLimit({
   ...sharedOptions,
   limit: 20,

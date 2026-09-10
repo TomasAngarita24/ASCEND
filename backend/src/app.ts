@@ -7,7 +7,7 @@ import helmet from 'helmet';
 import { env } from './config/env';
 import { HttpError } from './errors/http-error';
 import { errorHandler } from './middleware/error-handler';
-import { authLimiter } from './middleware/rate-limit';
+import { apiLimiter, authLimiter } from './middleware/rate-limit';
 import { authRouter } from './modules/auth/auth.routes';
 import { exerciseRouter } from './modules/exercise/exercise.routes';
 import { measurementRouter } from './modules/measurement/measurement.routes';
@@ -38,6 +38,8 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(compression());
 
+app.use(healthRouter);
+
 // Defense-in-depth against CSRF for cookie-authenticated requests: reject
 // state-changing requests that carry a disallowed Origin header.
 app.use((request, _response, next) => {
@@ -53,7 +55,10 @@ app.use((request, _response, next) => {
   next();
 });
 
-app.use(healthRouter);
+// Coarse global rate limit for every API route (health is exempt above).
+// Authenticated flows still get their own tighter limits (see /auth).
+app.use(apiLimiter);
+
 app.use('/auth', authLimiter, authRouter);
 app.use('/exercises', exerciseRouter);
 app.use('/routines', routineRouter);

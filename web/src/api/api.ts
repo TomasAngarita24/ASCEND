@@ -512,7 +512,7 @@ class ApiClient {
   }
 
   async login(email: string, password: string): Promise<AuthSession> {
-    const res = await this.request<{ accessToken: string; refreshToken: string; accessTokenExpiresAt: string; user: User }>('/auth/login', {
+    const res = await this.request<{ accessToken: string; accessTokenExpiresAt: string; user: User }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
@@ -520,7 +520,7 @@ class ApiClient {
   }
 
   async loginWithGoogle(idToken: string): Promise<AuthSession> {
-    const res = await this.request<{ accessToken: string; refreshToken: string; accessTokenExpiresAt: string; user: User }>('/auth/google', {
+    const res = await this.request<{ accessToken: string; accessTokenExpiresAt: string; user: User }>('/auth/google', {
       method: 'POST',
       body: JSON.stringify({ idToken }),
     });
@@ -528,7 +528,7 @@ class ApiClient {
   }
 
   async register(email: string, password: string): Promise<AuthSession> {
-    const res = await this.request<{ accessToken: string; refreshToken: string; accessTokenExpiresAt: string; user: User }>('/auth/register', {
+    const res = await this.request<{ accessToken: string; accessTokenExpiresAt: string; user: User }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });

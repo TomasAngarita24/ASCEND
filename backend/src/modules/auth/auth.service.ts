@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto';
 
-import type { User } from '../../generated/prisma/client';
 import { prisma } from '../../database/prisma';
 import { env } from '../../config/env';
 import { HttpError } from '../../errors/http-error';
@@ -19,7 +18,17 @@ interface AuthenticationResult extends AuthTokens {
   user: AuthenticatedUser;
 }
 
-function toAuthenticatedUser(user: User): AuthenticatedUser {
+interface AuthenticatedUserSource {
+  id: string;
+  email: string;
+  fullName: string | null;
+  bio: string | null;
+  avatarUrl: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+function toAuthenticatedUser(user: AuthenticatedUserSource): AuthenticatedUser {
   return {
     id: user.id,
     email: user.email,
@@ -34,7 +43,7 @@ function toAuthenticatedUser(user: User): AuthenticatedUser {
 export async function updateProfile(userId: string, input: { fullName?: string | null; bio?: string | null; avatarUrl?: string | null }): Promise<AuthenticatedUser> {
   const existing = await prisma.user.findUnique({ where: { id: userId } });
   if (!existing) {
-    throw new HttpError(404, 'UNAUTHORIZED', 'User does not exist.');
+    throw new HttpError(404, 'USER_NOT_FOUND', 'User does not exist.');
   }
 
   const user = await prisma.user.update({
@@ -280,7 +289,19 @@ export async function getAuthenticatedUser(context: AuthContext): Promise<Authen
       userId: context.userId,
       expiresAt: { gt: new Date() },
     },
-    include: { user: true },
+    select: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          fullName: true,
+          bio: true,
+          avatarUrl: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
+    },
   });
 
   if (!session) {

@@ -6,7 +6,8 @@ import {
   addWorkoutExercise, createSet, deleteSet, deleteWorkout, deleteWorkoutExercise, exportWorkoutHistory, getWorkout, importWorkoutHistory, listWorkoutHistory, reorderWorkoutExercises, startWorkout, transitionWorkout, updateSet,
 } from './workout.service';
 import {
-  validateAddWorkoutExercise, validateCreateSet, validateStartWorkout, validateUpdateSet, validateWorkoutHistory, validateWorkoutId,
+  validateAddWorkoutExercise, validateCreateSet, validateImportWorkoutHistory, validateReorderWorkoutExercises,
+  validateStartWorkout, validateUpdateSet, validateWorkoutHistory, validateWorkoutId,
 } from './workout.validation';
 
 export const workoutRouter = Router();
@@ -52,16 +53,13 @@ workoutRouter.get('/export', asyncHandler(async (request, response) => {
 }));
 
 workoutRouter.post('/import', asyncHandler(async (request, response) => {
-  const result = await importWorkoutHistory(request.auth!.userId, request.body);
+  const input = validateImportWorkoutHistory(request.body);
+  const result = await importWorkoutHistory(request.auth!.userId, input.data);
   response.status(200).json(result);
 }));
 
 workoutRouter.patch('/:workoutId/exercises/reorder', asyncHandler(async (request, response) => {
-  const { exerciseIds } = request.body as { exerciseIds: string[] };
-  if (!Array.isArray(exerciseIds)) {
-    response.status(400).json({ message: 'exerciseIds must be an array of IDs' });
-    return;
-  }
+  const { exerciseIds } = validateReorderWorkoutExercises(request.body);
   const workout = await reorderWorkoutExercises(request.auth!.userId, validateWorkoutId(request.params.workoutId), exerciseIds);
   response.status(200).json({ workout });
 }));

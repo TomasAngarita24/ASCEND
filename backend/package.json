@@ -17,7 +17,7 @@
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
-    "test": "tsx --test tests/auth.integration.test.ts tests/auth.cookies.integration.test.ts tests/auth-rate-limit.integration.test.ts tests/google-auth.integration.test.ts tests/exercise.integration.test.ts tests/routine.integration.test.ts tests/workout.integration.test.ts tests/cloud-sync.integration.test.ts tests/social.integration.test.ts tests/users.integration.test.ts tests/comments.integration.test.ts tests/routine-social.integration.test.ts tests/routine-template.integration.test.ts tests/progress.week-boundary.test.ts tests/progress.integration.test.ts tests/measurement.integration.test.ts"
+    "test": "tsx --test --test-concurrency=1 tests/auth.integration.test.ts tests/auth.cookies.integration.test.ts tests/auth-rate-limit.integration.test.ts tests/google-auth.integration.test.ts tests/exercise.integration.test.ts tests/routine.integration.test.ts tests/workout.integration.test.ts tests/cloud-sync.integration.test.ts tests/social.integration.test.ts tests/users.integration.test.ts tests/comments.integration.test.ts tests/routine-social.integration.test.ts tests/routine-template.integration.test.ts tests/progress.week-boundary.test.ts tests/progress.integration.test.ts tests/measurement.integration.test.ts"
   },
   "keywords": [
     "node",

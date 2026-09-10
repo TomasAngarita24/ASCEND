@@ -17,7 +17,7 @@ const exerciseConfigurationSchema = z.object({
   targetRepetitionsMin: positiveInteger.optional(),
   targetSets: positiveInteger.optional(),
   targetWeight: nonNegativeNumber.optional(),
-});
+}).strict();
 const addRoutineExerciseSchema = exerciseConfigurationSchema.extend({ exerciseId: z.uuid() }).refine(
   (value) => value.targetRepetitionsMin === undefined
     || value.targetRepetitionsMax === undefined
@@ -32,7 +32,7 @@ const updateRoutineExerciseSchema = exerciseConfigurationSchema
       || value.targetRepetitionsMin <= value.targetRepetitionsMax,
     { message: 'Minimum repetitions cannot exceed maximum repetitions.' },
   );
-const reorderSchema = z.object({ routineExerciseIds: z.array(z.uuid()) });
+const reorderSchema = z.object({ routineExerciseIds: z.array(z.uuid()) }).strict();
 
 const saveRoutineExerciseSchema = exerciseConfigurationSchema
   .omit({ position: true })

@@ -104,11 +104,14 @@ describe('Google Authentication', () => {
 
     const registeredUser = response.body.user as Record<string, string>;
     const accessToken = response.body.accessToken as string;
-    const refreshToken = response.body.refreshToken as string;
 
     assert.equal(registeredUser.email, email);
     assert.ok(accessToken);
-    assert.ok(refreshToken);
+    assert.equal(
+      response.body.refreshToken,
+      undefined,
+      'the refresh token must only travel in the httpOnly cookie, never in the response body',
+    );
 
     // Verify user in DB has googleId and null passwordHash
     const userInDb = await prisma.user.findUnique({ where: { email } });

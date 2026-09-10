@@ -408,31 +408,52 @@ export async function reorderWorkoutExercises(userId: string, workoutId: string,
   const workout = await findWorkout(userId, workoutId);
   assertActive(workout);
 
-  await prisma.$transaction(
-    orderedExerciseIds.map((workoutExerciseId, index) =>
-      prisma.workoutExercise.update({
-        where: { id: workoutExerciseId },
-        data: { position: index + 1 },
-      })
-    )
-  );
+  await prisma.$transaction(async (transaction) => {
+    const items = await transaction.workoutExercise.findMany({ where: { workoutId }, select: { id: true } });
+    const currentIds = new Set(items.map((item) => item.id));
+    const requestedIds = new Set(orderedExerciseIds);
+    if (currentIds.size !== requestedIds.size || currentIds.size !== orderedExerciseIds.length
+      || [...currentIds].some((id) => !requestedIds.has(id))) {
+      throw new HttpError(400, 'VALIDATION_ERROR', 'The reorder request must include every workout exercise exactly once.');
+    }
+
+    await Promise.all(orderedExerciseIds.map((id, index) => transaction.workoutExercise.update({
+      where: { id },
+      data: { position: -(index + 1) },
+    })));
+    await Promise.all(orderedExerciseIds.map((id, index) => transaction.workoutExercise.update({
+      where: { id },
+      data: { position: index + 1 },
+    })));
+  });
 
   return toWorkoutResponse(await findWorkout(userId, workoutId));
 }
 
-export interface ImportBackupPayload {
-  exportedAt?: string;
-  data: ExportRow[];
+export interface ImportRow {
+  workoutId?: string | null;
+  date?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  durationSeconds?: number | null;
+  exercise?: string | null;
+  setNumber?: number | null;
+  weight?: number | null;
+  repetitions?: number | null;
+  rpe?: number | null;
+  setType?: string | null;
+  notes?: string | null;
+  volume?: number | null;
 }
 
-export async function importWorkoutHistory(userId: string, payload: ImportBackupPayload): Promise<{ importedWorkouts: number; importedSets: number }> {
-  if (!payload || !Array.isArray(payload.data) || payload.data.length === 0) {
+export async function importWorkoutHistory(userId: string, rows: ImportRow[]): Promise<{ importedWorkouts: number; importedSets: number }> {
+  if (rows.length === 0) {
     throw new HttpError(400, 'INVALID_IMPORT_PAYLOAD', 'The backup file is empty or formatted incorrectly.');
   }
 
   // Group rows by original workoutId (or startedAt date if missing)
-  const workoutGroups = new Map<string, ExportRow[]>();
-  for (const row of payload.data) {
+  const workoutGroups = new Map<string, ImportRow[]>();
+  for (const row of rows) {
     const key = row.workoutId || `${row.date}_${row.startedAt}`;
     if (!workoutGroups.has(key)) {
       workoutGroups.set(key, []);
@@ -443,81 +464,87 @@ export async function importWorkoutHistory(userId: string, payload: ImportBackup
   let importedWorkouts = 0;
   let importedSets = 0;
 
-  for (const [, rows] of workoutGroups) {
-    const firstRow = rows[0];
-    const startedAt = new Date(firstRow.startedAt || firstRow.date);
-    const completedAt = firstRow.completedAt ? new Date(firstRow.completedAt) : new Date(startedAt.getTime() + 3600000);
+  await prisma.$transaction(async (transaction) => {
+    for (const [, groupRows] of workoutGroups) {
+      const firstRow = groupRows[0];
+      const startedMs = Date.parse(firstRow.startedAt || firstRow.date || '');
+      const startedAt = Number.isNaN(startedMs) ? new Date() : new Date(startedMs);
+      const completedMs = firstRow.completedAt ? Date.parse(firstRow.completedAt) : Number.NaN;
+      const completedAt = Number.isNaN(completedMs)
+        ? new Date(startedAt.getTime() + 3600000)
+        : new Date(completedMs);
 
-    // Group rows within workout by exercise name
-    const exerciseGroups = new Map<string, ExportRow[]>();
-    for (const row of rows) {
-      const exName = row.exercise || 'Ejercicio Importado';
-      if (!exerciseGroups.has(exName)) {
-        exerciseGroups.set(exName, []);
-      }
-      exerciseGroups.get(exName)!.push(row);
-    }
-
-    // Create the workout
-    const newWorkout = await prisma.workout.create({
-      data: {
-        userId,
-        status: 'completed',
-        startedAt,
-        completedAt,
-      },
-    });
-    importedWorkouts++;
-
-    let exPosition = 1;
-    for (const [exerciseName, setRows] of exerciseGroups) {
-      // Find or create the exercise
-      let exercise = await prisma.exercise.findFirst({
-        where: {
-          name: { equals: exerciseName, mode: 'insensitive' },
-          OR: [{ createdByUserId: null }, { createdByUserId: userId }],
-          deletedAt: null,
-        },
-      });
-
-      if (!exercise) {
-        exercise = await prisma.exercise.create({
-          data: {
-            name: exerciseName,
-            createdByUserId: userId,
-            targetMuscleGroups: ['other'],
-            equipment: 'other',
-          },
-        });
+      // Group rows within workout by exercise name
+      const exerciseGroups = new Map<string, ImportRow[]>();
+      for (const row of groupRows) {
+        const exName = row.exercise || 'Ejercicio Importado';
+        if (!exerciseGroups.has(exName)) {
+          exerciseGroups.set(exName, []);
+        }
+        exerciseGroups.get(exName)!.push(row);
       }
 
-      const workoutExercise = await prisma.workoutExercise.create({
+      // Create the workout
+      const newWorkout = await transaction.workout.create({
         data: {
-          workoutId: newWorkout.id,
-          exerciseId: exercise.id,
-          position: exPosition++,
+          userId,
+          status: 'completed',
+          startedAt,
+          completedAt,
         },
       });
+      importedWorkouts++;
 
-      let setNum = 1;
-      for (const setRow of setRows) {
-        await prisma.workoutSet.create({
-          data: {
-            workoutExerciseId: workoutExercise.id,
-            setNumber: setRow.setNumber || setNum++,
-            weight: setRow.weight !== null && setRow.weight !== undefined ? Number(setRow.weight) : null,
-            repetitions: setRow.repetitions !== null && setRow.repetitions !== undefined ? Number(setRow.repetitions) : null,
-            rpe: setRow.rpe !== null && setRow.rpe !== undefined ? Number(setRow.rpe) : null,
-            setType: setRow.setType || 'normal',
-            notes: setRow.notes || null,
-            isCompleted: true,
-            completedAt,
+      let exPosition = 1;
+      for (const [exerciseName, setRows] of exerciseGroups) {
+        // Find or create the exercise
+        let exercise = await transaction.exercise.findFirst({
+          where: {
+            name: { equals: exerciseName, mode: 'insensitive' },
+            OR: [{ createdByUserId: null }, { createdByUserId: userId }],
+            deletedAt: null,
           },
         });
-        importedSets++;
+
+        if (!exercise) {
+          exercise = await transaction.exercise.create({
+            data: {
+              name: exerciseName,
+              createdByUserId: userId,
+              targetMuscleGroups: ['other'],
+              equipment: 'other',
+            },
+          });
+        }
+
+        const workoutExercise = await transaction.workoutExercise.create({
+          data: {
+            workoutId: newWorkout.id,
+            exerciseId: exercise.id,
+            position: exPosition++,
+          },
+        });
+
+        let setNum = 1;
+        for (const setRow of setRows) {
+          await transaction.workoutSet.create({
+            data: {
+              workoutExerciseId: workoutExercise.id,
+              setNumber: setRow.setNumber || setNum++,
+              weight: setRow.weight !== null && setRow.weight !== undefined ? Number(setRow.weight) : null,
+              repetitions: setRow.repetitions !== null && setRow.repetitions !== undefined ? Number(setRow.repetitions) : null,
+              rpe: setRow.rpe !== null && setRow.rpe !== undefined ? Number(setRow.rpe) : null,
+              setType: setRow.setType || 'normal',
+              notes: setRow.notes || null,
+              isCompleted: true,
+              completedAt,
+            },
+          });
+          importedSets++;
+        }
       }
     }
-  }
+  });
 
   return { importedWorkouts, importedSets };
 }

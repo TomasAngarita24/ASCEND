@@ -44,11 +44,17 @@ async function sendPasswordResetEmail(email: string, resetUrl: string): Promise<
     return;
   }
 
-  // Without SMTP credentials (e.g. local development) the reset link is
-  // logged so the flow can still be exercised end to end.
+  // Without SMTP credentials the reset link is logged so the flow can still be
+  // exercised end to end in local development. In production the URL (which
+  // contains the reset token) is never written to logs: the missing
+  // configuration is surfaced loudly instead, so the failure is visible.
   const smtp = getTransporter();
   if (!smtp) {
-    console.log(`[password-reset] ${email} -> ${resetUrl}`);
+    if (env.nodeEnv === 'production') {
+      console.error('[password-reset] SMTP credentials are not configured; password reset emails cannot be sent.');
+    } else {
+      console.log(`[password-reset] ${email} -> ${resetUrl}`);
+    }
     return;
   }
 
