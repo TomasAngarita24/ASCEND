@@ -10,7 +10,7 @@ const nonNegativeNumber = z.coerce.number().min(0).max(999999.99);
 const createRoutineSchema = z.object({ name: routineName });
 const updateRoutineSchema = z.object({ name: routineName }).strict();
 const exerciseConfigurationSchema = z.object({
-  notes: z.string().trim().min(1).optional(),
+  notes: z.string().trim().min(1).nullish(),
   position: positiveInteger.optional(),
   restSeconds: nonNegativeInteger.optional(),
   targetRepetitionsMax: positiveInteger.optional(),

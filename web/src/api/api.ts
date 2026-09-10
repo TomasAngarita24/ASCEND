@@ -467,11 +467,12 @@ class ApiClient {
 
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      let friendlyMessage = data.message || 'Ocurrió un error inesperado.';
+      const serverMessage = data.message || data.error?.message;
+      let friendlyMessage = serverMessage || 'Ocurrió un error inesperado.';
       if (response.status === 401) {
         friendlyMessage = 'La sesión ha expirado o las credenciales no son válidas.';
       } else if (response.status === 400 || response.status === 422) {
-        friendlyMessage = data.message || 'Los datos ingresados no son válidos.';
+        friendlyMessage = serverMessage || 'Los datos ingresados no son válidos.';
       } else if (response.status === 404) {
         friendlyMessage = 'El recurso solicitado no fue encontrado.';
       } else if (response.status >= 500) {

@@ -8,7 +8,7 @@ type RoutineWithExercises = Prisma.RoutineGetPayload<{
 }>;
 
 interface ExerciseConfiguration {
-  notes?: string;
+  notes?: string | null;
   position?: number;
   restSeconds?: number;
   targetRepetitionsMax?: number;

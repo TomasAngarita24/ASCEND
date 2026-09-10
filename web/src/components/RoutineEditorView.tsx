@@ -519,7 +519,7 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
         targetRepetitionsMin: Math.max(1, ex.sets[0]?.reps ?? 8),
         targetRepetitionsMax: Math.max(1, ex.sets[0]?.reps ?? 10),
         restSeconds: ex.restSeconds,
-        notes: ex.notes || null,
+        notes: ex.notes?.trim() ? ex.notes.trim() : undefined,
       });
 
       if (isNew) {
