@@ -113,7 +113,13 @@ async function assertAccessibleExercise(userId: string, exerciseId: string): Pro
   }
 }
 export async function startWorkout(userId: string, routineId?: string): Promise<WorkoutResponse> {
-  let routineExercises: Array<{ exerciseId: string; position: number }> = [];
+  let routineExercises: Array<{
+    exerciseId: string;
+    position: number;
+    targetSets: number | null;
+    targetRepetitionsMin: number | null;
+    targetWeight: Prisma.Decimal | null;
+  }> = [];
   if (routineId) {
     const routine = await prisma.routine.findFirst({
       where: { id: routineId, userId },
@@ -127,14 +133,36 @@ export async function startWorkout(userId: string, routineId?: string): Promise<
     if (!routine) {
       throw new HttpError(404, 'ROUTINE_NOT_FOUND', 'Routine does not exist or is not accessible.');
     }
-    routineExercises = routine.routineExercises.map(({ exerciseId, position }) => ({ exerciseId, position }));
+    routineExercises = routine.routineExercises.map(({ exerciseId, position, targetSets, targetRepetitionsMin, targetWeight }) => ({
+      exerciseId,
+      position,
+      targetSets,
+      targetRepetitionsMin,
+      targetWeight,
+    }));
   }
 
   const workout = await prisma.workout.create({
     data: {
       userId,
       routineId,
-      workoutExercises: { create: routineExercises },
+      workoutExercises: {
+        create: routineExercises.map((item) => {
+          const setCount = Math.max(1, item.targetSets ?? 1);
+          return {
+            exerciseId: item.exerciseId,
+            position: item.position,
+            sets: {
+              create: Array.from({ length: setCount }, (_, index) => ({
+                setNumber: index + 1,
+                setType: 'normal',
+                weight: item.targetWeight ?? null,
+                repetitions: item.targetRepetitionsMin ?? null,
+              })),
+            },
+          };
+        }),
+      },
     },
     include: { workoutExercises: { include: { exercise: true, sets: true }, orderBy: { position: 'asc' } } },
   });

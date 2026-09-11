@@ -242,7 +242,17 @@ export async function saveRoutine(userId: string, input: RoutineSaveInput): Prom
 }
 
 export async function getRoutine(userId: string, routineId: string): Promise<RoutineResponse> {
-  return toRoutineResponse(await findRoutine(userId, routineId));
+  // Owners see their own routine; any authenticated user can view a public one.
+  const routine = await prisma.routine.findFirst({
+    where: { id: routineId, OR: [{ userId }, { isPublic: true }] },
+    include: { routineExercises: { include: { exercise: true }, orderBy: { position: 'asc' } } },
+  });
+
+  if (!routine) {
+    throw new HttpError(404, 'ROUTINE_NOT_FOUND', 'Routine does not exist or is not accessible.');
+  }
+
+  return toRoutineResponse(routine);
 }
 
 export async function updateRoutine(userId: string, routineId: string, name: string): Promise<RoutineResponse> {

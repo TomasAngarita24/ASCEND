@@ -133,6 +133,66 @@ describe('workouts', () => {
     assert.equal(completedWorkout.status, 200);
     assert.equal(((completedWorkout.body.workout as Record<string, unknown>).exercises as unknown[]).length, 1);
   });
+  it('pre-fills workout sets from the routine target configuration', async () => {
+    const accessToken = await registerAndGetAccessToken();
+    const headers = { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' };
+    const exerciseId = await createExercise(accessToken);
+    const routine = await request('/routines/save', {
+      body: JSON.stringify({
+        name: 'Target routine',
+        exercises: [
+          {
+            exerciseId,
+            targetSets: 4,
+            targetWeight: 60,
+            targetRepetitionsMin: 8,
+            targetRepetitionsMax: 12,
+            restSeconds: 90,
+          },
+        ],
+      }),
+      headers,
+      method: 'POST',
+    });
+    assert.equal(routine.status, 200);
+    const routineId = (routine.body.routine as Record<string, string>).id;
+
+    const started = await request('/workouts', {
+      body: JSON.stringify({ routineId }), headers, method: 'POST',
+    });
+    assert.equal(started.status, 201);
+    const workout = started.body.workout as Record<string, unknown>;
+    const exercises = workout.exercises as Array<Record<string, unknown>>;
+    assert.equal(exercises.length, 1);
+    const sets = exercises[0].sets as Array<Record<string, unknown>>;
+    assert.equal(sets.length, 4);
+    assert.deepEqual(sets.map((set) => set.setNumber), [1, 2, 3, 4]);
+    assert.equal(sets[0].weight, 60);
+    assert.equal(sets[0].repetitions, 8);
+    assert.equal(sets.every((set) => (set as Record<string, unknown>).setType === 'normal'), true);
+  });
+  it('pre-fills a single default set when the routine has no target sets', async () => {
+    const accessToken = await registerAndGetAccessToken();
+    const headers = { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' };
+    const exerciseId = await createExercise(accessToken);
+    const routine = await request('/routines', {
+      body: JSON.stringify({ name: 'No targets routine' }), headers, method: 'POST',
+    });
+    const routineId = (routine.body.routine as Record<string, string>).id;
+    await request(`/routines/${routineId}/exercises`, {
+      body: JSON.stringify({ exerciseId }), headers, method: 'POST',
+    });
+
+    const started = await request('/workouts', {
+      body: JSON.stringify({ routineId }), headers, method: 'POST',
+    });
+    const workout = started.body.workout as Record<string, unknown>;
+    const exercises = workout.exercises as Array<Record<string, unknown>>;
+    const sets = exercises[0].sets as Array<Record<string, unknown>>;
+    assert.equal(sets.length, 1);
+    assert.equal(sets[0].weight, null);
+    assert.equal(sets[0].repetitions, null);
+  });
 it('keeps a workout after deleting its source routine', async () => {
   const accessToken = await registerAndGetAccessToken();
   const headers = {

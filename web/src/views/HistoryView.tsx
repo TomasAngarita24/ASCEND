@@ -813,6 +813,8 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: '1rem',
+    flexWrap: 'wrap',
     cursor: 'pointer',
     transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
     boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
@@ -821,6 +823,8 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     gap: '0.75rem',
+    flex: '1 1 0',
+    minWidth: 0,
   },
   dateBadgeWrap: {
     display: 'flex',
@@ -866,6 +870,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: '0.35rem',
+    flexShrink: 0,
   },
   inspectText: {
     fontSize: '0.85rem',

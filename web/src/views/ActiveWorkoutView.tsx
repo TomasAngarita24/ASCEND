@@ -753,7 +753,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
           return (
             <div key={exItem.id} style={styles.exerciseCard}>
 <div style={styles.exHeader}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <div style={styles.exHeaderLeft}>
                   {/* Exercise thumbnail */}
                   {exItem.exercise.mediaUrl ? (
                     <img
@@ -883,9 +883,12 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
                         <input
                           type="number"
                           step="0.5"
+                          inputMode="decimal"
+                          enterKeyHint="done"
                           placeholder={prevSet?.weight?.toString() || '0'}
                           value={set.weight === null ? '' : set.weight}
                           onChange={(e) => handleUpdateSetField(exItem.id, set.id, 'weight', e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                           style={{
                             ...styles.inputField,
                             ...(set.isCompleted ? styles.inputFieldCompleted : {}),
@@ -897,9 +900,12 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
                       <div className="aw-set-cell">
                         <input
                           type="number"
+                          inputMode="numeric"
+                          enterKeyHint="done"
                           placeholder={prevSet?.repetitions?.toString() || '10'}
                           value={set.repetitions === null ? '' : set.repetitions}
                           onChange={(e) => handleUpdateSetField(exItem.id, set.id, 'repetitions', e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                           style={{
                             ...styles.inputField,
                             ...(set.isCompleted ? styles.inputFieldCompleted : {}),
@@ -1128,7 +1134,8 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    
+    flexWrap: 'wrap',
+    gap: '1rem',
   },
   restLeft: {
     display: 'flex',
@@ -1159,6 +1166,7 @@ const styles: Record<string, React.CSSProperties> = {
   restControls: {
     display: 'flex',
     gap: '0.65rem',
+    flexWrap: 'wrap',
   },
   restBtn: {
     backgroundColor: 'var(--input-bg)',
@@ -1209,6 +1217,13 @@ const styles: Record<string, React.CSSProperties> = {
     flexWrap: 'wrap',
     gap: '0.5rem',
   },
+  exHeaderLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.65rem',
+    flexWrap: 'wrap',
+    minWidth: 0,
+  },
   exNumberBadge: {
     width: '28px',
     height: '28px',
@@ -1246,6 +1261,10 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 800,
     color: 'var(--text-primary)',
     letterSpacing: '-0.02em',
+    minWidth: 0,
+    wordBreak: 'break-word',
+    overflowWrap: 'break-word',
+    flexShrink: 1,
   },
   restInfoBadge: {
     fontSize: '0.75rem',
@@ -1267,6 +1286,8 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     gap: '0.45rem',
+    overflowX: 'auto',
+    WebkitOverflowScrolling: 'touch',
   },
   tableHeader: {
     display: 'grid',

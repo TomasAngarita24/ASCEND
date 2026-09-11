@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Dumbbell, FileText, Users, UserPlus, UserCheck, Activity, Loader2, Repeat, Layers } from 'lucide-react';
+import { ArrowLeft, Dumbbell, FileText, Users, UserPlus, UserCheck, Activity, Loader2, Repeat, Layers, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, toError, type FeedPost, type PublicProfileResponse, type PublicRoutineSummary, type SocialUserSummary, type Tokens } from '../api/api';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { PostCard } from '../components/PostCard';
+import { RoutineDetailModal } from '../components/RoutineDetailModal';
 
 interface UserProfileViewProps {
   tokens: Tokens;
@@ -85,6 +86,7 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
   const [publicRoutines, setPublicRoutines] = useState<PublicRoutineSummary[]>([]);
   const [loadingRoutines, setLoadingRoutines] = useState(false);
   const [copyingRoutineId, setCopyingRoutineId] = useState<string | null>(null);
+  const [detailRoutineId, setDetailRoutineId] = useState<string | null>(null);
 
   const loadProfile = useCallback(async () => {
     if (!userId) return;
@@ -463,6 +465,14 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
                     </span>
                   </div>
                   <button
+                    style={styles.routineViewBtn}
+                    onClick={() => setDetailRoutineId(routine.id)}
+                    title="Ver los ejercicios y series configurados de esta rutina"
+                  >
+                    <Eye size={14} />
+                    Ver detalle
+                  </button>
+                  <button
                     style={styles.routineCopyBtn}
                     disabled={copyingRoutineId === routine.id}
                     onClick={() => handleCopyPublicRoutine(routine.id)}
@@ -514,6 +524,14 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
         onConfirm={confirmDeletePost}
         onCancel={() => setConfirmDelete(null)}
       />
+
+      {detailRoutineId && (
+        <RoutineDetailModal
+          routineId={detailRoutineId}
+          accessToken={tokens.accessToken}
+          onClose={() => setDetailRoutineId(null)}
+        />
+      )}
     </div>
   );
 };
@@ -742,6 +760,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid var(--border-color)',
     borderRadius: 'var(--radius-container)',
     padding: '0.85rem 1rem',
+    flexWrap: 'wrap',
   },
   routineRowIcon: {
     width: '38px',
@@ -779,6 +798,22 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'rgba(45, 212, 191, 0.12)',
     color: 'var(--accent-teal)',
     border: '1px solid rgba(45, 212, 191, 0.35)',
+    borderRadius: 'var(--radius-control)',
+    padding: '0.5rem 0.9rem',
+    fontWeight: 700,
+    fontSize: '0.82rem',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
+    transition: 'opacity 120ms ease, transform 120ms ease',
+  },
+  routineViewBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.45rem',
+    backgroundColor: 'transparent',
+    color: 'var(--text-secondary)',
+    border: '1px solid var(--border-color)',
     borderRadius: 'var(--radius-control)',
     padding: '0.5rem 0.9rem',
     fontWeight: 700,

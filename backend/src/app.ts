@@ -36,7 +36,8 @@ app.use(cors({
   },
 }));
 app.use(cookieParser());
-app.use(express.json());
+// Mobile avatars are uploaded as data URLs, so the JSON body can reach ~450 KB.
+app.use(express.json({ limit: '1mb' }));
 app.use(compression());
 
 app.use(healthRouter);

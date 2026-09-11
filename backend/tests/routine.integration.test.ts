@@ -207,6 +207,44 @@ describe('routines', () => {
     assert.equal((inaccessible.body.error as Record<string, string>).code, 'ROUTINE_NOT_FOUND');
   });
 
+  it('exposes a public routine to another user for viewing', async () => {
+    const ownerToken = await registerAndGetAccessToken();
+    const otherUserToken = await registerAndGetAccessToken();
+    const exerciseId = await createExercise(ownerToken);
+    const created = await request('/routines/save', {
+      body: JSON.stringify({
+        name: 'Public routine',
+        isPublic: true,
+        exercises: [
+          {
+            exerciseId,
+            targetSets: 3,
+            targetRepetitionsMin: 10,
+            targetRepetitionsMax: 12,
+            targetWeight: 40,
+            restSeconds: 60,
+          },
+        ],
+      }),
+      headers: { authorization: `Bearer ${ownerToken}`, 'content-type': 'application/json' },
+      method: 'POST',
+    });
+    assert.equal(created.status, 200);
+    const routineId = (created.body.routine as Record<string, string>).id;
+
+    const visible = await request(`/routines/${routineId}`, {
+      headers: { authorization: `Bearer ${otherUserToken}` },
+    });
+    assert.equal(visible.status, 200);
+    const routine = visible.body.routine as Record<string, unknown>;
+    assert.equal(routine.name, 'Public routine');
+    assert.equal(routine.isPublic, true);
+    const exercises = routine.exercises as Array<Record<string, unknown>>;
+    assert.equal(exercises.length, 1);
+    assert.equal(exercises[0].targetSets, 3);
+    assert.equal((exercises[0].exercise as Record<string, string>).id, exerciseId);
+  });
+
   it('reorders routines within a scope and moves them across folders', async () => {
     const accessToken = await registerAndGetAccessToken();
     const headers = { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' };

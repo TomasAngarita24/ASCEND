@@ -1,8 +1,9 @@
 import React, { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, Clock, Dumbbell, Repeat, Flame, Trash2, MessageCircle, Copy } from 'lucide-react';
+import { Heart, Clock, Dumbbell, Repeat, Flame, Trash2, MessageCircle, Copy, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, type FeedPost, type PostComment } from '../api/api';
+import { RoutineDetailModal } from './RoutineDetailModal';
 
 interface PostCardProps {
   post: FeedPost;
@@ -55,6 +56,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   const [postingComment, setPostingComment] = useState(false);
   const [commentInput, setCommentInput] = useState('');
   const [commentCount, setCommentCount] = useState(post.commentCount);
+  const [detailRoutineId, setDetailRoutineId] = useState<string | null>(null);
 
   const loadComments = useCallback(async (targetPage: number) => {
     setLoadingComments(true);
@@ -202,7 +204,23 @@ export const PostCard: React.FC<PostCardProps> = ({
               )}
             </div>
           )}
+          <button
+            style={styles.routineDetailBtn}
+            onClick={() => setDetailRoutineId(post.routine!.id)}
+            title="Ver los ejercicios y series configurados de esta rutina"
+          >
+            <Eye size={15} />
+            Ver detalle
+          </button>
         </div>
+      )}
+
+      {detailRoutineId && (
+        <RoutineDetailModal
+          routineId={detailRoutineId}
+          accessToken={accessToken}
+          onClose={() => setDetailRoutineId(null)}
+        />
       )}
 
       {/* Like + Comment actions */}
@@ -535,6 +553,21 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '0.45rem 0.8rem',
     borderRadius: 'var(--radius-control)',
     transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
+  },
+  routineDetailBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.45rem',
+    background: 'transparent',
+    border: '1px solid var(--border-color)',
+    color: 'var(--text-secondary)',
+    cursor: 'pointer',
+    fontWeight: 700,
+    fontSize: '0.82rem',
+    padding: '0.4rem 0.75rem',
+    borderRadius: 'var(--radius-control)',
+    alignSelf: 'flex-start',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   commentsSection: {
     display: 'flex',
