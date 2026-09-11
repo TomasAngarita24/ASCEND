@@ -396,6 +396,7 @@ export function toError(err: unknown): { message: string; status?: number } {
 
 class ApiClient {
   private sessionExpiredCallback: (() => void) | null = null;
+  private tokenRefreshedCallback: ((accessTokenExpiresAt: string) => void) | null = null;
   private refreshPromise: Promise<void> | null = null;
 
   constructor() {
@@ -404,6 +405,11 @@ class ApiClient {
 
   setSessionExpiredCallback(fn: () => void) {
     this.sessionExpiredCallback = fn;
+  }
+
+  /** Fired whenever a background token refresh issues a fresh access token. */
+  setTokenRefreshedCallback(fn: (accessTokenExpiresAt: string) => void) {
+    this.tokenRefreshedCallback = fn;
   }
 
   private async refreshTokens(): Promise<void> {
@@ -422,6 +428,13 @@ class ApiClient {
 
       if (!refreshResponse.ok) {
         throw new Error('Refresh failed.');
+      }
+
+      // Keep the in-memory expiry current so the app knows when the token
+      // will actually rotate again.
+      const data = await refreshResponse.json().catch(() => null);
+      if (data && typeof data.accessTokenExpiresAt === 'string') {
+        this.tokenRefreshedCallback?.(data.accessTokenExpiresAt);
       }
     })();
 

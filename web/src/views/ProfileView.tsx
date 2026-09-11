@@ -661,7 +661,8 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid var(--border-color)',
     borderRadius: 'var(--radius-container)',
     padding: 'clamp(1.25rem, 3.5vw, 2rem) clamp(1.25rem, 4vw, 2.25rem)',
-    display: 'flex',
+    // No display here: .mobile-only-options (index.css) controls visibility
+    // (none on desktop, flex <= 768px) and wins without an inline override.
     flexDirection: 'column',
     gap: '1rem',
     boxSizing: 'border-box',

@@ -125,6 +125,22 @@ export function App() {
     });
   }, [handleLogout]);
 
+  // Keep accessTokenExpiresAt in memory + storage current after a background
+  // token refresh (auth/refresh returns the new expiry in its body).
+  useEffect(() => {
+    api.setTokenRefreshedCallback((accessTokenExpiresAt) => {
+      setSession((prev) => {
+        if (!prev) return prev;
+        const next = {
+          ...prev,
+          tokens: { ...prev.tokens, accessTokenExpiresAt },
+        };
+        localStorage.setItem('ascend_session', JSON.stringify({ user: next.user, expiresAt: accessTokenExpiresAt }));
+        return next;
+      });
+    });
+  }, []);
+
   // Process offline queue automatically when network is re-established
   useEffect(() => {
     if (isOnline) {
