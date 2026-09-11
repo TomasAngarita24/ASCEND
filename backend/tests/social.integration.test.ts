@@ -61,6 +61,27 @@ async function setUpCompletedWorkout(accessToken: string): Promise<string> {
   return workoutId;
 }
 
+async function setUpCompletedWorkoutWithExercise(accessToken: string, exerciseId: string, weight: number): Promise<string> {
+  const headers = { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' };
+
+  const started = await request('/workouts', { body: '{}', headers, method: 'POST' });
+  const workoutId = (started.body.workout as Record<string, string>).id;
+
+  const addedEx = await request(`/workouts/${workoutId}/exercises`, {
+    body: JSON.stringify({ exerciseId }), headers, method: 'POST',
+  });
+  const workoutExerciseId = (addedEx.body.workoutExercise as Record<string, string>).id;
+
+  const set = await request(`/workouts/${workoutId}/exercises/${workoutExerciseId}/sets`, {
+    body: JSON.stringify({ weight, repetitions: 10, isCompleted: true }), headers, method: 'POST',
+  });
+  assert.equal(set.status, 201);
+
+  const completed = await request(`/workouts/${workoutId}/complete`, { headers, method: 'POST' });
+  assert.equal(completed.status, 200);
+  return workoutId;
+}
+
 before(async () => {
   server = app.listen(0);
   await new Promise<void>((resolve, reject) => {
@@ -96,6 +117,8 @@ describe('social feed', () => {
     const post = shared.body.post as Record<string, unknown>;
     assert.equal(post.postType, 'workout');
     assert.equal(post.caption, 'Gran sesión de pecho');
+    assert.equal(post.imageUrl, null);
+    assert.equal(post.prAchieved, false);
 
     const feed = await request('/social/feed?page=1&limit=20', {
       headers: { authorization: `Bearer ${accessToken}` },
@@ -169,5 +192,88 @@ describe('social feed', () => {
     });
     const feedIds = (feed.body.data as Array<Record<string, unknown>>).map((post) => post.id);
     assert.equal(feedIds.includes(postId), false);
+  });
+
+  it('stores an optional image on a workout post', async () => {
+    const accessToken = await registerAndGetAccessToken();
+    const workoutId = await setUpCompletedWorkout(accessToken);
+    const headers = { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' };
+
+    const shared = await request(`/workouts/${workoutId}/share`, {
+      body: JSON.stringify({ imageUrl: 'data:image/jpeg;base64,Zm9v' }),
+      headers,
+      method: 'POST',
+    });
+    assert.equal(shared.status, 201);
+    assert.equal((shared.body.post as Record<string, unknown>).imageUrl, 'data:image/jpeg;base64,Zm9v');
+    assert.equal((shared.body.post as Record<string, unknown>).prAchieved, false);
+
+    const invalidImage = await request(`/workouts/${workoutId}/share`, {
+      body: JSON.stringify({ imageUrl: 'file://tmp/image.png' }),
+      headers,
+      method: 'POST',
+    });
+    assert.equal(invalidImage.status, 400);
+  });
+
+  it('marks a workout post as PR when the session beats previous bests', async () => {
+    const accessToken = await registerAndGetAccessToken();
+    const headers = { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' };
+
+    const exercise = await request('/exercises', {
+      body: JSON.stringify({ name: `PR exercise ${randomUUID()}`, targetMuscleGroups: ['Chest'] }),
+      headers,
+      method: 'POST',
+    });
+    const exerciseId = (exercise.body.exercise as Record<string, string>).id;
+
+    const workoutId = await setUpCompletedWorkoutWithExercise(accessToken, exerciseId, 60);
+    const prWorkoutId = await setUpCompletedWorkoutWithExercise(accessToken, exerciseId, 80);
+
+    const shared = await request(`/workouts/${workoutId}/share`, {
+      body: '{}',
+      headers,
+      method: 'POST',
+    });
+    assert.equal((shared.body.post as Record<string, unknown>).prAchieved, false);
+
+    const sharedPR = await request(`/workouts/${prWorkoutId}/share`, {
+      body: '{}',
+      headers,
+      method: 'POST',
+    });
+    assert.equal(sharedPR.status, 201);
+    assert.equal((sharedPR.body.post as Record<string, unknown>).prAchieved, true);
+  });
+
+  it('lists a user\'s published posts for another authenticated user', async () => {
+    const authorToken = await registerAndGetAccessToken();
+    const viewerToken = await registerAndGetAccessToken();
+    const workoutId = await setUpCompletedWorkout(authorToken);
+    const authorMe = await request('/auth/me', { headers: { authorization: `Bearer ${authorToken}` } });
+    const authorId = (authorMe.body.user as Record<string, string>).id;
+
+    const shared = await request(`/workouts/${workoutId}/share`, {
+      body: JSON.stringify({ caption: 'Mi sesión pública' }),
+      headers: { authorization: `Bearer ${authorToken}`, 'content-type': 'application/json' },
+      method: 'POST',
+    });
+    const sharedPostId = (shared.body.post as Record<string, string>).id;
+
+    const posts = await request(`/users/${authorId}/posts?page=1&limit=20`, {
+      headers: { authorization: `Bearer ${viewerToken}` },
+    });
+    assert.equal(posts.status, 200);
+    const data = posts.body.data as Array<Record<string, unknown>>;
+    assert.equal(data.length, 1);
+    assert.equal(data[0].id, sharedPostId);
+    assert.equal(data[0].caption, 'Mi sesión pública');
+    assert.equal((data[0] as { prAchieved?: boolean }).prAchieved, false);
+    assert.equal(posts.body.pagination.total, 1);
+
+    const unknownUserPosts = await request(`/users/${randomUUID()}/posts`, {
+      headers: { authorization: `Bearer ${viewerToken}` },
+    });
+    assert.equal(unknownUserPosts.status, 404);
   });
 });

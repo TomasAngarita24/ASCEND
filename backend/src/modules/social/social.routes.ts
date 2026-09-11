@@ -57,7 +57,7 @@ workoutShareRouter.use(authenticate);
 
 workoutShareRouter.post('/:workoutId/share', asyncHandler(async (request, response) => {
   const input = validateShareWorkout(request.body);
-  const post = await shareWorkout(request.auth!.userId, validatePostId(request.params.workoutId), input.caption);
+  const post = await shareWorkout(request.auth!.userId, validatePostId(request.params.workoutId), input.caption, input.imageUrl);
   response.status(201).json({ post });
 }));
 

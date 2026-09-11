@@ -15,6 +15,8 @@ import {
   FileText,
   Check,
   Share2,
+  ImagePlus,
+  XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, type WorkoutHistoryEntry, type WorkoutDetailEntry, type Tokens } from '../api/api';
@@ -47,6 +49,8 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [shareWorkoutId, setShareWorkoutId] = useState<string | null>(null);
   const [shareCaption, setShareCaption] = useState('');
+  const [shareImageUrl, setShareImageUrl] = useState<string | null>(null);
+  const shareImageInputRef = useRef<HTMLInputElement>(null);
   const [sharingWorkout, setSharingWorkout] = useState(false);
 
   const [confirmState, setConfirmState] = useState<ConfirmState>({
@@ -97,15 +101,33 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
     if (!shareWorkoutId || sharingWorkout) return;
     setSharingWorkout(true);
     try {
-      await api.shareWorkout(tokens.accessToken, shareWorkoutId, shareCaption.trim());
+      await api.shareWorkout(tokens.accessToken, shareWorkoutId, shareCaption.trim(), shareImageUrl ?? undefined);
       toast.success('Entrenamiento publicado en el feed social.');
       setShareWorkoutId(null);
       setShareCaption('');
+      setShareImageUrl(null);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'No se pudo compartir el entrenamiento.');
     } finally {
       setSharingWorkout(false);
     }
+  };
+
+  const handleShareImageChange = (file: File | null) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Solo se permiten archivos de imagen.');
+      return;
+    }
+    if (file.size > 700 * 1024) {
+      toast.error('La imagen debe pesar menos de 700 KB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setShareImageUrl(reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleDeleteWorkout = (workoutId: string, startedAt?: string) => {
@@ -356,6 +378,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
                     e.stopPropagation();
                     setShareWorkoutId(item.id);
                     setShareCaption('');
+                    setShareImageUrl(null);
                   }}
                   title="Compartir en el feed social"
                 >
@@ -641,6 +664,36 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
               style={styles.shareCaptionInput}
             />
 
+            <div style={styles.shareImageRow}>
+              <input
+                ref={shareImageInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  handleShareImageChange(e.target.files?.[0] ?? null);
+                  e.target.value = '';
+                }}
+              />
+              {shareImageUrl ? (
+                <div style={styles.shareImagePreview}>
+                  <img src={shareImageUrl} alt="Vista previa" style={styles.shareImagePreviewImg} />
+                  <button
+                    style={styles.shareImageRemoveBtn}
+                    onClick={() => setShareImageUrl(null)}
+                    title="Quitar imagen"
+                  >
+                    <XCircle size={18} />
+                  </button>
+                </div>
+              ) : (
+                <button style={styles.shareImageAddBtn} onClick={() => shareImageInputRef.current?.click()}>
+                  <ImagePlus size={16} />
+                  Añadir foto (opcional)
+                </button>
+              )}
+            </div>
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
               <span style={styles.shareCharCount}>{shareCaption.length}/280</span>
               <div style={{ display: 'flex', gap: '0.75rem' }}>
@@ -851,6 +904,55 @@ const styles: Record<string, React.CSSProperties> = {
   shareCharCount: {
     fontSize: '0.78rem',
     color: 'var(--text-dim)',
+  },
+  shareImageRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    margin: '0 0 0.5rem',
+  },
+  shareImageAddBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.45rem',
+    backgroundColor: 'var(--input-bg)',
+    border: '1px dashed var(--border-color)',
+    color: 'var(--text-secondary)',
+    padding: '0.55rem 1rem',
+    borderRadius: 'var(--radius-container)',
+    fontWeight: 600,
+    fontSize: '0.85rem',
+    cursor: 'pointer',
+  },
+  shareImagePreview: {
+    position: 'relative',
+    width: '180px',
+    height: '120px',
+    borderRadius: 'var(--radius-container)',
+    overflow: 'hidden',
+    border: '1px solid var(--border-color)',
+  },
+  shareImagePreviewImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    display: 'block',
+  },
+  shareImageRemoveBtn: {
+    position: 'absolute',
+    top: '6px',
+    right: '6px',
+    background: 'rgba(0, 0, 0, 0.65)',
+    border: 'none',
+    color: '#fff',
+    borderRadius: '50%',
+    width: '26px',
+    height: '26px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    padding: 0,
   },
   shareCancelBtn: {
     padding: '0.6rem 1.25rem',

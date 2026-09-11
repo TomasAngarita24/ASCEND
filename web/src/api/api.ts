@@ -296,6 +296,8 @@ export interface FeedPost {
   id: string;
   postType: string;
   caption: string | null;
+  imageUrl: string | null;
+  prAchieved: boolean;
   author: FeedAuthor;
   workout: FeedWorkout | null;
   routine: FeedRoutine | null;
@@ -868,11 +870,11 @@ async reorderRoutineExercises(accessToken: string, routineId: string, routineExe
   }
 
   // --- Social feed ---
-  async shareWorkout(accessToken: string, workoutId: string, caption?: string): Promise<FeedPost> {
+  async shareWorkout(accessToken: string, workoutId: string, caption?: string, imageUrl?: string): Promise<FeedPost> {
     const res = await this.request<{ post: FeedPost }>(`/workouts/${workoutId}/share`, {
       method: 'POST',
       accessToken,
-      body: JSON.stringify(caption ? { caption } : {}),
+      body: JSON.stringify({ ...(caption ? { caption } : {}), ...(imageUrl ? { imageUrl } : {}) }),
     });
     return res.post;
   }
@@ -887,6 +889,10 @@ async reorderRoutineExercises(accessToken: string, routineId: string, routineExe
 
   async getSocialFeed(accessToken: string, page = 1, limit = 20): Promise<FeedResponse> {
     return await this.request<FeedResponse>(`/social/feed?page=${page}&limit=${limit}`, { accessToken });
+  }
+
+  async getUserPosts(accessToken: string, userId: string, page = 1, limit = 20): Promise<FeedResponse> {
+    return await this.request<FeedResponse>(`/users/${userId}/posts?page=${page}&limit=${limit}`, { accessToken });
   }
 
   async likePost(accessToken: string, postId: string): Promise<void> {

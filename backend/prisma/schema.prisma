@@ -266,19 +266,21 @@ model BodyMeasurement {
 }
 
 model Post {
-  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  authorId  String        @map("author_id") @db.Uuid
-  postType  String        @default("workout") @map("post_type") @db.VarChar(20)
-  workoutId String?       @map("workout_id") @db.Uuid
-  caption   String?
-  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  routineId String?       @map("routine_id") @db.Uuid
-  author    User          @relation("Posts", fields: [authorId], references: [id], onDelete: Cascade)
-  routine   Routine?      @relation(fields: [routineId], references: [id], onDelete: Cascade)
-  workout   Workout?      @relation(fields: [workoutId], references: [id], onDelete: Cascade)
-  comments  PostComment[] @relation("PostComments")
-  likes     PostLike[]
+  id         String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authorId   String        @map("author_id") @db.Uuid
+  postType   String        @default("workout") @map("post_type") @db.VarChar(20)
+  workoutId  String?       @map("workout_id") @db.Uuid
+  caption    String?
+  imageUrl   String?       @map("image_url")
+  prAchieved Boolean       @default(false) @map("pr_achieved")
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  routineId  String?       @map("routine_id") @db.Uuid
+  author     User          @relation("Posts", fields: [authorId], references: [id], onDelete: Cascade)
+  routine    Routine?      @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  workout    Workout?      @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  comments   PostComment[] @relation("PostComments")
+  likes      PostLike[]
 
   @@index([authorId])
   @@index([workoutId])

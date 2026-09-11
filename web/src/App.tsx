@@ -80,11 +80,11 @@ export function App() {
   const [sharingWorkout, setSharingWorkout] = useState(false);
   const [highlightPostId, setHighlightPostId] = useState<string | null>(null);
 
-  const handleShareWorkout = async (workoutId: string, caption: string) => {
+  const handleShareWorkout = async (workoutId: string, caption: string, imageUrl?: string) => {
     if (!session) return;
     setSharingWorkout(true);
     try {
-      const post = await api.shareWorkout(session.tokens.accessToken, workoutId, caption);
+      const post = await api.shareWorkout(session.tokens.accessToken, workoutId, caption, imageUrl);
       setHighlightPostId(post.id);
       toast.success('Entrenamiento publicado en el feed social.');
     } catch (err: unknown) {

@@ -31,6 +31,8 @@ export interface FeedPost {
   id: string;
   postType: string;
   caption: string | null;
+  imageUrl: string | null;
+  prAchieved: boolean;
   author: FeedAuthor;
   workout: FeedWorkout | null;
   routine: FeedRoutine | null;

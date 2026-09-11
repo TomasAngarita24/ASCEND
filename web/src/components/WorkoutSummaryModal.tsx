@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { Trophy, Clock, Dumbbell, Repeat, Flame, ArrowRight, CheckCircle2, Share2 } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Trophy, Clock, Dumbbell, Repeat, Flame, ArrowRight, CheckCircle2, Share2, ImagePlus, XCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
 export interface WorkoutSummaryData {
   workoutId?: string;
@@ -23,7 +24,7 @@ interface WorkoutSummaryModalProps {
   isOpen: boolean;
   data: WorkoutSummaryData;
   onClose: () => void;
-  onShare?: (workoutId: string, caption: string) => Promise<void> | void;
+  onShare?: (workoutId: string, caption: string, imageUrl?: string) => Promise<void> | void;
   onGoToFeed?: () => void;
   isSharing?: boolean;
 }
@@ -37,11 +38,14 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
   isSharing = false,
 }) => {
   const [caption, setCaption] = useState('');
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const [shared, setShared] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
     setCaption('');
+    setImageUrl(null);
     setShared(false);
   }, [isOpen, data.workoutId]);
 
@@ -55,11 +59,28 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
   const handleShare = async () => {
     if (!canShare || !data.workoutId) return;
     try {
-      await onShare?.(data.workoutId, caption.trim());
+      await onShare?.(data.workoutId, caption.trim(), imageUrl ?? undefined);
       setShared(true);
     } catch {
       setShared(false);
     }
+  };
+
+  const handleImageChange = (file: File | null) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Solo se permiten archivos de imagen.');
+      return;
+    }
+    if (file.size > 700 * 1024) {
+      toast.error('La imagen debe pesar menos de 700 KB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageUrl(reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -171,6 +192,35 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
                   maxLength={280}
                   style={styles.captionInput}
                 />
+                <div style={styles.shareImageRow}>
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      handleImageChange(e.target.files?.[0] ?? null);
+                      e.target.value = '';
+                    }}
+                  />
+                  {imageUrl ? (
+                    <div style={styles.shareImagePreview}>
+                      <img src={imageUrl} alt="Vista previa" style={styles.shareImagePreviewImg} />
+                      <button
+                        style={styles.shareImageRemoveBtn}
+                        onClick={() => setImageUrl(null)}
+                        title="Quitar imagen"
+                      >
+                        <XCircle size={18} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button style={styles.shareImageAddBtn} onClick={() => imageInputRef.current?.click()}>
+                      <ImagePlus size={16} />
+                      Añadir foto (opcional)
+                    </button>
+                  )}
+                </div>
                 <button
                   style={{
                     ...styles.shareBtn,
@@ -401,6 +451,56 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.88rem',
     fontFamily: 'inherit',
     outline: 'none',
+  },
+  shareImageRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '0.75rem',
+    margin: '0.75rem 0 0.25rem',
+  },
+  shareImageAddBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.45rem',
+    backgroundColor: 'var(--surface-color)',
+    border: '1px dashed var(--border-color)',
+    color: 'var(--text-secondary)',
+    padding: '0.5rem 0.95rem',
+    borderRadius: '10px',
+    fontWeight: 600,
+    fontSize: '0.84rem',
+    cursor: 'pointer',
+  },
+  shareImagePreview: {
+    position: 'relative',
+    width: '180px',
+    height: '120px',
+    borderRadius: '10px',
+    overflow: 'hidden',
+    border: '1px solid var(--border-color)',
+  },
+  shareImagePreviewImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    display: 'block',
+  },
+  shareImageRemoveBtn: {
+    position: 'absolute',
+    top: '6px',
+    right: '6px',
+    background: 'rgba(0, 0, 0, 0.65)',
+    border: 'none',
+    color: '#fff',
+    borderRadius: '50%',
+    width: '26px',
+    height: '26px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    padding: 0,
   },
   shareBtn: {
     alignSelf: 'flex-start',

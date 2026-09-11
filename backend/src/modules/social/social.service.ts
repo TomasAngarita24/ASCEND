@@ -1,6 +1,7 @@
 import type { Prisma } from '../../generated/prisma/client';
 import { prisma } from '../../database/prisma';
 import { HttpError } from '../../errors/http-error';
+import { estimateOneRepMax } from '../progress/one-rep-max';
 import type {
   CommentsResponse, CopyRoutineResponse, FeedPost, FeedResponse, PostCommentResponse,
 } from './social.types';
@@ -115,6 +116,8 @@ function toFeedPost(post: PostWithDetails, likedPostIds: Set<string>): FeedPost 
     id: post.id,
     postType: post.postType,
     caption: post.caption,
+    imageUrl: post.imageUrl,
+    prAchieved: post.prAchieved,
     author: {
       id: post.author.id,
       fullName: post.author.fullName,
@@ -163,7 +166,78 @@ async function fetchPostWithDetails(postId: string): Promise<PostWithDetails> {
   return post;
 }
 
-export async function shareWorkout(userId: string, workoutId: string, caption?: string): Promise<FeedPost> {
+interface ExerciseBaselines {
+  maxWeight: number;
+  maxOneRepMax: number;
+}
+
+async function workoutAchievedPR(userId: string, workoutId: string): Promise<boolean> {
+  const workouts = await prisma.workout.findMany({
+    where: { userId, status: 'completed', id: { not: workoutId } },
+    select: {
+      workoutExercises: {
+        select: {
+          exerciseId: true,
+          sets: {
+            where: { isCompleted: true, weight: { not: null }, repetitions: { not: null } },
+            select: { weight: true, repetitions: true },
+          },
+        },
+      },
+    },
+  });
+
+  const baselines = new Map<string, ExerciseBaselines>();
+  for (const workout of workouts) {
+    for (const workoutExercise of workout.workoutExercises) {
+      const current = baselines.get(workoutExercise.exerciseId) ?? { maxWeight: 0, maxOneRepMax: 0 };
+      for (const set of workoutExercise.sets) {
+        const weight = Number(set.weight);
+        const oneRepMax = estimateOneRepMax(weight, set.repetitions!);
+        if (weight > current.maxWeight) current.maxWeight = weight;
+        if (oneRepMax > current.maxOneRepMax) current.maxOneRepMax = oneRepMax;
+      }
+      baselines.set(workoutExercise.exerciseId, current);
+    }
+  }
+
+  const currentWorkout = await prisma.workout.findUnique({
+    where: { id: workoutId },
+    select: {
+      workoutExercises: {
+        select: {
+          exerciseId: true,
+          sets: {
+            where: { isCompleted: true, weight: { not: null }, repetitions: { not: null } },
+            select: { weight: true, repetitions: true },
+          },
+        },
+      },
+    },
+  });
+
+  if (!currentWorkout) {
+    throw new HttpError(404, 'WORKOUT_NOT_FOUND', 'A completed workout belonging to you is required to share it.');
+  }
+
+  for (const workoutExercise of currentWorkout.workoutExercises) {
+    const baseline = baselines.get(workoutExercise.exerciseId);
+    if (!baseline || (baseline.maxWeight === 0 && baseline.maxOneRepMax === 0)) {
+      continue;
+    }
+    for (const set of workoutExercise.sets) {
+      const weight = Number(set.weight);
+      const oneRepMax = estimateOneRepMax(weight, set.repetitions!);
+      if (weight > baseline.maxWeight || oneRepMax > baseline.maxOneRepMax) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+export async function shareWorkout(userId: string, workoutId: string, caption?: string, imageUrl?: string): Promise<FeedPost> {
   const workout = await prisma.workout.findFirst({
     where: { id: workoutId, userId, status: 'completed' },
     select: { id: true },
@@ -173,12 +247,16 @@ export async function shareWorkout(userId: string, workoutId: string, caption?: 
     throw new HttpError(404, 'WORKOUT_NOT_FOUND', 'A completed workout belonging to you is required to share it.');
   }
 
+  const prAchieved = await workoutAchievedPR(userId, workoutId);
+
   const created = await prisma.post.create({
     data: {
       authorId: userId,
       postType: 'workout',
       workoutId,
+      prAchieved,
       ...(caption ? { caption } : {}),
+      ...(imageUrl ? { imageUrl } : {}),
     },
     select: { id: true },
   });
@@ -298,6 +376,48 @@ export async function getFeed(userId: string, input: { page: number; limit: numb
     data: posts.map((post) => toFeedPost(post, likedPostIds)),
     pagination: { page: input.page, limit: input.limit, total },
   };
+}
+
+export async function getUserPosts(userId: string, authorId: string, input: { page: number; limit: number }): Promise<FeedResponse> {
+  const where: Prisma.PostWhereInput = {
+    authorId,
+    OR: [
+      { postType: 'workout', workout: { is: { status: 'completed' } } },
+      { postType: 'routine', routine: { isNot: null } },
+    ],
+  };
+
+  await requireUserExists(authorId);
+
+  const [posts, total] = await Promise.all([
+    prisma.post.findMany({
+      where,
+      include: FEED_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+      skip: (input.page - 1) * input.limit,
+      take: input.limit,
+    }),
+    prisma.post.count({ where }),
+  ]);
+
+  const likedRows = await prisma.postLike.findMany({
+    where: { userId, postId: { in: posts.map((post) => post.id) } },
+    select: { postId: true },
+  });
+  const likedPostIds = new Set(likedRows.map((row) => row.postId));
+
+  return {
+    data: posts.map((post) => toFeedPost(post, likedPostIds)),
+    pagination: { page: input.page, limit: input.limit, total },
+  };
+}
+
+async function requireUserExists(userId: string): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+
+  if (!user) {
+    throw new HttpError(404, 'USER_NOT_FOUND', 'User does not exist.');
+  }
 }
 
 export async function likePost(userId: string, postId: string): Promise<void> {

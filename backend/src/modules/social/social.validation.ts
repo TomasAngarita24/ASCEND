@@ -6,8 +6,15 @@ const id = z.uuid();
 const caption = z.string().trim().min(1).max(500);
 const commentBody = z.string().trim().min(1).max(500);
 
+const imageUrl = z.string().trim().max(1100000)
+  .refine(
+    (value) => value.startsWith('data:image/') || /^https?:\/\//.test(value),
+    { message: 'imageUrl must be an http(s) URL or a data image URL.' },
+  );
+
 const shareWorkoutSchema = z.object({
   caption: caption.optional(),
+  imageUrl: imageUrl.optional(),
 }).strict();
 const createCommentSchema = z.object({
   body: commentBody,

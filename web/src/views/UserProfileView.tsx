@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Dumbbell, FileText, Users, UserPlus, UserCheck, Activity, Loader2 } from 'lucide-react';
+import { ArrowLeft, Dumbbell, FileText, Users, UserPlus, UserCheck, Activity, Loader2, Repeat } from 'lucide-react';
 import { toast } from 'sonner';
-import { api, toError, type PublicProfileResponse, type SocialUserSummary, type Tokens } from '../api/api';
+import { api, toError, type FeedPost, type PublicProfileResponse, type SocialUserSummary, type Tokens } from '../api/api';
+import { ConfirmModal } from '../components/ConfirmModal';
+import { PostCard } from '../components/PostCard';
 
 interface UserProfileViewProps {
   tokens: Tokens;
@@ -61,7 +63,18 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [followPending, setFollowPending] = useState(false);
 
-  const [tab, setTab] = useState<'followers' | 'following'>('followers');
+  const [tab, setTab] = useState<'posts' | 'followers' | 'following'>('posts');
+
+  // Posts tab state
+  const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [postsTotal, setPostsTotal] = useState(0);
+  const [postsPage, setPostsPage] = useState(1);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+  const [pendingLikeIds, setPendingLikeIds] = useState<Set<string>>(new Set());
+  const [copyingPostId, setCopyingPostId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<FeedPost | null>(null);
+
+  // Followers / Following tab state
   const [list, setList] = useState<SocialUserSummary[]>([]);
   const [listTotal, setListTotal] = useState(0);
   const [listPage, setListPage] = useState(1);
@@ -91,6 +104,20 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
     loadProfile();
   }, [loadProfile]);
 
+  const loadPosts = useCallback(async (targetPage: number, targetUserId: string) => {
+    if (targetPage === 1) setLoadingPosts(true);
+    try {
+      const res = await api.getUserPosts(tokens.accessToken, targetUserId, targetPage, 10);
+      setPosts((prev) => (targetPage === 1 ? res.data : [...prev, ...res.data]));
+      setPostsTotal(res.pagination.total);
+      setPostsPage(targetPage);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'No se pudieron cargar las publicaciones.');
+    } finally {
+      setLoadingPosts(false);
+    }
+  }, [tokens]);
+
   const loadList = useCallback(async (targetTab: 'followers' | 'following', targetUserId: string, page: number) => {
     if (page === 1) setLoadingList(true);
     try {
@@ -109,11 +136,17 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
 
   useEffect(() => {
     if (profile && userId) {
-      setList([]);
-      setListPage(1);
-      loadList(tab, userId, 1);
+      if (tab === 'posts') {
+        setPosts([]);
+        setPostsPage(1);
+        loadPosts(1, userId);
+      } else {
+        setList([]);
+        setListPage(1);
+        loadList(tab, userId, 1);
+      }
     }
-  }, [tab, userId, profile, loadList]);
+  }, [tab, userId, profile, loadPosts, loadList]);
 
   const toggleFollowProfile = async () => {
     if (!profile || profile.isSelf || !userId) return;
@@ -162,6 +195,68 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
     }
   };
 
+  const handleToggleLike = async (post: FeedPost) => {
+    if (pendingLikeIds.has(post.id)) return;
+    const nextLiked = !post.likedByMe;
+    const delta = nextLiked ? 1 : -1;
+    setPendingLikeIds((prev) => new Set(prev).add(post.id));
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === post.id
+          ? { ...p, likedByMe: nextLiked, likeCount: Math.max(0, p.likeCount + delta) }
+          : p,
+      ),
+    );
+    try {
+      if (nextLiked) {
+        await api.likePost(tokens.accessToken, post.id);
+      } else {
+        await api.unlikePost(tokens.accessToken, post.id);
+      }
+    } catch (err: unknown) {
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === post.id
+            ? { ...p, likedByMe: !nextLiked, likeCount: Math.max(0, p.likeCount - delta) }
+            : p,
+        ),
+      );
+      toast.error(err instanceof Error ? err.message : 'No se pudo actualizar el Me gusta.');
+    } finally {
+      setPendingLikeIds((prev) => {
+        const next = new Set(prev);
+        next.delete(post.id);
+        return next;
+      });
+    }
+  };
+
+  const confirmDeletePost = async () => {
+    if (!confirmDelete) return;
+    const post = confirmDelete;
+    setConfirmDelete(null);
+    try {
+      await api.deletePost(tokens.accessToken, post.id);
+      setPosts((prev) => prev.filter((p) => p.id !== post.id));
+      setPostsTotal((t) => Math.max(0, t - 1));
+      toast.success('Publicación eliminada.');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo eliminar la publicación.');
+    }
+  };
+
+  const handleCopyRoutine = async (post: FeedPost) => {
+    setCopyingPostId(post.id);
+    try {
+      const routine = await api.copyRoutinePost(tokens.accessToken, post.id);
+      toast.success(`Rutina "${routine.name}" copiada a tu biblioteca.`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo copiar la rutina.');
+    } finally {
+      setCopyingPostId(null);
+    }
+  };
+
   if (loadingProfile) {
     return (
       <div style={styles.container}>
@@ -189,7 +284,8 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
     );
   }
 
-  const hasMore = list.length < listTotal;
+  const hasMorePosts = posts.length < postsTotal;
+  const hasMoreList = list.length < listTotal;
 
   return (
     <div style={styles.container}>
@@ -251,9 +347,12 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
         </button>
       </div>
 
-      {/* Followers / Following list */}
+      {/* Tabs */}
       <div style={styles.listHeader}>
         <div style={styles.tabs}>
+          <button style={tab === 'posts' ? styles.tabActive : styles.tab} onClick={() => setTab('posts')}>
+            Publicaciones
+          </button>
           <button style={tab === 'followers' ? styles.tabActive : styles.tab} onClick={() => setTab('followers')}>
             Seguidores
           </button>
@@ -261,37 +360,84 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
             Siguiendo
           </button>
         </div>
-        <span style={styles.listCount}>{listTotal}</span>
+        <span style={styles.listCount}>{tab === 'posts' ? postsTotal : listTotal}</span>
       </div>
 
-      <div style={styles.listSection}>
-        {list.length === 0 && !loadingList ? (
-          <div style={styles.emptyBox}>
-            <span style={styles.stateText}>{tab === 'followers' ? 'Sin seguidores todavía.' : 'Aún no sigue a nadie.'}</span>
-          </div>
-        ) : (
-          <>
-            {list.map((user) => (
-              <FollowRow
-                key={user.id}
-                user={user}
-                viewerUserId={viewerUserId}
-                pending={pendingIds.has(user.id)}
-                onToggle={toggleFollowListRow}
-              />
-            ))}
-            {loadingList && <div style={styles.spinner} />}
-          </>
-        )}
-        {hasMore && !loadingList && (
-          <button
-            style={styles.loadMoreBtn}
-            onClick={() => profile && userId && loadList(tab, userId, listPage + 1)}
-          >
-            Cargar más ({list.length}/{listTotal})
-          </button>
-        )}
-      </div>
+      {/* Content */}
+      {tab === 'posts' ? (
+        <div style={styles.listSection}>
+          {loadingPosts && posts.length === 0 ? (
+            <div style={styles.spinner} />
+          ) : posts.length === 0 ? (
+            <div style={styles.emptyBox}>
+              <Repeat size={32} color="var(--accent-teal)" style={{ margin: '0 auto 0.75rem' }} />
+              <span style={styles.stateText}>Este atleta aún no publica sesiones ni rutinas.</span>
+            </div>
+          ) : (
+            <>
+              {posts.map((post) => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  currentUserId={viewerUserId}
+                  accessToken={tokens.accessToken}
+                  copying={copyingPostId === post.id}
+                  onToggleLike={handleToggleLike}
+                  onDelete={setConfirmDelete}
+                  onCopyRoutine={handleCopyRoutine}
+                />
+              ))}
+              {loadingPosts && <div style={styles.spinner} />}
+              {hasMorePosts && !loadingPosts && (
+                <button
+                  style={styles.loadMoreBtn}
+                  onClick={() => userId && loadPosts(postsPage + 1, userId)}
+                >
+                  Cargar más ({posts.length}/{postsTotal})
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      ) : (
+        <div style={styles.listSection}>
+          {list.length === 0 && !loadingList ? (
+            <div style={styles.emptyBox}>
+              <span style={styles.stateText}>{tab === 'followers' ? 'Sin seguidores todavía.' : 'Aún no sigue a nadie.'}</span>
+            </div>
+          ) : (
+            <>
+              {list.map((user) => (
+                <FollowRow
+                  key={user.id}
+                  user={user}
+                  viewerUserId={viewerUserId}
+                  pending={pendingIds.has(user.id)}
+                  onToggle={toggleFollowListRow}
+                />
+              ))}
+              {loadingList && <div style={styles.spinner} />}
+            </>
+          )}
+          {hasMoreList && !loadingList && (
+            <button
+              style={styles.loadMoreBtn}
+              onClick={() => profile && userId && loadList(tab, userId, listPage + 1)}
+            >
+              Cargar más ({list.length}/{listTotal})
+            </button>
+          )}
+        </div>
+      )}
+
+      <ConfirmModal
+        isOpen={confirmDelete !== null}
+        title="¿Eliminar publicación?"
+        message="Se eliminará tu publicación y todos sus Me gusta y comentarios de forma permanente. Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        onConfirm={confirmDeletePost}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   );
 };
@@ -328,6 +474,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid var(--border-color)',
     borderRadius: 'var(--radius-container)',
     padding: '1.75rem 2rem',
+    flexWrap: 'wrap',
   },
   avatar: {
     width: '72px',
@@ -467,6 +614,7 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--input-bg)',
     padding: '0.25rem',
     borderRadius: 'var(--radius-container)',
+    overflowX: 'auto',
   },
   tab: {
     background: 'transparent',
@@ -477,6 +625,7 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     fontWeight: 700,
     fontSize: '0.85rem',
+    whiteSpace: 'nowrap',
   },
   tabActive: {
     background: 'var(--surface-color)',
@@ -487,6 +636,7 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     fontWeight: 800,
     fontSize: '0.85rem',
+    whiteSpace: 'nowrap',
   },
   listCount: {
     color: 'var(--text-dim)',
@@ -496,7 +646,7 @@ const styles: Record<string, React.CSSProperties> = {
   listSection: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.5rem',
+    gap: '0.85rem',
   },
   followRow: {
     display: 'flex',
@@ -565,6 +715,9 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
     borderRadius: 'var(--radius-container)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.35rem',
   },
   stateBox: {
     display: 'flex',
