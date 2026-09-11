@@ -19,6 +19,7 @@ import {
 import { toast } from 'sonner';
 import { api, type WorkoutHistoryEntry, type WorkoutDetailEntry, type Tokens } from '../api/api';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { roundOneRepMax } from '../utils/oneRepMax';
 
 interface HistoryViewProps {
   tokens: Tokens;
@@ -275,9 +276,8 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
   };
 
   const estimate1RM = (weight: number, reps: number) => {
-    if (reps === 1) return weight;
-    if (reps > 1 && reps <= 30) return Math.round(weight * (36 / (37 - reps)) * 10) / 10;
-    return weight;
+    if (reps <= 0 || weight <= 0) return weight;
+    return roundOneRepMax(weight, reps);
   };
 
   const selectedSummary = workouts.find((w) => w.id === selectedWorkoutId);

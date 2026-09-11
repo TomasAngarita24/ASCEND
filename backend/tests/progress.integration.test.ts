@@ -282,4 +282,43 @@ describe('progress endpoints', () => {
     });
     assert.ok(true);
   });
+
+  it('returns weekly volume for a single exercise (metric=weekly_volume)', async () => {
+    const { accessToken, userId } = await registerUser('weekly-volume');
+    const headers = { authorization: `Bearer ${accessToken}` };
+    const exerciseId = await createExercise(userId, ['Pecho'], ['Chest']);
+
+    // Current week: volume 520 (first workout 200 + 160, second workout 160).
+    // 20 days ago: volume 100.
+    await createCompletedWorkout(userId, daysAgo(0, 0), [
+      { exerciseId, sets: [{ weight: 20, reps: 10 }, { weight: 20, reps: 8 }] },
+    ]);
+    await createCompletedWorkout(userId, daysAgo(0, 12), [
+      { exerciseId, sets: [{ weight: 20, reps: 8 }] },
+    ]);
+    await createCompletedWorkout(userId, daysAgo(20), [
+      { exerciseId, sets: [{ weight: 10, reps: 10 }] },
+    ]);
+
+    const response = await request(
+      `/progress/charts?metric=weekly_volume&exerciseId=${exerciseId}`,
+      { headers },
+    );
+    assert.equal(response.status, 200);
+    const body = response.body as { metric: string; data: Array<{ date: string; value: number }> };
+    assert.equal(body.metric, 'weekly_volume');
+    assert.equal(body.data.length, 2, 'current week plus the 20-day-old week');
+
+    const values = body.data.map((point) => point.value);
+    assert.ok(values.includes(520), 'current week aggregates all three today workouts (200 + 160 + 160)');
+    assert.ok(values.includes(100), 'the older week carries its own volume');
+
+    // The global chart (no exerciseId) aggregates every completed workout by week.
+    const globalResponse = await request('/progress/charts?metric=weekly_volume', { headers });
+    assert.equal(globalResponse.status, 200);
+    const globalBody = globalResponse.body as { data: Array<{ value: number }> };
+    const globalValues = globalBody.data.map((point) => point.value);
+    assert.ok(globalValues.includes(520), 'global chart keeps the current-week volume');
+    assert.ok(globalValues.includes(100), 'global chart keeps the older-week volume');
+  });
 });

@@ -19,6 +19,7 @@ import { api, ApiError, OfflineQueuedError, type ActiveWorkout, type ExerciseSum
 import { ConfirmModal } from '../components/ConfirmModal';
 import { matchesSearch } from '../utils/text';
 import { soundManager } from '../utils/audio';
+import { roundOneRepMax } from '../utils/oneRepMax';
 import type { WorkoutSummaryData } from '../components/WorkoutSummaryModal';
 
 interface ActiveWorkoutViewProps {
@@ -200,7 +201,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
   const checkIsPR = (exerciseId: string, weight: number | null, reps: number | null) => {
     if (!weight || !reps || weight <= 0 || reps <= 0) return { isPR: false, reason: '', est1RM: 0 };
     const baseline = baselinePRMap[exerciseId];
-    const est1RM = reps === 1 ? weight : Math.round(weight * (1 + reps / 30) * 10) / 10;
+    const est1RM = roundOneRepMax(weight, reps);
 
     if (!baseline || (baseline.maxWeight === 0 && baseline.max1RM === 0)) {
       return { isPR: false, reason: '', est1RM };
@@ -459,6 +460,30 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
   };
 
 
+  // Fallback for createSet responses that never reached the UI (lost network,
+  // queued offline replays): before the workout is completed, delete any set
+  // present on the server that the local session does not know about.
+  const reconcileOrphanSets = async () => {
+    try {
+      const serverWorkout = await api.getWorkout(tokens.accessToken, workout.id);
+      const localExerciseIds = new Set(workout.exercises.map((e) => e.id));
+      const deletes: Promise<void>[] = [];
+      for (const serverEx of serverWorkout.exercises) {
+        if (!localExerciseIds.has(serverEx.id)) continue;
+        const localEx = workout.exercises.find((e) => e.id === serverEx.id);
+        const localSetIds = new Set((localEx?.sets ?? []).map((s) => s.id));
+        for (const serverSet of serverEx.sets) {
+          if (!localSetIds.has(serverSet.id)) {
+            deletes.push(api.deleteWorkoutSet(tokens.accessToken, workout.id, serverEx.id, serverSet.id));
+          }
+        }
+      }
+      await Promise.all(deletes);
+    } catch {
+      // Best-effort cleanup: never block finishing the workout on it.
+    }
+  };
+
   const handleFinishWorkout = () => {
     showConfirm({
       title: 'Finalizar entrenamiento',
@@ -468,6 +493,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
       onConfirm: async () => {
         setCompleting(true);
         try {
+          await reconcileOrphanSets();
           await api.finishWorkout(tokens.accessToken, workout.id, 'complete');
 
           // Compute summary metrics

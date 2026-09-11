@@ -267,11 +267,67 @@ export async function getExerciseProgression(
   };
 }
 
+async function getExerciseWeeklyVolume(
+  userId: string,
+  exerciseId: string,
+  input: ProgressChartInput,
+): Promise<{ date: string; value: number }[]> {
+  const startedAt: Prisma.DateTimeFilter = {};
+  if (input.dateFrom) {
+    startedAt.gte = input.dateFrom;
+  }
+  if (input.dateTo) {
+    startedAt.lte = input.dateTo;
+  }
+  const workouts = await prisma.workout.findMany({
+    where: {
+      userId,
+      status: 'completed',
+      ...(Object.keys(startedAt).length > 0 ? { startedAt } : {}),
+    },
+    select: {
+      completedAt: true,
+      workoutExercises: {
+        where: { exerciseId },
+        select: {
+          sets: {
+            where: { isCompleted: true },
+            select: { repetitions: true, weight: true },
+          },
+        },
+      },
+    },
+  });
+
+  const valuesByWeek = new Map<string, number>();
+  for (const workout of workouts) {
+    if (!workout.completedAt) {
+      continue;
+    }
+    const volume = workout.workoutExercises
+      .flatMap((exercise) => exercise.sets)
+      .reduce((total, set) => total + Number(set.weight ?? 0) * (set.repetitions ?? 0), 0);
+    if (volume === 0) {
+      continue;
+    }
+    const week = getWeekStart(workout.completedAt);
+    valuesByWeek.set(week, (valuesByWeek.get(week) ?? 0) + volume);
+  }
+
+  return [...valuesByWeek.entries()]
+    .map(([date, value]) => ({ date, value }))
+    .sort((left, right) => left.date.localeCompare(right.date));
+}
+
 export async function getProgressChart(
   userId: string,
   input: ProgressChartInput,
 ): Promise<ProgressChartResponse> {
   if (input.exerciseId) {
+    if (input.metric === 'weekly_volume') {
+      const data = await getExerciseWeeklyVolume(userId, input.exerciseId, input);
+      return { metric: input.metric, data };
+    }
     const progression = await getExerciseProgression(userId, input.exerciseId, input);
     const data = progression.data.flatMap((point) => {
       if (input.metric === 'weight') {

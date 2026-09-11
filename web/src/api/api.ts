@@ -565,13 +565,22 @@ class ApiClient {
 
   // --- Exercises ---
   async listExercises(accessToken: string, params: { query?: string; muscleGroup?: string; equipment?: string } = {}): Promise<ExerciseSummary[]> {
-    const search = new URLSearchParams({ page: '1', limit: '200' });
+    const search = new URLSearchParams({ limit: '200' });
     if (params.query) search.set('query', params.query);
     if (params.muscleGroup) search.set('muscleGroup', params.muscleGroup);
     if (params.equipment) search.set('equipment', params.equipment);
 
-    const res = await this.request<{ data: ExerciseSummary[] }>(`/exercises?${search.toString()}`, { accessToken });
-    return res.data;
+    const collected: ExerciseSummary[] = [];
+    let page = 1;
+    for (;;) {
+      search.set('page', String(page));
+      const res = await this.request<{ data: ExerciseSummary[]; pagination: { page: number; limit: number; total: number } }>(`/exercises?${search.toString()}`, { accessToken });
+      collected.push(...res.data);
+      const total = res.pagination?.total ?? collected.length;
+      if (collected.length >= total || res.data.length === 0) break;
+      page += 1;
+    }
+    return collected;
   }
 
   async createExercise(accessToken: string, input: { name: string; targetMuscleGroups?: string[]; equipment?: string; description?: string; instructions?: string; mediaUrl?: string }): Promise<ExerciseDetail> {
@@ -774,8 +783,17 @@ async reorderRoutineExercises(accessToken: string, routineId: string, routineExe
   }
 
   async listWorkoutHistory(accessToken: string): Promise<WorkoutHistoryEntry[]> {
-    const res = await this.request<{ data: WorkoutHistoryEntry[]; pagination: { page: number; limit: number; total: number } }>('/workouts?status=completed&page=1&limit=50', { accessToken });
-    return res.data;
+    const collected: WorkoutHistoryEntry[] = [];
+    let page = 1;
+    const limit = 100;
+    for (;;) {
+      const res = await this.request<{ data: WorkoutHistoryEntry[]; pagination: { page: number; limit: number; total: number } }>(`/workouts?status=completed&page=${page}&limit=${limit}`, { accessToken });
+      collected.push(...res.data);
+      const total = res.pagination?.total ?? collected.length;
+      if (collected.length >= total || res.data.length === 0) break;
+      page += 1;
+    }
+    return collected;
   }
 
   /** Fetches the export blob and triggers a browser download. */

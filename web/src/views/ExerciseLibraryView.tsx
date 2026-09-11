@@ -24,6 +24,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { matchesSearch } from '../utils/text';
+import { roundOneRepMax } from '../utils/oneRepMax';
 import {
   api,
   type ExerciseSummary,
@@ -93,10 +94,10 @@ type SortKey = typeof SORT_OPTIONS[number]['key'];
 
 const FAVORITES_KEY = 'ascend_exercise_favorites';
 
-// ─── Brzycki 1RM formula ────────────────────────────────────────────────────
+// ─── 1RM estimate (Epley, same as backend) ─────────────────────────────────
 function calc1RM(weight: number, reps: number): number {
-  if (reps <= 0 || reps === 1) return weight;
-  return Math.round(weight / (1.0278 - 0.0278 * reps));
+  if (reps <= 0 || weight <= 0) return weight;
+  return roundOneRepMax(weight, reps);
 }
 
 // ─── Interactive SVG line chart ──────────────────────────────────────────────
