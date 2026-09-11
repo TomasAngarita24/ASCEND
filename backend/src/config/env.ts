@@ -22,6 +22,10 @@ const environmentSchema = z.object({
     .string()
     .regex(/^(?!\s*$).+@.+\..+/, 'Must be an email or "Name <email>" format')
     .optional(),
+  // Web Push (VAPID). Leave unset to disable push notifications entirely.
+  VAPID_PUBLIC_KEY: z.string().min(1).optional(),
+  VAPID_PRIVATE_KEY: z.string().min(1).optional(),
+  VAPID_SUBJECT: z.string().min(1).default('mailto:support@ascend.app'),
 });
 
 const parsedEnvironment = environmentSchema.parse(process.env);
@@ -47,5 +51,10 @@ export const env = {
     user: parsedEnvironment.SMTP_USER,
     pass: parsedEnvironment.SMTP_PASS,
     from: parsedEnvironment.SMTP_FROM,
+  },
+  vapid: {
+    publicKey: parsedEnvironment.VAPID_PUBLIC_KEY,
+    privateKey: parsedEnvironment.VAPID_PRIVATE_KEY,
+    subject: parsedEnvironment.VAPID_SUBJECT,
   },
 } as const;

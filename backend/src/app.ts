@@ -12,6 +12,7 @@ import { authRouter } from './modules/auth/auth.routes';
 import { exerciseRouter } from './modules/exercise/exercise.routes';
 import { measurementRouter } from './modules/measurement/measurement.routes';
 import { progressRouter } from './modules/progress/progress.routes';
+import { pushRouter } from './modules/push/push.routes';
 import { routineRouter } from './modules/routine/routine.routes';
 import { routineTemplatesRouter } from './modules/routine-template/routine-template.routes';
 import { routineShareRouter, socialRouter, workoutShareRouter } from './modules/social/social.routes';
@@ -70,6 +71,7 @@ app.use('/social', socialRouter);
 app.use('/users', usersRouter);
 app.use('/progress', progressRouter);
 app.use('/measurements', measurementRouter);
+app.use('/push', pushRouter);
 
 app.use((_request, _response, next) => {
   next(new HttpError(404, 'ROUTE_NOT_FOUND', 'The requested route does not exist.'));

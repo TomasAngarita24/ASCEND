@@ -1,9 +1,59 @@
-import React, { useState, useRef } from 'react';
-import { User as UserIcon, Camera, LogOut, Trash2, Check, AlertTriangle, Shield, KeyRound, Mail, Sun, Moon, Download, FileJson, FileText, Upload } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { User as UserIcon, Camera, LogOut, Trash2, Check, AlertTriangle, Shield, KeyRound, Mail, Sun, Moon, Download, FileJson, FileText, Upload, Bell, Clock3, Send } from 'lucide-react';
 import { toast } from 'sonner';
-import type { User as UserType, Tokens } from '../api/api';
+import type { User as UserType, Tokens, PushSettings } from '../api/api';
 import { api } from '../api/api';
 import { useTheme } from '../context/ThemeContext';
+import { getActiveSubscription, subscribeToPush, unsubscribeFromPush } from '../utils/push';
+
+function ToggleSwitch({
+  checked,
+  onChange,
+  label,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  label: string;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      onClick={onChange}
+      disabled={disabled}
+      aria-label={label}
+      role="switch"
+      aria-checked={checked}
+      style={{
+        width: 56,
+        height: 30,
+        borderRadius: 999,
+        backgroundColor: checked ? 'var(--accent-teal)' : '#e2e8f0',
+        position: 'relative',
+        transition: 'background-color 0.25s ease',
+        flexShrink: 0,
+        border: '2px solid var(--border-color)',
+        opacity: disabled ? 0.5 : 1,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+      }}
+    >
+      <span style={{
+        position: 'absolute',
+        top: 2,
+        left: checked ? 28 : 2,
+        width: 22,
+        height: 22,
+        borderRadius: '50%',
+        backgroundColor: checked ? '#0b0f19' : '#ffffff',
+        transition: 'left 0.25s ease',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+      }} />
+    </button>
+  );
+}
 
 export interface UserProfileCustomData {
   fullName: string;
@@ -47,6 +97,101 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Notifications state
+  const [pushSettings, setPushSettings] = useState<PushSettings | null>(null);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [reminderTime, setReminderTime] = useState('18:00');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const settings = await api.getPushSettings(tokens.accessToken);
+        if (cancelled) return;
+        setPushSettings(settings);
+        if (settings.reminderHour !== null && settings.reminderMinute !== null) {
+          setReminderTime(
+            `${String(settings.reminderHour).padStart(2, '0')}:${String(settings.reminderMinute).padStart(2, '0')}`,
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setPushSettings({
+            pushAvailable: false,
+            subscribed: false,
+            reminderEnabled: false,
+            reminderHour: null,
+            reminderMinute: null,
+            reminderTzOffsetMin: 0,
+          });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [tokens.accessToken]);
+
+  const tzOffsetMin = -new Date().getTimezoneOffset();
+
+  const handleTogglePush = async (enabled: boolean) => {
+    setPushBusy(true);
+    try {
+      if (enabled) {
+        const subscription = await subscribeToPush();
+        if (!subscription) {
+          toast.error('No se pudieron activar las notificaciones.', {
+            description: 'Acepta el permiso de notificaciones del navegador e inténtalo de nuevo.',
+          });
+          return;
+        }
+        await api.savePushSubscription(tokens.accessToken, subscription.toJSON());
+        toast.success('Notificaciones push activadas');
+      } else {
+        const subscription = await getActiveSubscription();
+        if (subscription) {
+          await api.deletePushSubscription(tokens.accessToken, subscription.endpoint);
+        }
+        await unsubscribeFromPush();
+        toast.success('Notificaciones push desactivadas');
+      }
+      setPushSettings(await api.getPushSettings(tokens.accessToken));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No fue posible cambiar las notificaciones.');
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
+  const handleSaveReminder = async (enabled: boolean, time: string) => {
+    if (!pushSettings) return;
+    const [hour, minute] = time.split(':').map((part) => Number.parseInt(part, 10));
+    try {
+      const settings = await api.savePushSettings(tokens.accessToken, {
+        reminderEnabled: enabled && pushSettings.subscribed,
+        reminderHour: enabled ? hour : null,
+        reminderMinute: enabled ? minute : null,
+        reminderTzOffsetMin: tzOffsetMin,
+      });
+      setPushSettings(settings);
+      toast.success(enabled ? 'Recordatorio diario activado' : 'Recordatorio diario desactivado');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No fue posible guardar el recordatorio.');
+    }
+  };
+
+  const handleTestPush = async () => {
+    setPushBusy(true);
+    try {
+      await api.sendTestPush(tokens.accessToken);
+      toast.success('Notificación de prueba enviada');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No fue posible enviar la notificación.');
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   const handleExport = async (format: 'csv' | 'json') => {
     setIsExporting(true);
@@ -247,6 +392,110 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </span>
           </button>
         </div>
+      </div>
+
+      {/* Notifications Card */}
+      <div style={styles.card}>
+        <div style={styles.cardHeader}>
+          <div style={styles.titleRow}>
+            <Bell size={24} color="var(--accent-teal)" />
+            <h2 style={styles.cardTitle}>Notificaciones</h2>
+          </div>
+          <p style={styles.subtitle}>Avisos de fin de descanso y recordatorios de entrenamiento</p>
+        </div>
+
+        {pushSettings === null ? (
+          <p style={styles.uploadHint}>Cargando preferencias…</p>
+        ) : !pushSettings.pushAvailable ? (
+          <div style={styles.errorBanner}>
+            <AlertTriangle size={18} color="var(--accent-gold)" />
+            <span>Las notificaciones no están disponibles en este momento.</span>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'var(--card-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Bell size={20} color="var(--accent-teal)" />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.95rem' }}>
+                    Notificaciones push
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    Recibe el aviso de fin de descanso mientras entrenas
+                  </div>
+                </div>
+              </div>
+              <ToggleSwitch
+                checked={pushSettings.subscribed}
+                onChange={() => handleTogglePush(!pushSettings.subscribed)}
+                disabled={pushBusy}
+                label="Activar notificaciones push"
+              />
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'var(--card-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Clock3 size={20} color="var(--accent-gold)" />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.95rem' }}>
+                    Recordatorio diario
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    Te avisamos a una hora fija para que no te saltes el entrenamiento
+                  </div>
+                </div>
+              </div>
+              <ToggleSwitch
+                checked={pushSettings.subscribed && pushSettings.reminderEnabled}
+                onChange={() => handleSaveReminder(!pushSettings.reminderEnabled, reminderTime)}
+                disabled={pushBusy || !pushSettings.subscribed}
+                label="Activar recordatorio diario"
+              />
+            </div>
+
+            {pushSettings.subscribed && pushSettings.reminderEnabled && (
+              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '1rem', padding: '0.5rem 0' }}>
+                <div style={styles.inputGroup}>
+                  <label style={styles.label} htmlFor="reminder-time">
+                    Hora del recordatorio
+                  </label>
+                  <input
+                    id="reminder-time"
+                    type="time"
+                    value={reminderTime}
+                    onChange={(e) => setReminderTime(e.target.value)}
+                    onBlur={() => handleSaveReminder(true, reminderTime)}
+                    style={{ ...styles.input, width: 'auto' }}
+                  />
+                </div>
+                <button
+                  onClick={handleTestPush}
+                  disabled={pushBusy}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.75rem 1.25rem',
+                    borderRadius: 'var(--radius-container)',
+                    backgroundColor: 'rgba(192, 138, 90, 0.12)',
+                    border: '1px solid var(--accent-teal)',
+                    color: 'var(--accent-teal)',
+                    fontWeight: 700,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Send size={16} />
+                  <span>Enviar prueba</span>
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Profile Information Card (100% Full Width) */}

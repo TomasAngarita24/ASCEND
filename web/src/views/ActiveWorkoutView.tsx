@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Plus,
   Timer,
@@ -57,6 +57,11 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
   const restTargetMsRef = useRef<number | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
+  // Best-effort: cancels a pending rest-end push remotely (no-op when offline).
+  const cancelRestPushRemote = useCallback(() => {
+    void api.cancelRestPush(tokens.accessToken).catch(() => {});
+  }, [tokens.accessToken]);
+
   // Previous performance map: exerciseId -> array of previous sets (FR-WORK-004)
   const [prevPerformanceMap, setPrevPerformanceMap] = useState<Record<string, PrevSetData[]>>({});
 
@@ -110,6 +115,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
       if (remaining <= 0) {
         restTargetMsRef.current = null;
         setIsRestTimerActive(false);
+        cancelRestPushRemote();
         if (soundEnabled) {
           soundManager.playRestFinishedChime();
         }
@@ -119,7 +125,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
     tick();
     const interval = window.setInterval(tick, 250);
     return () => window.clearInterval(interval);
-  }, [isRestTimerActive, soundEnabled]);
+  }, [isRestTimerActive, soundEnabled, cancelRestPushRemote]);
 
   // Load previous workout performance
   useEffect(() => {
@@ -235,7 +241,11 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
     restTargetMsRef.current = Date.now() + seconds * 1000;
     setRestSecondsLeft(seconds);
     setIsRestTimerActive(true);
+    void api.scheduleRestPush(tokens.accessToken, seconds).catch(() => {});
   };
+
+  // Cancel a pending rest-end push if the workout screen unmounts mid-rest.
+  useEffect(() => () => cancelRestPushRemote(), [cancelRestPushRemote]);
 
   const handleToggleSet = async (exerciseId: string, setId: string, currentlyCompleted: boolean) => {
     if (togglingSetIds.has(setId)) return;
@@ -714,7 +724,9 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
               style={styles.restBtn}
               onClick={() => {
                 restTargetMsRef.current = (restTargetMsRef.current ?? Date.now()) + 30_000;
-                setRestSecondsLeft((r) => (r !== null ? r + 30 : 30));
+                const next = (restSecondsLeft ?? 0) + 30;
+                setRestSecondsLeft(next);
+                void api.scheduleRestPush(tokens.accessToken, next).catch(() => {});
               }}
             >
               +30s
@@ -724,6 +736,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
               onClick={() => {
                 restTargetMsRef.current = null;
                 setIsRestTimerActive(false);
+                cancelRestPushRemote();
               }}
             >
               Omitir

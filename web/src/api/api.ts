@@ -110,6 +110,22 @@ export interface SaveMeasurementInput {
   bodyFat?: number | null;
 }
 
+export interface PushSettings {
+  pushAvailable: boolean;
+  subscribed: boolean;
+  reminderEnabled: boolean;
+  reminderHour: number | null;
+  reminderMinute: number | null;
+  reminderTzOffsetMin: number;
+}
+
+export interface SavePushSettingsInput {
+  reminderEnabled: boolean;
+  reminderHour: number | null;
+  reminderMinute: number | null;
+  reminderTzOffsetMin: number;
+}
+
 export interface ExerciseProgressionPoint {
   date: string;
   weight: number | null;
@@ -1030,6 +1046,62 @@ async reorderRoutineExercises(accessToken: string, routineId: string, routineExe
 
   async deleteMeasurement(accessToken: string, id: string): Promise<void> {
     await this.request<void>(`/measurements/${id}`, {
+      method: 'DELETE',
+      accessToken,
+    });
+  }
+
+  // --- Push notifications ---
+  async getPushSettings(accessToken: string): Promise<PushSettings> {
+    const res = await this.request<{ settings: PushSettings }>('/push/settings', { accessToken });
+    return res.settings;
+  }
+
+  async savePushSettings(accessToken: string, input: SavePushSettingsInput): Promise<PushSettings> {
+    const res = await this.request<{ settings: PushSettings }>('/push/settings', {
+      method: 'PUT',
+      accessToken,
+      body: JSON.stringify(input),
+    });
+    return res.settings;
+  }
+
+  async savePushSubscription(accessToken: string, subscription: PushSubscriptionJSON): Promise<void> {
+    await this.request<void>('/push/subscriptions', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify({
+        endpoint: subscription.endpoint,
+        keys: subscription.keys,
+      }),
+    });
+  }
+
+  async deletePushSubscription(accessToken: string, endpoint: string): Promise<void> {
+    await this.request<void>('/push/subscriptions', {
+      method: 'DELETE',
+      accessToken,
+      body: JSON.stringify({ endpoint }),
+    });
+  }
+
+  async sendTestPush(accessToken: string): Promise<void> {
+    await this.request<void>('/push/test', {
+      method: 'POST',
+      accessToken,
+    });
+  }
+
+  async scheduleRestPush(accessToken: string, seconds: number): Promise<void> {
+    await this.request<void>('/push/rest', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify({ seconds }),
+    });
+  }
+
+  async cancelRestPush(accessToken: string): Promise<void> {
+    await this.request<void>('/push/rest', {
       method: 'DELETE',
       accessToken,
     });
