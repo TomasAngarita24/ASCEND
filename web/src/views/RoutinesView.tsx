@@ -684,7 +684,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'space-between',
     cursor: 'pointer',
-    transition: 'all 0.15s ease',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   quickStartLeft: {
     display: 'flex',
@@ -811,7 +811,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     gap: '1rem',
     boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
-    transition: 'all 0.15s ease',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   cardTopRow: {
     display: 'flex',
@@ -1031,7 +1031,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     gap: '0.5rem',
-    transition: 'all 0.15s ease',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   folderMuscleCardHeader: {
     display: 'flex',

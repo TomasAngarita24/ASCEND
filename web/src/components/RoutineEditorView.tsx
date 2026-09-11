@@ -1103,7 +1103,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid var(--border-color)',
     color: 'var(--text-primary)',
     cursor: 'pointer',
-    transition: 'all 0.15s ease',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   pageTitle: {
     fontSize: '1.8rem',
@@ -1126,7 +1126,7 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     border: 'none',
     
-    transition: 'all 0.15s ease',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   cancelBtn: {
     padding: '0.7rem 1.25rem',
@@ -1387,7 +1387,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.88rem',
     fontWeight: 700,
     cursor: 'pointer',
-    transition: 'all 0.15s ease',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   setInput: {
     width: '100%',
@@ -1415,7 +1415,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     cursor: 'pointer',
     marginTop: '0.25rem',
-    transition: 'all 0.15s ease',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   rightColumn: {
     display: 'flex',
@@ -1590,7 +1590,7 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
     cursor: 'pointer',
-    transition: 'all 0.12s ease',
+    transition: 'background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease, transform 0.12s ease',
   },
   addItemBtn: {
     width: '28px',

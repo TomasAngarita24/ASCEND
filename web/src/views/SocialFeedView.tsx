@@ -175,7 +175,7 @@ const PostCard: React.FC<PostCardProps> = ({
       {/* Cover image (first exercise media, left-biased crop) */}
       {coverExercise?.mediaUrl && (
         <div style={styles.cover}>
-          <img src={coverExercise.mediaUrl} alt={coverExercise.name} draggable={false} style={styles.coverImg} />
+          <img src={coverExercise.mediaUrl} alt={coverExercise.name} draggable={false} loading="lazy" style={styles.coverImg} />
         </div>
       )}
 
@@ -961,7 +961,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.85rem',
     padding: '0.45rem 0.8rem',
     borderRadius: 'var(--radius-control)',
-    transition: 'all 0.15s ease',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   likeBtnActive: {
     display: 'flex',
@@ -975,7 +975,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.85rem',
     padding: '0.45rem 0.8rem',
     borderRadius: 'var(--radius-control)',
-    transition: 'all 0.15s ease',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   commentBtn: {
     display: 'flex',
@@ -989,7 +989,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.85rem',
     padding: '0.45rem 0.8rem',
     borderRadius: 'var(--radius-control)',
-    transition: 'all 0.15s ease',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   commentBtnActive: {
     display: 'flex',
@@ -1003,7 +1003,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.85rem',
     padding: '0.45rem 0.8rem',
     borderRadius: 'var(--radius-control)',
-    transition: 'all 0.15s ease',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   copyBtn: {
     display: 'flex',
@@ -1017,7 +1017,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.85rem',
     padding: '0.45rem 0.8rem',
     borderRadius: 'var(--radius-control)',
-    transition: 'all 0.15s ease',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   cardHighlighted: {
     boxShadow: '0 0 0 1px var(--border-highlight)',

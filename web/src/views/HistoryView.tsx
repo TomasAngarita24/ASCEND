@@ -761,7 +761,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'space-between',
     cursor: 'pointer',
-    transition: 'all 0.15s ease',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
     boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
   },
   cardLeft: {
@@ -832,7 +832,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     cursor: 'pointer',
     marginRight: '0.4rem',
-    transition: 'all 0.15s ease',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   shareCaptionInput: {
     width: '100%',
@@ -1012,7 +1012,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: '0.5rem',
-    transition: 'all 0.15s ease',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   deleteModalBtn: {
     padding: '0.45rem',
@@ -1023,7 +1023,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    transition: 'all 0.15s ease',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   editToggleBtn: {
     display: 'flex',
@@ -1037,7 +1037,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.82rem',
     fontWeight: 700,
     cursor: 'pointer',
-    transition: 'all 0.15s ease',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   editDoneBtn: {
     display: 'flex',
@@ -1051,7 +1051,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.82rem',
     fontWeight: 800,
     cursor: 'pointer',
-    transition: 'all 0.15s ease',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   detailTableHeaderEditing: {
     display: 'grid',
@@ -1117,7 +1117,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.8rem',
     fontWeight: 700,
     cursor: 'pointer',
-    transition: 'all 0.15s ease',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   noteBadge: {
     display: 'inline-flex',

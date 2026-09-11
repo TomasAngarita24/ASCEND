@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import {
   Plus,
   Timer,
@@ -629,9 +629,14 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
     return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
-  const filteredAddExercises = allExercises.filter((ex) =>
-    matchesSearch(ex.name, searchQuery) ||
-    ex.targetMuscleGroups.some((m) => matchesSearch(m, searchQuery))
+  const filteredAddExercises = useMemo(
+    () =>
+      allExercises.filter(
+        (ex) =>
+          matchesSearch(ex.name, searchQuery) ||
+          ex.targetMuscleGroups.some((m) => matchesSearch(m, searchQuery))
+      ),
+    [allExercises, searchQuery]
   );
 
   return (
@@ -1243,7 +1248,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 'var(--radius-container)',
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-subtle)',
-    transition: 'all 0.18s ease',
+    transition: 'background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease, transform 0.18s ease',
   },
   tableRowCompleted: {
     backgroundColor: 'rgba(76, 175, 125, 0.1)',
@@ -1294,7 +1299,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     padding: '0 4px',
-    transition: 'all 0.15s ease',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   prevSetText: {
     fontSize: '0.82rem',
@@ -1326,7 +1331,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'pointer',
-    transition: 'all 0.15s ease',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   checkBtnPending: {
     backgroundColor: 'var(--surface-color)',
@@ -1428,7 +1433,7 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
     cursor: 'pointer',
-    transition: 'all 0.15s ease',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   modalExThumb: {
     width: '44px',

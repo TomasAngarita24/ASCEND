@@ -689,7 +689,7 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
-    transition: 'all 0.15s',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   measureRowActive: {
     backgroundColor: 'rgba(192,138,90,0.08)',
@@ -766,7 +766,7 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
     cursor: 'pointer',
-    transition: 'all 0.15s',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   chartTabActive: {
     backgroundColor: 'rgba(192,138,90,0.08)',

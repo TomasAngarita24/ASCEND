@@ -446,7 +446,7 @@ const ExerciseDetailPanel: React.FC<ExerciseDetailPanelProps> = ({ exercise, tok
                   fontWeight: 700,
                   border: '1px solid var(--border-color)',
                   cursor: 'pointer',
-                  transition: 'all 0.15s ease',
+                  transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
                   ...(activeChart === t.key
                     ? { backgroundColor: 'rgba(192,138,90,0.15)', color: 'var(--accent-teal)', borderColor: 'rgba(192,138,90,0.35)' }
                     : { backgroundColor: 'transparent', color: 'var(--text-muted)' }),
