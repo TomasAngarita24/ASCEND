@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Plus,
   Timer,
@@ -54,6 +54,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
   // Rest Timer State
   const [restSecondsLeft, setRestSecondsLeft] = useState<number | null>(null);
   const [isRestTimerActive, setIsRestTimerActive] = useState(false);
+  const restTargetMsRef = useRef<number | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   // Previous performance map: exerciseId -> array of previous sets (FR-WORK-004)
@@ -98,23 +99,27 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
     return () => clearInterval(interval);
   }, [workout.startedAt]);
 
-  // Rest countdown timer with Web Audio chime notification
+  // Rest countdown anchored to an absolute timestamp. The interval only reads
+  // Date.now(), so background throttling or sleep never drifts the countdown.
   useEffect(() => {
-    if (!isRestTimerActive || restSecondsLeft === null) return;
-    if (restSecondsLeft <= 0) {
-      setIsRestTimerActive(false);
-      setRestSecondsLeft(null);
-      if (soundEnabled) {
-        soundManager.playRestFinishedChime();
+    if (!isRestTimerActive || restTargetMsRef.current === null) return;
+    const target = restTargetMsRef.current;
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((target - Date.now()) / 1000));
+      setRestSecondsLeft(remaining);
+      if (remaining <= 0) {
+        restTargetMsRef.current = null;
+        setIsRestTimerActive(false);
+        if (soundEnabled) {
+          soundManager.playRestFinishedChime();
+        }
+        toast.info('⏰ ¡Tiempo de descanso completado! A por la siguiente serie.');
       }
-      toast.info('⏰ ¡Tiempo de descanso completado! A por la siguiente serie.');
-      return;
-    }
-    const timer = setInterval(() => {
-      setRestSecondsLeft((prev) => (prev !== null && prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [isRestTimerActive, restSecondsLeft, soundEnabled]);
+    };
+    tick();
+    const interval = window.setInterval(tick, 250);
+    return () => window.clearInterval(interval);
+  }, [isRestTimerActive, soundEnabled]);
 
   // Load previous workout performance
   useEffect(() => {
@@ -227,6 +232,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
   };
 
   const startRestTimer = (seconds: number = 90) => {
+    restTargetMsRef.current = Date.now() + seconds * 1000;
     setRestSecondsLeft(seconds);
     setIsRestTimerActive(true);
   };
@@ -670,6 +676,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
             style={styles.cancelBtn}
             onClick={handleCancelWorkout}
             title="Descartar sesión"
+            aria-label="Descartar la sesión actual"
           >
             <X size={18} />
           </button>
@@ -695,6 +702,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
               style={styles.restBtnMute}
               onClick={() => setSoundEnabled((v) => !v)}
               title={soundEnabled ? 'Aviso sonoro activado (clic para silenciar)' : 'Aviso sonoro silenciado (clic para activar)'}
+              aria-label={soundEnabled ? 'Silenciar aviso sonoro de descanso' : 'Activar aviso sonoro de descanso'}
             >
               {soundEnabled ? (
                 <Volume2 size={16} color="var(--accent-teal)" />
@@ -702,10 +710,22 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
                 <VolumeX size={16} color="var(--text-muted)" />
               )}
             </button>
-            <button style={styles.restBtn} onClick={() => setRestSecondsLeft((r) => (r !== null ? r + 30 : 30))}>
+            <button
+              style={styles.restBtn}
+              onClick={() => {
+                restTargetMsRef.current = (restTargetMsRef.current ?? Date.now()) + 30_000;
+                setRestSecondsLeft((r) => (r !== null ? r + 30 : 30));
+              }}
+            >
               +30s
             </button>
-            <button style={styles.restBtnDismiss} onClick={() => setIsRestTimerActive(false)}>
+            <button
+              style={styles.restBtnDismiss}
+              onClick={() => {
+                restTargetMsRef.current = null;
+                setIsRestTimerActive(false);
+              }}
+            >
               Omitir
             </button>
           </div>
@@ -746,6 +766,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
                       onClick={() => handleMoveExercise(exIdx, 'up')}
                       disabled={exIdx === 0}
                       title="Mover arriba"
+                      aria-label="Mover ejercicio arriba"
                     >
                       <ChevronUp size={14} />
                     </button>
@@ -758,6 +779,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
                       onClick={() => handleMoveExercise(exIdx, 'down')}
                       disabled={exIdx === workout.exercises.length - 1}
                       title="Mover abajo"
+                      aria-label="Mover ejercicio abajo"
                     >
                       <ChevronDown size={14} />
                     </button>
@@ -772,6 +794,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
                     style={styles.deleteExIconBtn}
                     onClick={() => handleDeleteExercise(exItem.id, exItem.exercise.name)}
                     title="Quitar ejercicio"
+                    aria-label="Quitar ejercicio"
                   >
                     <Trash2 size={16} color="var(--text-dim)" />
                   </button>
@@ -879,6 +902,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
                             ...(set.isCompleted ? styles.checkBtnCompleted : styles.checkBtnPending),
                           }}
                           onClick={() => handleToggleSet(exItem.id, set.id, set.isCompleted)}
+                          aria-label={set.isCompleted ? 'Marcar serie como no completada' : 'Marcar serie como completada'}
                         >
                           <Check size={16} strokeWidth={3} />
                         </button>
@@ -891,6 +915,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
                             style={styles.deleteSetBtn}
                             onClick={() => handleDeleteSet(exItem.id, set.id)}
                             title="Eliminar serie"
+                            aria-label="Eliminar serie"
                           >
                             <Trash2 size={15} color="var(--text-dim)" />
                           </button>
@@ -928,7 +953,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <h2 style={styles.modalTitle}>Agregar Ejercicio</h2>
-              <button style={styles.closeBtn} onClick={() => setIsAddModalOpen(false)}>
+              <button style={styles.closeBtn} onClick={() => setIsAddModalOpen(false)} aria-label="Cerrar">
                 <X size={20} color="var(--text-muted)" />
               </button>
             </div>

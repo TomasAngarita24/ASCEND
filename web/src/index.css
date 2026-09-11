@@ -45,8 +45,8 @@
   /* --- Text (cool off-white, never pure white) --- */
   --text-primary: #ECEEF1;
   --text-secondary: #A7ADB6;
-  --text-muted: #7E858F;
-  --text-dim: #5C636C;
+  --text-muted: #8A919B;
+  --text-dim: #848B95;
   --text-color: var(--text-primary);
 
   /* --- Lines --- */
@@ -103,7 +103,7 @@
 
   --text-primary: #17191C;
   --text-secondary: #555B63;
-  --text-muted: #7C828B;
+  --text-muted: #646B73;
   --text-dim: #A6ABB2;
   --text-color: var(--text-primary);
 

@@ -512,8 +512,9 @@ export const SocialFeedView: React.FC<SocialViewProps> = ({ tokens, currentUserI
       highlightHandled.current = true;
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
       element.classList.add('social-card-flash');
-      window.setTimeout(() => element.classList.remove('social-card-flash'), 1800);
+      const flashTimer = window.setTimeout(() => element.classList.remove('social-card-flash'), 1800);
       onHighlightConsumed?.();
+      return () => window.clearTimeout(flashTimer);
     }
   }, [highlightPostId, posts, loading, onHighlightConsumed]);
 
