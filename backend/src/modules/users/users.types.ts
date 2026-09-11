@@ -14,11 +14,24 @@ export interface PublicProfileResponse {
   stats: {
     workoutsCompleted: number;
     postsCount: number;
+    publicRoutinesCount: number;
   };
   followersCount: number;
   followingCount: number;
   isFollowing: boolean;
   isSelf: boolean;
+}
+
+export interface PublicRoutineSummary {
+  id: string;
+  name: string;
+  folderId: string | null;
+  exerciseCount: number;
+  createdAt: string;
+}
+
+export interface PublicRoutinesResponse {
+  data: PublicRoutineSummary[];
 }
 
 export interface FollowListResponse {

@@ -1,6 +1,7 @@
 import { Prisma } from '../../generated/prisma/client';
 import { prisma } from '../../database/prisma';
 import { HttpError } from '../../errors/http-error';
+import { nextRoutinePosition } from '../routine/routine.service';
 import type { RoutineResponse } from '../routine/routine.types';
 import type {
   RoutineTemplateDetail,
@@ -102,6 +103,7 @@ export async function addRoutineTemplateToUser(userId: string, templateId: strin
     data: {
       name: template.name,
       userId,
+      position: await nextRoutinePosition(userId, null),
       routineExercises: {
         create: template.exercises.map((item) => ({
           exerciseId: item.exerciseId,
@@ -120,6 +122,7 @@ export async function addRoutineTemplateToUser(userId: string, templateId: strin
     id: routine.id,
     name: routine.name,
     folderId: routine.folderId,
+    isPublic: routine.isPublic,
     exercises: routine.routineExercises.map((item) => ({
       id: item.id,
       position: item.position,

@@ -157,6 +157,106 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
     }
   };
 
+  // Drag & drop reorder / move across folders
+  interface DropHint {
+    kind: 'group' | 'general' | 'card';
+    groupId?: string;
+    cardScope?: string | null;
+    cardId?: string;
+  }
+
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dropHint, setDropHint] = useState<DropHint | null>(null);
+
+  const scopeOrderedIds = (folderId: string | null): string[] =>
+    routines.filter(r => (r.folderId ?? null) === folderId).map(r => r.id);
+
+  const commitScopeOrder = async (folderId: string | null, orderedIds: string[]) => {
+    const idSet = new Set(orderedIds);
+    const remaining = routines.filter(r => !idSet.has(r.id));
+    const orderedRoutines = orderedIds
+      .map(id => routines.find(r => r.id === id))
+      .filter((r): r is RoutineSummary => Boolean(r))
+      .map(r => ({ ...r, folderId }));
+    setRoutines([...orderedRoutines, ...remaining]);
+    setGroups(prev => prev.map(g => (g.id === folderId ? { ...g, routineIds: orderedIds } : g)));
+    try {
+      await api.reorderRoutines(tokens.accessToken, folderId, orderedIds);
+      await loadRoutinesAndFolders();
+    } catch {
+      toast.error('No se pudo guardar el orden.');
+      await loadRoutinesAndFolders();
+    } finally {
+      setDraggingId(null);
+      setDropHint(null);
+    }
+  };
+
+  const handleDragStart = (e: React.DragEvent, routineId: string) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', routineId);
+    setDraggingId(routineId);
+    setDropHint(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggingId(null);
+    setDropHint(null);
+  };
+
+  const handleCardDragOver = (e: React.DragEvent, scope: string | null, cardId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggingId === cardId) return;
+    setDropHint({ kind: 'card', groupId: scope ?? undefined, cardId, cardScope: scope });
+  };
+
+  const handleCardDrop = (e: React.DragEvent, scope: string | null, cardId: string) => {
+    e.preventDefault();
+    const draggedId = e.dataTransfer.getData('text/plain') || draggingId || '';
+    if (!draggedId || draggedId === cardId) {
+      setDraggingId(null);
+      setDropHint(null);
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const above = e.clientY < rect.top + rect.height / 2;
+    const ordered = scopeOrderedIds(scope).filter(id => id !== draggedId);
+    const index = ordered.indexOf(cardId);
+    if (index === -1) {
+      ordered.push(draggedId);
+    } else if (above) {
+      ordered.splice(index, 0, draggedId);
+    } else {
+      ordered.splice(index + 1, 0, draggedId);
+    }
+    commitScopeOrder(scope, ordered);
+  };
+
+  const handleGroupDrop = (e: React.DragEvent, groupId: string) => {
+    e.preventDefault();
+    const draggedId = e.dataTransfer.getData('text/plain') || draggingId || '';
+    if (!draggedId) {
+      setDropHint(null);
+      return;
+    }
+    const ordered = scopeOrderedIds(groupId).filter(id => id !== draggedId);
+    ordered.push(draggedId);
+    commitScopeOrder(groupId, ordered);
+  };
+
+  const handleGeneralDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const draggedId = e.dataTransfer.getData('text/plain') || draggingId || '';
+    if (!draggedId) {
+      setDropHint(null);
+      return;
+    }
+    const ordered = scopeOrderedIds(null).filter(id => id !== draggedId);
+    ordered.push(draggedId);
+    commitScopeOrder(null, ordered);
+  };
+
   const groupedRoutineIds = new Set(groups.flatMap(g => Array.isArray(g.routineIds) ? g.routineIds : []));
   const ungroupedRoutines = (routines || []).filter(r => r && r.id && !groupedRoutineIds.has(r.id));
 
@@ -282,8 +382,35 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
   };
 
 
-  const renderRoutineCard = (routine: RoutineSummary) => (
-    <div key={routine.id} style={styles.routineCard}>
+  const renderRoutineCard = (routine: RoutineSummary, scope: string | null) => {
+    const isDragging = draggingId === routine.id;
+    const isCardTarget = dropHint?.kind === 'card' && dropHint.cardId === routine.id && (dropHint.cardScope ?? null) === scope;
+    const isGroupTarget = dropHint?.kind === 'group' && dropHint.groupId === scope;
+    const isGeneralTarget = dropHint?.kind === 'general' && scope === null;
+
+    return (
+    <div
+      key={routine.id}
+      draggable
+      onDragStart={(e) => handleDragStart(e, routine.id)}
+      onDragEnd={handleDragEnd}
+      onDragOver={(e) => handleCardDragOver(e, scope, routine.id)}
+      onDragLeave={() => {
+        if (isCardTarget) setDropHint(null);
+      }}
+      onDrop={(e) => handleCardDrop(e, scope, routine.id)}
+      style={{
+        ...styles.routineCard,
+        opacity: isDragging ? 0.45 : 1,
+        cursor: 'grab',
+        ...(isGroupTarget || isGeneralTarget ? { borderTop: '2px solid var(--accent-teal)', borderBottom: '2px solid var(--accent-teal)' } : {}),
+        ...(isCardTarget
+          ? dropHint?.cardId === routine.id
+            ? { boxShadow: '0 0 0 2px var(--accent-teal) inset' }
+            : {}
+          : {}),
+      }}
+    >
       <div style={styles.cardTopRow}>
         <div style={styles.routineIconBadge}>
           <Dumbbell size={20} color="var(--accent-teal)" />
@@ -354,7 +481,8 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
         )}
       </div>
     </div>
-  );
+    );
+  };
 
   return (
     <div style={styles.container}>
@@ -423,7 +551,20 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
 
             return (
               <div key={group.id} style={styles.groupAccordionBox}>
-                <div style={styles.groupHeaderRow}>
+                <div
+                  style={{
+                    ...styles.groupHeaderRow,
+                    ...(dropHint?.kind === 'group' && dropHint.groupId === group.id
+                      ? { borderColor: 'var(--accent-teal)', boxShadow: '0 0 0 2px var(--accent-teal) inset' }
+                      : {}),
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    setDropHint({ kind: 'group', groupId: group.id });
+                  }}
+                  onDrop={(e) => handleGroupDrop(e, group.id)}
+                >
                   <button style={styles.groupHeaderBtn} onClick={() => handleToggleGroup(group.id)}>
                     {group.isExpanded ? <ChevronDown size={20} color="var(--accent-teal)" /> : <ChevronRight size={20} color="var(--accent-teal)" />}
                     <Folder size={18} color="var(--accent-teal)" />
@@ -507,11 +648,19 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
 
                     <div style={styles.routinesGrid}>
                       {groupRoutines.length === 0 ? (
-                        <div style={styles.groupEmptyState}>
-                          Carpeta vacía. Mueve rutinas usando el selector en cada tarjeta.
+                        <div
+                          style={styles.groupEmptyState}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = 'move';
+                            setDropHint({ kind: 'group', groupId: group.id });
+                          }}
+                          onDrop={(e) => handleGroupDrop(e, group.id)}
+                        >
+                          Carpeta vacía. Arrastra una rutina aquí o usa el selector en cada tarjeta.
                         </div>
                       ) : (
-                        groupRoutines.map(renderRoutineCard)
+                        groupRoutines.map((r) => renderRoutineCard(r, group.id))
                       )}
                     </div>
                   </div>
@@ -547,8 +696,27 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
           </button>
         </div>
       ) : (
-        <div style={styles.routinesGrid}>
-          {ungroupedRoutines.map(renderRoutineCard)}
+        <div
+          style={{
+            ...styles.routinesGrid,
+            ...(dropHint?.kind === 'general' || draggingId ? styles.generalDropZone : {}),
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            setDropHint({ kind: 'general' });
+          }}
+          onDragLeave={() => {
+            if (dropHint?.kind === 'general') setDropHint(null);
+          }}
+          onDrop={(e) => handleGeneralDrop(e)}
+        >
+          {ungroupedRoutines.map((r) => renderRoutineCard(r, null))}
+          {draggingId && (
+            <div style={styles.dropZoneHint}>
+              Suelta aquí para mover la rutina a "Rutinas Generales"
+            </div>
+          )}
         </div>
       )}
 
@@ -801,6 +969,21 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
     gap: '1.25rem',
+  },
+  generalDropZone: {
+    borderRadius: 'var(--radius-container)',
+    border: '2px dashed var(--accent-teal)',
+    padding: '0.5rem',
+    backgroundColor: 'rgba(45, 212, 191, 0.04)',
+    transition: 'background-color 120ms ease, border-color 120ms ease',
+  },
+  dropZoneHint: {
+    gridColumn: '1 / -1',
+    textAlign: 'center',
+    fontSize: '0.85rem',
+    fontWeight: 700,
+    color: 'var(--accent-teal)',
+    padding: '0.6rem 0 0.2rem',
   },
   routineCard: {
     backgroundColor: 'var(--surface-color)',

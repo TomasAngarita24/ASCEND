@@ -5,6 +5,7 @@ import type {
   FollowListResponse,
   FollowMutationResponse,
   PublicProfileResponse,
+  PublicRoutinesResponse,
   SocialUserSummary,
 } from './users.types';
 
@@ -66,11 +67,12 @@ export async function getPublicProfile(viewerId: string, userId: string): Promis
 
   const isSelf = viewerId === userId;
 
-  const [followersCount, followingCount, workoutsCompleted, postsCount, isFollowing] = await Promise.all([
+  const [followersCount, followingCount, workoutsCompleted, postsCount, publicRoutinesCount, isFollowing] = await Promise.all([
     prisma.userFollow.count({ where: { followingId: userId } }),
     prisma.userFollow.count({ where: { followerId: userId } }),
     prisma.workout.count({ where: { userId, status: 'completed' } }),
     prisma.post.count({ where: { authorId: userId } }),
+    prisma.routine.count({ where: { userId, isPublic: true } }),
     isSelf
       ? Promise.resolve(0)
       : prisma.userFollow.count({ where: { followerId: viewerId, followingId: userId } }),
@@ -82,11 +84,37 @@ export async function getPublicProfile(viewerId: string, userId: string): Promis
     avatarUrl: user.avatarUrl,
     bio: user.bio,
     createdAt: user.createdAt.toISOString(),
-    stats: { workoutsCompleted, postsCount },
+    stats: { workoutsCompleted, postsCount, publicRoutinesCount },
     followersCount,
     followingCount,
     isFollowing: isFollowing > 0,
     isSelf,
+  };
+}
+
+export async function getUserPublicRoutines(userId: string): Promise<PublicRoutinesResponse> {
+  await requireExistingUser(userId);
+
+  const routines = await prisma.routine.findMany({
+    where: { userId, isPublic: true },
+    select: {
+      id: true,
+      name: true,
+      folderId: true,
+      createdAt: true,
+      _count: { select: { routineExercises: { where: { exercise: { deletedAt: null } } } } },
+    },
+    orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+  });
+
+  return {
+    data: routines.map((routine) => ({
+      id: routine.id,
+      name: routine.name,
+      folderId: routine.folderId,
+      exerciseCount: routine._count.routineExercises,
+      createdAt: routine.createdAt.toISOString(),
+    })),
   };
 }
 

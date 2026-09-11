@@ -2,6 +2,7 @@ import type { Prisma } from '../../generated/prisma/client';
 import { prisma } from '../../database/prisma';
 import { HttpError } from '../../errors/http-error';
 import { estimateOneRepMax } from '../progress/one-rep-max';
+import { nextRoutinePosition } from '../routine/routine.service';
 import type {
   CommentsResponse, CopyRoutineResponse, FeedPost, FeedResponse, PostCommentResponse,
 } from './social.types';
@@ -328,6 +329,7 @@ export async function copySharedRoutine(userId: string, postId: string): Promise
     data: {
       name: `${source.name} (Copy)`,
       userId,
+      position: await nextRoutinePosition(userId, null),
       routineExercises: {
         create: source.routineExercises.map((item) => ({
           exerciseId: item.exerciseId,

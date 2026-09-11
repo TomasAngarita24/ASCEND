@@ -3,14 +3,14 @@ import { Router } from 'express';
 import { asyncHandler } from '../../lib/async-handler';
 import { authenticate } from '../auth/auth.middleware';
 import {
-  addRoutineExercise, createRoutine, createRoutineFolder, deleteRoutine, deleteRoutineExercise,
+  addRoutineExercise, copyRoutineToUser, createRoutine, createRoutineFolder, deleteRoutine, deleteRoutineExercise,
   deleteRoutineFolder, duplicateRoutine, getRoutine, listRoutineFolders, listRoutines,
-  reorderRoutineExercises, saveRoutine, setRoutineFolder, updateRoutine, updateRoutineExercise,
+  reorderRoutineExercises, reorderRoutines, saveRoutine, setRoutineFolder, updateRoutine, updateRoutineExercise,
   updateRoutineFolder,
 } from './routine.service';
 import {
   validateAddRoutineExercise, validateCreateRoutine, validateFolderId, validateFolderName,
-  validateReorder, validateRoutineFolder, validateRoutineId, validateSaveRoutine,
+  validateReorder, validateReorderRoutines, validateRoutineFolder, validateRoutineId, validateSaveRoutine,
   validateUpdateRoutine, validateUpdateRoutineExercise,
 } from './routine.validation';
 
@@ -30,6 +30,12 @@ routineRouter.get('/', asyncHandler(async (request, response) => {
 routineRouter.post('/', asyncHandler(async (request, response) => {
   const input = validateCreateRoutine(request.body);
   response.status(201).json({ routine: await createRoutine(request.auth!.userId, input.name) });
+}));
+
+routineRouter.put('/order', asyncHandler(async (request, response) => {
+  const input = validateReorderRoutines(request.body);
+  await reorderRoutines(request.auth!.userId, input.folderId, input.routineIds);
+  response.status(204).send();
 }));
 
 // Folder routes (must precede /:routineId)
@@ -78,6 +84,10 @@ routineRouter.delete('/:routineId', asyncHandler(async (request, response) => {
 
 routineRouter.post('/:routineId/duplicate', asyncHandler(async (request, response) => {
   response.status(201).json({ routine: await duplicateRoutine(request.auth!.userId, validateRoutineId(request.params.routineId)) });
+}));
+
+routineRouter.post('/:routineId/copy', asyncHandler(async (request, response) => {
+  response.status(201).json({ routine: await copyRoutineToUser(request.auth!.userId, validateRoutineId(request.params.routineId)) });
 }));
 
 routineRouter.post('/:routineId/exercises', asyncHandler(async (request, response) => {

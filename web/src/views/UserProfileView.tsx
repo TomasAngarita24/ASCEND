@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Dumbbell, FileText, Users, UserPlus, UserCheck, Activity, Loader2, Repeat } from 'lucide-react';
+import { ArrowLeft, Dumbbell, FileText, Users, UserPlus, UserCheck, Activity, Loader2, Repeat, Layers } from 'lucide-react';
 import { toast } from 'sonner';
-import { api, toError, type FeedPost, type PublicProfileResponse, type SocialUserSummary, type Tokens } from '../api/api';
+import { api, toError, type FeedPost, type PublicProfileResponse, type PublicRoutineSummary, type SocialUserSummary, type Tokens } from '../api/api';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { PostCard } from '../components/PostCard';
 
@@ -63,7 +63,7 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [followPending, setFollowPending] = useState(false);
 
-  const [tab, setTab] = useState<'posts' | 'followers' | 'following'>('posts');
+  const [tab, setTab] = useState<'posts' | 'rutinas' | 'followers' | 'following'>('posts');
 
   // Posts tab state
   const [posts, setPosts] = useState<FeedPost[]>([]);
@@ -80,6 +80,11 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
   const [listPage, setListPage] = useState(1);
   const [loadingList, setLoadingList] = useState(false);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
+
+  // Public routines tab state
+  const [publicRoutines, setPublicRoutines] = useState<PublicRoutineSummary[]>([]);
+  const [loadingRoutines, setLoadingRoutines] = useState(false);
+  const [copyingRoutineId, setCopyingRoutineId] = useState<string | null>(null);
 
   const loadProfile = useCallback(async () => {
     if (!userId) return;
@@ -134,19 +139,33 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
     }
   }, [tokens]);
 
+  const loadRoutines = useCallback(async (targetUserId: string) => {
+    setLoadingRoutines(true);
+    try {
+      const data = await api.getUserPublicRoutines(tokens.accessToken, targetUserId);
+      setPublicRoutines(data);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'No se pudieron cargar las rutinas.');
+    } finally {
+      setLoadingRoutines(false);
+    }
+  }, [tokens]);
+
   useEffect(() => {
     if (profile && userId) {
       if (tab === 'posts') {
         setPosts([]);
         setPostsPage(1);
         loadPosts(1, userId);
+      } else if (tab === 'rutinas') {
+        loadRoutines(userId);
       } else {
         setList([]);
         setListPage(1);
         loadList(tab, userId, 1);
       }
     }
-  }, [tab, userId, profile, loadPosts, loadList]);
+  }, [tab, userId, profile, loadPosts, loadList, loadRoutines]);
 
   const toggleFollowProfile = async () => {
     if (!profile || profile.isSelf || !userId) return;
@@ -257,6 +276,18 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
     }
   };
 
+  const handleCopyPublicRoutine = async (routineId: string) => {
+    setCopyingRoutineId(routineId);
+    try {
+      const routine = await api.copyRoutine(tokens.accessToken, routineId);
+      toast.success(`Rutina "${routine.name}" copiada a tu biblioteca.`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo copiar la rutina.');
+    } finally {
+      setCopyingRoutineId(null);
+    }
+  };
+
   if (loadingProfile) {
     return (
       <div style={styles.container}>
@@ -335,6 +366,11 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
           <span style={styles.statValue}>{profile.stats.postsCount}</span>
           <span style={styles.statLabel}>Publicaciones</span>
         </div>
+        <button style={styles.statCardBtn} onClick={() => setTab('rutinas')}>
+          <Layers size={18} color="var(--accent-blue)" />
+          <span style={styles.statValue}>{profile.stats.publicRoutinesCount}</span>
+          <span style={styles.statLabel}>Rutinas</span>
+        </button>
         <button style={styles.statCardBtn} onClick={() => setTab('followers')}>
           <Users size={18} color="var(--accent-green)" />
           <span style={styles.statValue}>{profile.followersCount}</span>
@@ -353,6 +389,9 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
           <button style={tab === 'posts' ? styles.tabActive : styles.tab} onClick={() => setTab('posts')}>
             Publicaciones
           </button>
+          <button style={tab === 'rutinas' ? styles.tabActive : styles.tab} onClick={() => setTab('rutinas')}>
+            Rutinas
+          </button>
           <button style={tab === 'followers' ? styles.tabActive : styles.tab} onClick={() => setTab('followers')}>
             Seguidores
           </button>
@@ -360,7 +399,9 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
             Siguiendo
           </button>
         </div>
-        <span style={styles.listCount}>{tab === 'posts' ? postsTotal : listTotal}</span>
+        <span style={styles.listCount}>
+          {tab === 'posts' ? postsTotal : tab === 'rutinas' ? publicRoutines.length : listTotal}
+        </span>
       </div>
 
       {/* Content */}
@@ -396,6 +437,41 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
                   Cargar más ({posts.length}/{postsTotal})
                 </button>
               )}
+            </>
+          )}
+        </div>
+      ) : tab === 'rutinas' ? (
+        <div style={styles.listSection}>
+          {loadingRoutines && publicRoutines.length === 0 ? (
+            <div style={styles.spinner} />
+          ) : publicRoutines.length === 0 ? (
+            <div style={styles.emptyBox}>
+              <Layers size={32} color="var(--accent-blue)" style={{ margin: '0 auto 0.75rem' }} />
+              <span style={styles.stateText}>Este atleta no ha compartido rutinas públicas todavía.</span>
+            </div>
+          ) : (
+            <>
+              {publicRoutines.map((routine) => (
+                <div key={routine.id} style={styles.routineRow}>
+                  <div style={styles.routineRowIcon}>
+                    <Layers size={16} color="var(--accent-blue)" />
+                  </div>
+                  <div style={styles.routineRowInfo}>
+                    <span style={styles.routineRowName}>{routine.name}</span>
+                    <span style={styles.routineRowMeta}>
+                      {routine.exerciseCount} {routine.exerciseCount === 1 ? 'ejercicio' : 'ejercicios'}
+                    </span>
+                  </div>
+                  <button
+                    style={styles.routineCopyBtn}
+                    disabled={copyingRoutineId === routine.id}
+                    onClick={() => handleCopyPublicRoutine(routine.id)}
+                  >
+                    {copyingRoutineId === routine.id ? <Loader2 size={14} className="spin" /> : <Repeat size={14} />}
+                    Copiar rutina
+                  </button>
+                </div>
+              ))}
             </>
           )}
         </div>
@@ -657,6 +733,60 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid var(--border-color)',
     borderRadius: 'var(--radius-container)',
     padding: '0.7rem 1rem',
+  },
+  routineRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.85rem',
+    backgroundColor: 'var(--surface-color)',
+    border: '1px solid var(--border-color)',
+    borderRadius: 'var(--radius-container)',
+    padding: '0.85rem 1rem',
+  },
+  routineRowIcon: {
+    width: '38px',
+    height: '38px',
+    flexShrink: 0,
+    borderRadius: 'var(--radius-control)',
+    backgroundColor: 'rgba(45, 132, 253, 0.1)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  routineRowInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.15rem',
+    flex: 1,
+    minWidth: 0,
+  },
+  routineRowName: {
+    fontWeight: 700,
+    color: 'var(--text-primary)',
+    fontSize: '0.92rem',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  routineRowMeta: {
+    fontSize: '0.8rem',
+    color: 'var(--text-muted)',
+  },
+  routineCopyBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.45rem',
+    backgroundColor: 'rgba(45, 212, 191, 0.12)',
+    color: 'var(--accent-teal)',
+    border: '1px solid rgba(45, 212, 191, 0.35)',
+    borderRadius: 'var(--radius-control)',
+    padding: '0.5rem 0.9rem',
+    fontWeight: 700,
+    fontSize: '0.82rem',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
+    transition: 'opacity 120ms ease, transform 120ms ease',
   },
   followRowUser: {
     display: 'flex',

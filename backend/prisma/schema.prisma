@@ -66,6 +66,8 @@ model Routine {
   id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId           String            @map("user_id") @db.Uuid
   name             String            @db.VarChar(255)
+  position         Int               @default(0) @map("sort_position")
+  isPublic         Boolean           @default(false) @map("is_public")
   createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   folderId         String?           @map("folder_id") @db.Uuid
@@ -77,6 +79,7 @@ model Routine {
 
   @@index([userId])
   @@index([folderId])
+  @@index([userId, isPublic])
   @@map("routine")
 }
 

@@ -17,6 +17,7 @@ export interface RoutineResponse {
   id: string;
   name: string;
   folderId?: string | null;
+  isPublic: boolean;
   exercises: RoutineExerciseResponse[];
   createdAt: string;
   updatedAt: string;
@@ -31,6 +32,7 @@ export interface RoutineSummary {
   id: string;
   name: string;
   folderId?: string | null;
+  isPublic: boolean;
   exerciseCount: number;
   totalSets: number;
   muscleSets: RoutineMuscleSet[];

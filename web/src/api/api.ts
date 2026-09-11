@@ -66,6 +66,7 @@ export interface RoutineSummary {
   id: string;
   name: string;
   folderId?: string | null;
+  isPublic: boolean;
   exerciseCount: number;
   totalSets?: number;
   muscleSets?: RoutineMuscleSet[];
@@ -157,6 +158,8 @@ export interface RoutineExercise {
 export interface RoutineDetail {
   id: string;
   name: string;
+  folderId?: string | null;
+  isPublic: boolean;
   exercises: RoutineExercise[];
 }
 
@@ -174,6 +177,7 @@ export interface RoutineSaveInput {
   id?: string;
   name: string;
   exercises: RoutineSaveExercise[];
+  isPublic?: boolean;
 }
 
 export type RoutineTemplateLevel = 'beginner' | 'intermediate' | 'advanced';
@@ -341,11 +345,20 @@ export interface PublicProfileResponse {
   stats: {
     workoutsCompleted: number;
     postsCount: number;
+    publicRoutinesCount: number;
   };
   followersCount: number;
   followingCount: number;
   isFollowing: boolean;
   isSelf: boolean;
+}
+
+export interface PublicRoutineSummary {
+  id: string;
+  name: string;
+  folderId: string | null;
+  exerciseCount: number;
+  createdAt: string;
 }
 
 export interface FollowMutationResponse {
@@ -656,7 +669,7 @@ class ApiClient {
       accessToken,
       body: JSON.stringify({ name }),
     });
-    return { id: res.routine.id, name: res.routine.name, exerciseCount: 0, totalSets: 0, muscleSets: [] };
+    return { id: res.routine.id, name: res.routine.name, isPublic: false, exerciseCount: 0, totalSets: 0, muscleSets: [] };
   }
 
   async saveRoutine(accessToken: string, input: RoutineSaveInput): Promise<RoutineDetail> {
@@ -1033,6 +1046,27 @@ async reorderRoutineExercises(accessToken: string, routineId: string, routineExe
       accessToken,
       body: JSON.stringify({ folderId }),
     });
+  }
+
+  async reorderRoutines(accessToken: string, folderId: string | null, routineIds: string[]): Promise<void> {
+    await this.request<void>('/routines/order', {
+      method: 'PUT',
+      accessToken,
+      body: JSON.stringify({ folderId, routineIds }),
+    });
+  }
+
+  async copyRoutine(accessToken: string, routineId: string): Promise<RoutineDetail> {
+    const res = await this.request<{ routine: RoutineDetail }>(`/routines/${routineId}/copy`, {
+      method: 'POST',
+      accessToken,
+    });
+    return res.routine;
+  }
+
+  async getUserPublicRoutines(accessToken: string, userId: string): Promise<PublicRoutineSummary[]> {
+    const res = await this.request<{ data: PublicRoutineSummary[] }>(`/users/${userId}/public-routines`, { accessToken });
+    return res.data;
   }
 
   // --- Measurements ---

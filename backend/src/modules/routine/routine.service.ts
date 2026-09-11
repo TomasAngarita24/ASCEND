@@ -36,10 +36,21 @@ function toRoutineResponse(routine: RoutineWithExercises): RoutineResponse {
     id: routine.id,
     name: routine.name,
     folderId: routine.folderId,
+    isPublic: routine.isPublic,
     exercises: routine.routineExercises.map(toRoutineExerciseResponse),
     createdAt: routine.createdAt.toISOString(),
     updatedAt: routine.updatedAt.toISOString(),
   };
+}
+
+export async function nextRoutinePosition(userId: string, folderId: string | null): Promise<number> {
+  const last = await prisma.routine.findFirst({
+    where: { userId, folderId },
+    orderBy: { position: 'desc' },
+    select: { position: true },
+  });
+
+  return (last?.position ?? 0) + 1;
 }
 
 async function findRoutine(userId: string, routineId: string): Promise<RoutineWithExercises> {
@@ -92,7 +103,7 @@ export async function listRoutines(userId: string): Promise<{ data: RoutineSumma
         },
       },
     },
-    orderBy: { updatedAt: 'desc' },
+    orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
   });
 
   return {
@@ -124,6 +135,7 @@ export async function listRoutines(userId: string): Promise<{ data: RoutineSumma
         id: routine.id,
         name: routine.name,
         folderId: routine.folderId,
+        isPublic: routine.isPublic,
         exerciseCount: routine._count.routineExercises,
         totalSets,
         muscleSets,
@@ -136,7 +148,7 @@ export async function listRoutines(userId: string): Promise<{ data: RoutineSumma
 
 export async function createRoutine(userId: string, name: string): Promise<RoutineResponse> {
   const routine = await prisma.routine.create({
-    data: { name, userId },
+    data: { name, userId, position: await nextRoutinePosition(userId, null) },
     include: { routineExercises: { include: { exercise: true }, orderBy: { position: 'asc' } } },
   });
 
@@ -157,6 +169,7 @@ interface RoutineSaveInput {
   id?: string;
   name: string;
   exercises: RoutineSaveExercise[];
+  isPublic?: boolean;
 }
 
 export async function saveRoutine(userId: string, input: RoutineSaveInput): Promise<RoutineResponse> {
@@ -185,11 +198,22 @@ export async function saveRoutine(userId: string, input: RoutineSaveInput): Prom
         throw new HttpError(404, 'ROUTINE_NOT_FOUND', 'Routine does not exist or is not accessible.');
       }
       await transaction.routineExercise.deleteMany({ where: { routineId: input.id } });
-      await transaction.routine.update({ where: { id: input.id }, data: { name: input.name } });
+      await transaction.routine.update({
+        where: { id: input.id },
+        data: {
+          name: input.name,
+          ...(input.isPublic !== undefined ? { isPublic: input.isPublic } : {}),
+        },
+      });
       routineId = input.id;
     } else {
       const created = await transaction.routine.create({
-        data: { name: input.name, userId },
+        data: {
+          name: input.name,
+          userId,
+          isPublic: input.isPublic ?? false,
+          position: await nextRoutinePosition(userId, null),
+        },
         select: { id: true },
       });
       routineId = created.id;
@@ -243,6 +267,9 @@ export async function duplicateRoutine(userId: string, routineId: string): Promi
     data: {
       name: `${source.name} (Copy)`,
       userId,
+      folderId: source.folderId,
+      position: await nextRoutinePosition(userId, source.folderId),
+      isPublic: source.isPublic,
       routineExercises: {
         create: source.routineExercises.map((item) => ({
           exerciseId: item.exerciseId,
@@ -260,6 +287,66 @@ export async function duplicateRoutine(userId: string, routineId: string): Promi
   });
 
   return toRoutineResponse(duplicate);
+}
+
+export async function copyRoutineToUser(viewerId: string, routineId: string): Promise<RoutineResponse> {
+  const source = await prisma.routine.findUnique({
+    where: { id: routineId },
+    include: {
+      routineExercises: {
+        select: {
+          exerciseId: true,
+          position: true,
+          targetSets: true,
+          targetRepetitionsMin: true,
+          targetRepetitionsMax: true,
+          targetWeight: true,
+          restSeconds: true,
+          notes: true,
+        },
+        orderBy: { position: 'asc' },
+      },
+    },
+  });
+
+  if (!source) {
+    throw new HttpError(404, 'ROUTINE_NOT_FOUND', 'Routine does not exist or is not accessible.');
+  }
+
+  if (source.userId === viewerId) {
+    return duplicateRoutine(viewerId, routineId);
+  }
+
+  if (!source.isPublic) {
+    throw new HttpError(403, 'ROUTINE_PRIVATE', 'This routine is private.');
+  }
+
+  if (source.routineExercises.length === 0) {
+    throw new HttpError(422, 'ROUTINE_EMPTY', 'This routine has no exercises.');
+  }
+
+  const copy = await prisma.routine.create({
+    data: {
+      name: `${source.name} (Copy)`,
+      userId: viewerId,
+      position: await nextRoutinePosition(viewerId, null),
+      routineExercises: {
+        create: source.routineExercises.map((item) => ({
+          exerciseId: item.exerciseId,
+          position: item.position,
+          targetSets: item.targetSets,
+          targetRepetitionsMin: item.targetRepetitionsMin,
+          targetRepetitionsMax: item.targetRepetitionsMax,
+          targetWeight: item.targetWeight,
+          restSeconds: item.restSeconds,
+          notes: item.notes,
+        })),
+      },
+    },
+    include: { routineExercises: { include: { exercise: true }, orderBy: { position: 'asc' } } },
+  });
+
+  return toRoutineResponse(copy);
 }
 
 export async function addRoutineExercise(
@@ -461,20 +548,89 @@ export async function deleteRoutineFolder(userId: string, folderId: string): Pro
 }
 
 export async function setRoutineFolder(userId: string, routineId: string, folderId: string | null): Promise<RoutineResponse> {
-  await findRoutine(userId, routineId);
-
-  if (folderId) {
-    const folder = await prisma.routineFolder.findFirst({ where: { id: folderId, userId } });
-    if (!folder) {
-      throw new HttpError(404, 'FOLDER_NOT_FOUND', 'Folder does not exist or is not accessible.');
+  const routine = await prisma.$transaction(async (transaction) => {
+    const current = await transaction.routine.findFirst({
+      where: { id: routineId, userId },
+      select: { folderId: true, position: true },
+    });
+    if (!current) {
+      throw new HttpError(404, 'ROUTINE_NOT_FOUND', 'Routine does not exist or is not accessible.');
     }
-  }
 
-  const updated = await prisma.routine.update({
-    where: { id: routineId },
-    data: { folderId },
-    include: { routineExercises: { include: { exercise: true }, orderBy: { position: 'asc' } } },
+    if (folderId) {
+      const folder = await transaction.routineFolder.findFirst({ where: { id: folderId, userId } });
+      if (!folder) {
+        throw new HttpError(404, 'FOLDER_NOT_FOUND', 'Folder does not exist or is not accessible.');
+      }
+    }
+
+    if (current.folderId !== folderId && current.position > 0) {
+      await transaction.routine.updateMany({
+        where: { userId, folderId: current.folderId, position: { gt: current.position } },
+        data: { position: { decrement: 1 } },
+      });
+    }
+
+    return transaction.routine.update({
+      where: { id: routineId },
+      data: {
+        folderId,
+        ...(current.folderId !== folderId ? { position: await nextRoutinePosition(userId, folderId) } : {}),
+      },
+      include: { routineExercises: { include: { exercise: true }, orderBy: { position: 'asc' } } },
+    });
   });
 
-  return toRoutineResponse(updated);
+  return toRoutineResponse(routine);
+}
+
+export async function reorderRoutines(userId: string, folderId: string | null, routineIds: string[]): Promise<void> {
+  await prisma.$transaction(async (transaction) => {
+    const owned = await transaction.routine.findMany({
+      where: { id: { in: routineIds } },
+      select: { id: true, folderId: true, position: true },
+    });
+
+    if (owned.length !== routineIds.length) {
+      throw new HttpError(400, 'VALIDATION_ERROR', 'Some routines do not exist or are not accessible.');
+    }
+
+    const ownedIds = new Set(owned.map((item) => item.id));
+    if (ownedIds.size !== routineIds.length) {
+      throw new HttpError(400, 'VALIDATION_ERROR', 'The reorder request must not contain duplicate routines.');
+    }
+
+    const inScope = await transaction.routine.findMany({
+      where: { userId, folderId },
+      select: { id: true },
+    });
+    for (const item of inScope) {
+      if (!ownedIds.has(item.id)) {
+        throw new HttpError(400, 'VALIDATION_ERROR', 'Every routine in the scope must be listed exactly once.');
+      }
+    }
+
+    const movedInto = owned.filter((item) => item.folderId !== folderId);
+    for (const item of movedInto) {
+      if (item.position > 0) {
+        await transaction.routine.updateMany({
+          where: { userId, folderId: item.folderId, position: { gt: item.position } },
+          data: { position: { decrement: 1 } },
+        });
+      }
+    }
+
+    for (let index = 0; index < routineIds.length; index += 1) {
+      await transaction.routine.update({
+        where: { id: routineIds[index] },
+        data: { folderId, position: -(index + 1) },
+      });
+    }
+    for (let index = 0; index < routineIds.length; index += 1) {
+      await transaction.routine.update({
+        where: { id: routineIds[index] },
+        data: { position: index + 1 },
+      });
+    }
+  });
 }

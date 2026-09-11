@@ -47,6 +47,11 @@ async function createExercise(accessToken: string): Promise<string> {
   return (response.body.exercise as Record<string, string>).id;
 }
 
+async function selfId(accessToken: string): Promise<string> {
+  const me = await request('/auth/me', { headers: { authorization: `Bearer ${accessToken}` } });
+  return (me.body.user as Record<string, string>).id;
+}
+
 before(async () => {
   server = app.listen(0);
   await new Promise<void>((resolve, reject) => {
@@ -200,5 +205,130 @@ describe('routines', () => {
     });
     assert.equal(inaccessible.status, 404);
     assert.equal((inaccessible.body.error as Record<string, string>).code, 'ROUTINE_NOT_FOUND');
+  });
+
+  it('reorders routines within a scope and moves them across folders', async () => {
+    const accessToken = await registerAndGetAccessToken();
+    const headers = { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' };
+
+    const created: string[] = [];
+    for (const name of ['Alpha', 'Beta', 'Gamma']) {
+      const createdRoutine = await request('/routines', {
+        body: JSON.stringify({ name }), headers, method: 'POST',
+      });
+      assert.equal(createdRoutine.status, 201);
+      created.push((createdRoutine.body.routine as Record<string, string>).id);
+    }
+
+    const folderA = await request('/routines/folders', {
+      body: JSON.stringify({ name: 'Folder A' }), headers, method: 'POST',
+    });
+    assert.equal(folderA.status, 201);
+    const folderAId = (folderA.body.folder as Record<string, string>).id;
+
+    const folderB = await request('/routines/folders', {
+      body: JSON.stringify({ name: 'Folder B' }), headers, method: 'POST',
+    });
+    const folderBId = (folderB.body.folder as Record<string, string>).id;
+
+    for (const id of [created[0], created[1]]) {
+      const moved = await request(`/routines/${id}/folder`, {
+        body: JSON.stringify({ folderId: folderAId }), headers, method: 'PATCH',
+      });
+      assert.equal(moved.status, 200);
+    }
+
+    const scopeIds = async (folderId: string | null) => {
+      const list = await request('/routines', { headers: { authorization: `Bearer ${accessToken}` } });
+      return (list.body.data as Array<Record<string, unknown>>)
+        .filter((routine) => (routine.folderId as string | null) === folderId)
+        .map((routine) => routine.id);
+    };
+
+    assert.deepEqual(await scopeIds(folderAId), [created[0], created[1]]);
+
+    const reordered = await request('/routines/order', {
+      body: JSON.stringify({ folderId: folderAId, routineIds: [created[1], created[0]] }), headers, method: 'PUT',
+    });
+    assert.equal(reordered.status, 204);
+    assert.deepEqual(await scopeIds(folderAId), [created[1], created[0]]);
+
+    const movedToB = await request(`/routines/${created[0]}/folder`, {
+      body: JSON.stringify({ folderId: folderBId }), headers, method: 'PATCH',
+    });
+    assert.equal(movedToB.status, 200);
+    assert.deepEqual(await scopeIds(folderAId), [created[1]]);
+    assert.deepEqual(await scopeIds(folderBId), [created[0]]);
+
+    const movedGeneral = await request('/routines/order', {
+      body: JSON.stringify({ folderId: null, routineIds: [created[2], created[0]] }), headers, method: 'PUT',
+    });
+    assert.equal(movedGeneral.status, 204);
+    assert.deepEqual(await scopeIds(null), [created[2], created[0]]);
+  });
+
+  it('saves public/private visibility and exposes public routines for copying', async () => {
+    const ownerToken = await registerAndGetAccessToken();
+    const viewerToken = await registerAndGetAccessToken();
+    const ownerHeaders = { authorization: `Bearer ${ownerToken}`, 'content-type': 'application/json' };
+    const viewerHeaders = { authorization: `Bearer ${viewerToken}`, 'content-type': 'application/json' };
+    const ownerId = await selfId(ownerToken);
+    const exerciseId = await createExercise(ownerToken);
+    const headersWithJson = (headers: Record<string, string>) => ({ ...headers, 'content-type': 'application/json' });
+
+    const publicCreated = await request('/routines/save', {
+      body: JSON.stringify({ name: 'Rutina pública', exercises: [{ exerciseId, targetSets: 3 }], isPublic: true }),
+      headers: headersWithJson(ownerHeaders), method: 'POST',
+    });
+    assert.equal(publicCreated.status, 200);
+    const publicRoutine = publicCreated.body.routine as Record<string, unknown>;
+    assert.equal(publicRoutine.isPublic, true);
+
+    const privateCreated = await request('/routines/save', {
+      body: JSON.stringify({ name: 'Rutina privada', exercises: [{ exerciseId, targetSets: 3 }] }),
+      headers: headersWithJson(ownerHeaders), method: 'POST',
+    });
+    const privateRoutineId = (privateCreated.body.routine as Record<string, string>).id;
+    assert.equal((privateCreated.body.routine as Record<string, unknown>).isPublic, false);
+
+    const toggled = await request('/routines/save', {
+      body: JSON.stringify({
+        id: privateRoutineId, name: 'Rutina privada', exercises: [{ exerciseId, targetSets: 3 }], isPublic: true,
+      }),
+      headers: headersWithJson(ownerHeaders), method: 'POST',
+    });
+    assert.equal(toggled.status, 200);
+    assert.equal((toggled.body.routine as Record<string, unknown>).isPublic, true);
+
+    const profile = await request(`/users/${ownerId}/profile`, { headers: viewerHeaders });
+    assert.equal(profile.status, 200);
+    assert.equal((profile.body.stats as Record<string, number>).publicRoutinesCount, 2);
+
+    const publicRoutines = await request(`/users/${ownerId}/public-routines`, { headers: viewerHeaders });
+    assert.equal(publicRoutines.status, 200);
+    assert.equal((publicRoutines.body.data as unknown[]).length, 2);
+
+    const copied = await request(`/routines/${publicRoutine.id as string}/copy`, { headers: viewerHeaders, method: 'POST' });
+    assert.equal(copied.status, 201);
+    assert.equal(((copied.body.routine as Record<string, unknown>).exercises as unknown[]).length, 1);
+
+    const againPrivate = await request('/routines/save', {
+      body: JSON.stringify({
+        id: privateRoutineId, name: 'Rutina privada', exercises: [{ exerciseId, targetSets: 3 }], isPublic: false,
+      }),
+      headers: headersWithJson(ownerHeaders), method: 'POST',
+    });
+    assert.equal(againPrivate.status, 200);
+
+    const shrunkRoutines = await request(`/users/${ownerId}/public-routines`, { headers: viewerHeaders });
+    const shrunkIds = (shrunkRoutines.body.data as Array<Record<string, unknown>>).map((item) => item.id);
+    assert.equal(shrunkRoutines.status, 200);
+    assert.equal((shrunkRoutines.body.data as unknown[]).length, 1);
+    assert.equal(shrunkIds.includes(privateRoutineId), false);
+    assert.equal(shrunkIds.includes(publicRoutine.id as string), true);
+
+    const privateCopy = await request(`/routines/${privateRoutineId}/copy`, { headers: viewerHeaders, method: 'POST' });
+    assert.equal(privateCopy.status, 403);
+    assert.equal((privateCopy.body.error as Record<string, string>).code, 'ROUTINE_PRIVATE');
   });
 });

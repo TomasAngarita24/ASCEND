@@ -47,10 +47,15 @@ const saveRoutineSchema = z.object({
   id: z.uuid().optional(),
   name: routineName,
   exercises: z.array(saveRoutineExerciseSchema).max(100).default([]),
+  isPublic: z.boolean().optional(),
 }).strict();
 
 const folderNameSchema = z.object({ name: routineName }).strict();
 const setRoutineFolderSchema = z.object({ folderId: z.uuid().nullable() }).strict();
+const reorderRoutinesSchema = z.object({
+  folderId: z.uuid().nullable(),
+  routineIds: z.array(z.uuid()).min(1).max(500),
+}).strict();
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);
@@ -96,6 +101,10 @@ export function validateFolderName(value: unknown): z.infer<typeof folderNameSch
 
 export function validateRoutineFolder(value: unknown): z.infer<typeof setRoutineFolderSchema> {
   return parse(setRoutineFolderSchema, value);
+}
+
+export function validateReorderRoutines(value: unknown): z.infer<typeof reorderRoutinesSchema> {
+  return parse(reorderRoutinesSchema, value);
 }
 
 export function validateFolderId(value: unknown): string {

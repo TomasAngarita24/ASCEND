@@ -156,6 +156,7 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
   });
 
   const [saving, setSaving] = useState(false);
+  const [isPublic, setIsPublic] = useState(initialDetail?.isPublic ?? false);
 
   // Library sidebar state
   const [catalogExercises, setCatalogExercises] = useState<ExerciseSummary[]>([]);
@@ -265,6 +266,7 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
     }
     if (!initialDetail) return true;
     if (routineName.trim() !== initialDetail.name) return true;
+    if (isPublic !== initialDetail.isPublic) return true;
     if (exercises.length !== initialDetail.exercises.length) return true;
 
     const originalById = new Map(initialDetail.exercises.map((e) => [e.id, e]));
@@ -513,6 +515,7 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
       await api.saveRoutine(tokens.accessToken, {
         id: isNew ? undefined : (routineId ?? undefined),
         name: routineName.trim(),
+        isPublic,
         exercises: exercises.map((ex) => {
           const minR = Math.max(1, Math.min(ex.config.targetRepetitionsMin, ex.config.targetRepetitionsMax));
           const maxR = Math.max(1, Math.max(ex.config.targetRepetitionsMin, ex.config.targetRepetitionsMax));
@@ -595,6 +598,30 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
               onChange={(e) => setRoutineName(e.target.value)}
               style={styles.titleInput}
             />
+            <div style={styles.visibilityRow}>
+              <div style={styles.visibilityRowText}>
+                <span style={styles.visibilityRowTitle}>Visibilidad</span>
+                <span style={styles.visibilityRowHint}>
+                  Si la marcas como pública, otros atletas podrán verla y copiarla desde tu perfil.
+                </span>
+              </div>
+              <div style={styles.visibilitySegmented}>
+                <button
+                  type="button"
+                  style={!isPublic ? styles.visibilitySegActive : styles.visibilitySegBtn}
+                  onClick={() => setIsPublic(false)}
+                >
+                  Privada
+                </button>
+                <button
+                  type="button"
+                  style={isPublic ? styles.visibilitySegActive : styles.visibilitySegBtn}
+                  onClick={() => setIsPublic(true)}
+                >
+                  Pública
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Exercise Cards List */}
@@ -779,7 +806,6 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
                         style={styles.addSetBtn}
                         onClick={() => handleAddSet(exIdx)}
                       >
-                        <Plus size={16} />
                         <span>+ Serie</span>
                       </button>
                       {ex.config.targetSets > 1 && (
@@ -788,7 +814,6 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
                           style={styles.removeSetBtn}
                           onClick={() => handleDeleteSet(exIdx)}
                         >
-                          <X size={16} />
                           <span>− Serie</span>
                         </button>
                       )}
@@ -1159,6 +1184,62 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     color: 'var(--text-secondary)',
     letterSpacing: '0.01em',
+  },
+  visibilityRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '1.25rem',
+    flexWrap: 'wrap',
+    backgroundColor: 'var(--surface-color)',
+    border: '1px solid var(--border-color)',
+    borderRadius: 'var(--radius-container)',
+    padding: '0.9rem 1.15rem',
+    marginTop: '0.25rem',
+  },
+  visibilityRowText: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.2rem',
+    flex: 1,
+    minWidth: 180,
+  },
+  visibilityRowTitle: {
+    fontSize: '0.9rem',
+    fontWeight: 800,
+    color: 'var(--text-primary)',
+  },
+  visibilityRowHint: {
+    fontSize: '0.78rem',
+    color: 'var(--text-muted)',
+    lineHeight: 1.4,
+  },
+  visibilitySegmented: {
+    display: 'flex',
+    gap: '0.3rem',
+    backgroundColor: 'var(--input-bg)',
+    padding: '0.25rem',
+    borderRadius: 'var(--radius-control)',
+  },
+  visibilitySegBtn: {
+    background: 'transparent',
+    border: 'none',
+    color: 'var(--text-muted)',
+    padding: '0.45rem 1rem',
+    borderRadius: 'var(--radius-control)',
+    cursor: 'pointer',
+    fontWeight: 700,
+    fontSize: '0.82rem',
+  },
+  visibilitySegActive: {
+    background: 'rgba(192, 138, 90, 0.15)',
+    border: '1px solid rgba(192, 138, 90, 0.3)',
+    color: 'var(--accent-gold)',
+    padding: '0.45rem 1rem',
+    borderRadius: 'var(--radius-control)',
+    cursor: 'pointer',
+    fontWeight: 800,
+    fontSize: '0.82rem',
   },
   fieldSubLabel: {
     fontSize: '0.8rem',

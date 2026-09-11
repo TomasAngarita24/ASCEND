@@ -4,7 +4,7 @@ import { asyncHandler } from '../../lib/async-handler';
 import { authenticate } from '../auth/auth.middleware';
 import { getUserPosts } from '../social/social.service';
 import {
-  followUser, getPublicProfile, listFollowers, listFollowing, searchUsers, unfollowUser,
+  followUser, getPublicProfile, getUserPublicRoutines, listFollowers, listFollowing, searchUsers, unfollowUser,
 } from './users.service';
 import { validateListQuery, validateSearchQuery, validateUserId } from './users.validation';
 
@@ -19,6 +19,11 @@ usersRouter.get('/search', asyncHandler(async (request, response) => {
 usersRouter.get('/:userId/posts', asyncHandler(async (request, response) => {
   const userId = validateUserId(request.params.userId);
   response.status(200).json(await getUserPosts(request.auth!.userId, userId, validateListQuery(request.query)));
+}));
+
+usersRouter.get('/:userId/public-routines', asyncHandler(async (request, response) => {
+  const userId = validateUserId(request.params.userId);
+  response.status(200).json(await getUserPublicRoutines(userId));
 }));
 
 usersRouter.get('/:userId/profile', asyncHandler(async (request, response) => {
