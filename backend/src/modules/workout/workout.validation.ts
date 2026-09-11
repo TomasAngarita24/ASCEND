@@ -4,6 +4,7 @@ import { HttpError } from '../../errors/http-error';
 
 const positiveInteger = z.coerce.number().int().min(1);
 const nonNegativeNumber = z.coerce.number().min(0).max(999999.99);
+const clearableNumber = (schema: z.ZodType<number>) => z.union([z.null(), schema]).optional();
 const setType = z.enum(['normal', 'warmup', 'drop_set', 'failure']);
 const workoutId = z.uuid();
 
@@ -15,11 +16,11 @@ const addWorkoutExerciseSchema = z.object({
 const createSetSchema = z.object({
   isCompleted: z.boolean().optional(),
   notes: z.string().trim().min(1).optional(),
-  repetitions: positiveInteger.optional(),
+  repetitions: clearableNumber(positiveInteger),
   rpe: z.coerce.number().min(0).max(10).optional(),
   setNumber: positiveInteger.optional(),
   setType: setType.optional(),
-  weight: nonNegativeNumber.optional(),
+  weight: clearableNumber(nonNegativeNumber),
 }).strict();
 const updateSetSchema = createSetSchema
   .omit({ setNumber: true })

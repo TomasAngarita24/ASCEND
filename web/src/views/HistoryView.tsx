@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   History,
   Calendar,
@@ -39,6 +39,10 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [workoutDetail, setWorkoutDetail] = useState<WorkoutDetailEntry | null>(null);
+  const workoutDetailRef = useRef<WorkoutDetailEntry | null>(null);
+  useEffect(() => {
+    workoutDetailRef.current = workoutDetail;
+  }, [workoutDetail]);
   const [isEditing, setIsEditing] = useState(false);
   const [shareWorkoutId, setShareWorkoutId] = useState<string | null>(null);
   const [shareCaption, setShareCaption] = useState('');
@@ -130,45 +134,65 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
     setId: string,
     fields: { weight?: number | null; repetitions?: number | null; notes?: string }
   ) => {
-    if (!selectedWorkoutId || !workoutDetail) return;
+    if (!selectedWorkoutId) return;
+    const detail = workoutDetailRef.current;
+    if (!detail) return;
 
-    setWorkoutDetail((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        exercises: prev.exercises.map((ex) => {
-          if (ex.id !== exerciseId) return ex;
-          return {
-            ...ex,
-            sets: ex.sets.map((s) => (s.id === setId ? { ...s, ...fields } : s)),
-          };
-        }),
-      };
-    });
+    const applyFields = (exercises: WorkoutDetailEntry['exercises']) =>
+      exercises.map((ex) =>
+        ex.id === exerciseId
+          ? {
+              ...ex,
+              sets: ex.sets.map((s) => (s.id === setId ? { ...s, ...fields } : s)),
+            }
+          : ex,
+      );
+
+    const computeVolume = (exercises: WorkoutDetailEntry['exercises']) =>
+      exercises
+        .flatMap((e) => e.sets)
+        .reduce((acc, s) => acc + (s.weight ?? 0) * (s.repetitions ?? 0), 0);
+
+    const prevSet = detail.exercises
+      .find((e) => e.id === exerciseId)
+      ?.sets.find((s) => s.id === setId);
+    const originalFields: { weight?: number | null; repetitions?: number | null; notes?: string } = {};
+    if (fields.weight !== undefined) originalFields.weight = prevSet?.weight ?? null;
+    if (fields.repetitions !== undefined) originalFields.repetitions = prevSet?.repetitions ?? null;
+    if (fields.notes !== undefined) originalFields.notes = prevSet?.notes ?? '';
+
+    const nextExercises = applyFields(detail.exercises);
+    // Keep the ref fresh so a second rapid edit recomputes from the latest
+    // state instead of a stale render closure.
+    const nextDetail = { ...detail, exercises: nextExercises };
+    workoutDetailRef.current = nextDetail;
+    setWorkoutDetail(nextDetail);
 
     try {
       await api.recordWorkoutSet(tokens.accessToken, selectedWorkoutId, exerciseId, setId, {
-        ...(fields.weight !== undefined ? { weight: fields.weight ?? 0 } : {}),
-        ...(fields.repetitions !== undefined ? { repetitions: fields.repetitions ?? 0 } : {}),
+        ...(fields.weight !== undefined ? { weight: fields.weight } : {}),
+        ...(fields.repetitions !== undefined ? { repetitions: fields.repetitions } : {}),
         ...(fields.notes !== undefined ? { notes: fields.notes } : {}),
       });
 
-      // Update totalVolume in workouts list
+      const newTotalVol = computeVolume(nextExercises);
       setWorkouts((prev) =>
-        prev.map((w) => {
-          if (w.id !== selectedWorkoutId) return w;
-          const currentExs = workoutDetail.exercises.map((ex) =>
-            ex.id === exerciseId
-              ? { ...ex, sets: ex.sets.map((s) => (s.id === setId ? { ...s, ...fields } : s)) }
-              : ex
-          );
-          const newTotalVol = currentExs
-            .flatMap((e) => e.sets)
-            .reduce((acc, s) => acc + (s.weight ?? 0) * (s.repetitions ?? 0), 0);
-          return { ...w, totalVolume: newTotalVol };
-        })
+        prev.map((w) => (w.id === selectedWorkoutId ? { ...w, totalVolume: newTotalVol } : w)),
       );
     } catch (err: unknown) {
+      // Roll back the optimistic change that failed to persist.
+      const current = workoutDetailRef.current ?? detail;
+      const revertedExercises = current.exercises.map((ex) =>
+        ex.id === exerciseId
+          ? {
+              ...ex,
+              sets: ex.sets.map((s) => (s.id === setId ? { ...s, ...originalFields } : s)),
+            }
+          : ex,
+      );
+      const revertedDetail = { ...current, exercises: revertedExercises };
+      workoutDetailRef.current = revertedDetail;
+      setWorkoutDetail(revertedDetail);
       toast.error(err instanceof Error ? err.message : 'Error al actualizar la serie.');
     }
   };

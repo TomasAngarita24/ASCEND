@@ -15,11 +15,11 @@ import { api, type ExerciseSummary, type RoutineDetail, type Tokens } from '../a
 import { matchesSearch } from '../utils/text';
 import { ConfirmModal } from './ConfirmModal';
 
-export interface ExerciseSetItem {
-  id: string;
-  setNumber: number;
-  weight: number;
-  reps: number;
+export interface RoutineExerciseConfig {
+  targetSets: number;
+  targetWeight: number;
+  targetRepetitionsMin: number;
+  targetRepetitionsMax: number;
 }
 
 export interface RoutineEditorExercise {
@@ -31,7 +31,7 @@ export interface RoutineEditorExercise {
   equipment: string | null;
   notes: string;
   restSeconds: number;
-  sets: ExerciseSetItem[];
+  config: RoutineExerciseConfig;
 }
 
 interface RoutineEditorViewProps {
@@ -131,13 +131,9 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
       return initialExercises.map((e) => {
         const exId = e.exerciseId || e.exercise?.id || e.id || '';
         const exName = e.name || e.exercise?.name || 'Ejercicio';
-        const count = e.targetSets || 3;
-        const sets: ExerciseSetItem[] = e.setsData || Array.from({ length: count }, (_, i) => ({
-          id: `${exId}_set_${i + 1}`,
-          setNumber: i + 1,
-          weight: e.targetWeight ?? 0,
-          reps: e.targetRepetitionsMax ?? e.targetRepetitionsMin ?? 10,
-        }));
+        const targetSets = e.targetSets || 3;
+        const targetRepetitionsMin = e.targetRepetitionsMin ?? e.targetRepetitionsMax ?? 10;
+        const targetRepetitionsMax = e.targetRepetitionsMax ?? e.targetRepetitionsMin ?? 10;
         return {
           routineExerciseId: e.id ?? null,
           exerciseId: exId,
@@ -147,7 +143,12 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
           equipment: e.equipment || e.exercise?.equipment || null,
           notes: e.notes || '',
           restSeconds: e.restSeconds ?? 90,
-          sets,
+          config: {
+            targetSets,
+            targetWeight: e.targetWeight ?? 0,
+            targetRepetitionsMin,
+            targetRepetitionsMax,
+          },
         };
       });
     }
@@ -239,15 +240,14 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
               draftExercises: exercises.map((ex) => ({
                 exerciseId: ex.exerciseId,
                 name: ex.name,
-                targetSets: ex.sets.length,
-                targetWeight: ex.sets[0]?.weight ?? 0,
-                targetRepetitionsMin: ex.sets[0]?.reps ?? 8,
-                targetRepetitionsMax: ex.sets[0]?.reps ?? 10,
+                targetSets: ex.config.targetSets,
+                targetWeight: ex.config.targetWeight,
+                targetRepetitionsMin: ex.config.targetRepetitionsMin,
+                targetRepetitionsMax: ex.config.targetRepetitionsMax,
                 restSeconds: ex.restSeconds,
                 notes: ex.notes,
                 targetMuscleGroups: ex.targetMuscleGroups,
                 equipment: ex.equipment,
-                setsData: ex.sets,
               })),
             }),
           );
@@ -273,9 +273,10 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
       const original = current.routineExerciseId ? originalById.get(current.routineExerciseId) : undefined;
       if (!original) return true;
       if (original.position !== i + 1) return true;
-      if ((original.targetSets ?? 3) !== current.sets.length) return true;
-      if (Number(original.targetWeight ?? 0) !== Number(current.sets[0]?.weight ?? 0)) return true;
-      if (Number(original.targetRepetitionsMax ?? original.targetRepetitionsMin ?? 10) !== Number(current.sets[0]?.reps ?? 10)) return true;
+      if ((original.targetSets ?? 3) !== current.config.targetSets) return true;
+      if (Number(original.targetWeight ?? 0) !== Number(current.config.targetWeight)) return true;
+      if (Number(original.targetRepetitionsMin ?? original.targetRepetitionsMax ?? 10) !== Number(current.config.targetRepetitionsMin)) return true;
+      if (Number(original.targetRepetitionsMax ?? original.targetRepetitionsMin ?? 10) !== Number(current.config.targetRepetitionsMax)) return true;
       if ((original.restSeconds ?? 90) !== current.restSeconds) return true;
       if ((original.notes || '') !== (current.notes || '')) return true;
     }
@@ -310,12 +311,6 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
 
   // Add exercise from library
   const handleAddExercise = (catalogItem: ExerciseSummary) => {
-    const newSets: ExerciseSetItem[] = [
-      { id: `${catalogItem.id}_set_1`, setNumber: 1, weight: 0, reps: 10 },
-      { id: `${catalogItem.id}_set_2`, setNumber: 2, weight: 0, reps: 10 },
-      { id: `${catalogItem.id}_set_3`, setNumber: 3, weight: 0, reps: 10 },
-    ];
-
     setExercises((prev) => [
       ...prev,
       {
@@ -327,7 +322,12 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
         equipment: catalogItem.equipment || null,
         notes: '',
         restSeconds: 90,
-        sets: newSets,
+        config: {
+          targetSets: 3,
+          targetWeight: 0,
+          targetRepetitionsMin: 10,
+          targetRepetitionsMax: 10,
+        },
       },
     ]);
     toast.success(`"${catalogItem.name}" añadido a la rutina.`);
@@ -354,51 +354,48 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
     setExercises((prev) =>
       prev.map((ex, idx) => {
         if (idx !== exerciseIdx) return ex;
-        const lastSet = ex.sets[ex.sets.length - 1];
-        const newSet: ExerciseSetItem = {
-          id: `${ex.exerciseId}_set_${Date.now()}`,
-          setNumber: ex.sets.length + 1,
-          weight: lastSet ? lastSet.weight : 0,
-          reps: lastSet ? lastSet.reps : 10,
-        };
         return {
           ...ex,
-          sets: [...ex.sets, newSet],
+          config: { ...ex.config, targetSets: Math.min(30, ex.config.targetSets + 1) },
         };
       }),
     );
   };
 
-  const handleUpdateSet = (
+  const handleUpdateConfig = (
     exerciseIdx: number,
-    setIdx: number,
-    field: 'weight' | 'reps',
+    field: 'targetSets' | 'targetWeight' | 'targetRepetitionsMin' | 'targetRepetitionsMax',
     val: string,
   ) => {
-    const num = Math.max(0, Number(val) || 0);
+    const raw = Number(val);
+    if (val && isNaN(raw)) return;
     setExercises((prev) =>
       prev.map((ex, i) => {
         if (i !== exerciseIdx) return ex;
-        return {
-          ...ex,
-          sets: ex.sets.map((s, si) => (si === setIdx ? { ...s, [field]: num } : s)),
-        };
+        let next: RoutineEditorExercise['config'];
+        if (field === 'targetSets') {
+          next = { ...ex.config, targetSets: Math.max(1, Math.min(30, raw || 1)) };
+        } else if (field === 'targetWeight') {
+          next = { ...ex.config, targetWeight: Math.max(0, raw || 0) };
+        } else if (field === 'targetRepetitionsMin') {
+          next = { ...ex.config, targetRepetitionsMin: Math.max(1, Math.min(100, raw || 1)) };
+        } else {
+          next = { ...ex.config, targetRepetitionsMax: Math.max(1, Math.min(100, raw || 1)) };
+        }
+        return { ...ex, config: next };
       }),
     );
   };
 
-  const handleDeleteSet = (exerciseIdx: number, setIdx: number) => {
+  const handleDeleteSet = (exerciseIdx: number) => {
     setExercises((prev) =>
       prev.map((ex, i) => {
         if (i !== exerciseIdx) return ex;
-        if (ex.sets.length <= 1) {
+        if (ex.config.targetSets <= 1) {
           toast.error('El ejercicio debe tener al menos una serie.');
           return ex;
         }
-        const updatedSets = ex.sets
-          .filter((_, si) => si !== setIdx)
-          .map((s, idx) => ({ ...s, setNumber: idx + 1 }));
-        return { ...ex, sets: updatedSets };
+        return { ...ex, config: { ...ex.config, targetSets: ex.config.targetSets - 1 } };
       }),
     );
   };
@@ -466,7 +463,7 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
 
   // Calculate summary metrics
   const totalSetsCount = useMemo(() => {
-    return exercises.reduce((acc, ex) => acc + ex.sets.length, 0);
+    return exercises.reduce((acc, ex) => acc + ex.config.targetSets, 0);
   }, [exercises]);
 
   const uniqueMuscleGroups = useMemo(() => {
@@ -516,15 +513,19 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
       await api.saveRoutine(tokens.accessToken, {
         id: isNew ? undefined : (routineId ?? undefined),
         name: routineName.trim(),
-        exercises: exercises.map((ex) => ({
-          exerciseId: ex.exerciseId,
-          targetSets: ex.sets.length,
-          targetWeight: ex.sets[0]?.weight ?? 0,
-          targetRepetitionsMin: Math.max(1, ex.sets[0]?.reps ?? 8),
-          targetRepetitionsMax: Math.max(1, ex.sets[0]?.reps ?? 10),
-          restSeconds: ex.restSeconds,
-          notes: ex.notes?.trim() ? ex.notes.trim() : undefined,
-        })),
+        exercises: exercises.map((ex) => {
+          const minR = Math.max(1, Math.min(ex.config.targetRepetitionsMin, ex.config.targetRepetitionsMax));
+          const maxR = Math.max(1, Math.max(ex.config.targetRepetitionsMin, ex.config.targetRepetitionsMax));
+          return {
+            exerciseId: ex.exerciseId,
+            targetSets: Math.max(1, ex.config.targetSets),
+            targetWeight: ex.config.targetWeight,
+            targetRepetitionsMin: minR,
+            targetRepetitionsMax: maxR,
+            restSeconds: ex.restSeconds,
+            notes: ex.notes?.trim() ? ex.notes.trim() : undefined,
+          };
+        }),
       });
 
       try {
@@ -720,63 +721,78 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Sets Table */}
+                  {/* Target Configuration */}
                   <div style={styles.setsTableWrapper}>
                     <div style={styles.setsTableHeader}>
-                      <span style={styles.colHeaderSerie}>SERIE</span>
-                      <span style={styles.colHeaderKg}>KG</span>
-                      <span style={styles.colHeaderReps}>REPETICIONES ▾</span>
-                      <span style={styles.colHeaderAction}></span>
+                      <span style={styles.colHeaderSerie}>SERIES</span>
+                      <span style={styles.colHeaderKg}>PESO (kg)</span>
+                      <span style={styles.colHeaderReps}>REPS MÍN</span>
+                      <span style={styles.colHeaderReps}>REPS MÁX</span>
                     </div>
 
-                    <div style={styles.setsRowsList}>
-                      {ex.sets.map((s, sIdx) => (
-                        <div key={s.id || sIdx} style={styles.setRow}>
-                          <div style={styles.setNumberBadge}>{s.setNumber}</div>
-                          <div style={styles.setKgCol}>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.5"
-                              value={s.weight === 0 ? '' : s.weight}
-                              placeholder="0"
-                              onChange={(e) => handleUpdateSet(exIdx, sIdx, 'weight', e.target.value)}
-                              style={styles.setInput}
-                            />
-                          </div>
-                          <div style={styles.setRepsCol}>
-                            <input
-                              type="number"
-                              min="1"
-                              value={s.reps === 0 ? '' : s.reps}
-                              placeholder="10"
-                              onChange={(e) => handleUpdateSet(exIdx, sIdx, 'reps', e.target.value)}
-                              style={styles.setInput}
-                            />
-                          </div>
-                          <div style={styles.setActionCol}>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteSet(exIdx, sIdx)}
-                              style={styles.deleteSetRowBtn}
-                              title="Eliminar serie"
-                            >
-                              <X size={15} color="var(--text-muted)" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                    <div style={styles.configRow}>
+                      <div style={styles.configCell}>
+                        <input
+                          type="number"
+                          min="1"
+                          max="30"
+                          value={ex.config.targetSets}
+                          onChange={(e) => handleUpdateConfig(exIdx, 'targetSets', e.target.value)}
+                          style={styles.setInput}
+                        />
+                      </div>
+                      <div style={styles.configCell}>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.5"
+                          value={ex.config.targetWeight === 0 ? '' : ex.config.targetWeight}
+                          placeholder="0"
+                          onChange={(e) => handleUpdateConfig(exIdx, 'targetWeight', e.target.value)}
+                          style={styles.setInput}
+                        />
+                      </div>
+                      <div style={styles.configCell}>
+                        <input
+                          type="number"
+                          min="1"
+                          value={ex.config.targetRepetitionsMin}
+                          onChange={(e) => handleUpdateConfig(exIdx, 'targetRepetitionsMin', e.target.value)}
+                          style={styles.setInput}
+                        />
+                      </div>
+                      <div style={styles.configCell}>
+                        <input
+                          type="number"
+                          min="1"
+                          value={ex.config.targetRepetitionsMax}
+                          onChange={(e) => handleUpdateConfig(exIdx, 'targetRepetitionsMax', e.target.value)}
+                          style={styles.setInput}
+                        />
+                      </div>
                     </div>
 
-                    {/* + Agregar Serie button */}
-                    <button
-                      type="button"
-                      style={styles.addSetBtn}
-                      onClick={() => handleAddSet(exIdx)}
-                    >
-                      <Plus size={16} />
-                      <span>Agregar Serie</span>
-                    </button>
+                    {/* Set count adjustments */}
+                    <div style={styles.setCountControls}>
+                      <button
+                        type="button"
+                        style={styles.addSetBtn}
+                        onClick={() => handleAddSet(exIdx)}
+                      >
+                        <Plus size={16} />
+                        <span>+ Serie</span>
+                      </button>
+                      {ex.config.targetSets > 1 && (
+                        <button
+                          type="button"
+                          style={styles.removeSetBtn}
+                          onClick={() => handleDeleteSet(exIdx)}
+                        >
+                          <X size={16} />
+                          <span>− Serie</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -1327,7 +1343,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   setsTableHeader: {
     display: 'grid',
-    gridTemplateColumns: '48px 1fr 1fr 36px',
+    gridTemplateColumns: 'repeat(4, 1fr)',
     gap: '0.75rem',
     padding: '0.2rem 0.4rem',
     fontSize: '0.72rem',
@@ -1344,37 +1360,34 @@ const styles: Record<string, React.CSSProperties> = {
   colHeaderReps: {
     textAlign: 'center',
   },
-  colHeaderAction: {},
-  setsRowsList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.5rem',
-  },
-  setRow: {
+  configRow: {
     display: 'grid',
-    gridTemplateColumns: '48px 1fr 1fr 36px',
+    gridTemplateColumns: 'repeat(4, 1fr)',
     gap: '0.75rem',
     alignItems: 'center',
   },
-  setNumberBadge: {
-    width: '32px',
-    height: '32px',
-    borderRadius: 'var(--radius-element)',
-    backgroundColor: 'var(--surface-color)',
-    color: 'var(--text-primary)',
-    fontSize: '0.85rem',
-    fontWeight: 800,
+  configCell: {
+    display: 'flex',
+  },
+  setCountControls: {
+    display: 'flex',
+    gap: '0.5rem',
+    marginTop: '0.25rem',
+  },
+  removeSetBtn: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    margin: '0 auto',
-    border: '1px solid var(--border-color)',
-  },
-  setKgCol: {
-    display: 'flex',
-  },
-  setRepsCol: {
-    display: 'flex',
+    gap: '0.4rem',
+    padding: '0.75rem',
+    borderRadius: 'var(--radius-container)',
+    backgroundColor: 'rgba(192, 105, 105, 0.1)',
+    border: '1px dashed var(--danger-color)',
+    color: 'var(--danger-color)',
+    fontSize: '0.88rem',
+    fontWeight: 700,
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
   },
   setInput: {
     width: '100%',
@@ -1387,19 +1400,6 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 'var(--radius-control)',
     color: 'var(--text-primary)',
     outline: 'none',
-  },
-  setActionCol: {
-    display: 'flex',
-    justifyContent: 'center',
-  },
-  deleteSetRowBtn: {
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    padding: '0.35rem',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   addSetBtn: {
     display: 'flex',

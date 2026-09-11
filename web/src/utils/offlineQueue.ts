@@ -46,6 +46,28 @@ export class OfflineQueueManager {
 
   enqueue(action: Omit<QueuedAction, 'id' | 'timestamp'>): void {
     const queue = this.getQueue();
+    const method = action.method.toUpperCase();
+
+    // Repeated PATCH/PUT to the same URL must not accumulate: only the latest
+    // payload matters (the server applies last-write-wins). Replacing keeps the
+    // queue short and avoids replaying stale intermediate values out of order.
+    if (method === 'PATCH' || method === 'PUT') {
+      const lastIndex = queue.reduce(
+        (match, item, index) => (item.method === method && item.url === action.url ? index : match),
+        -1,
+      );
+      if (lastIndex >= 0) {
+        queue[lastIndex] = {
+          ...queue[lastIndex],
+          body: action.body,
+          description: action.description,
+          timestamp: Date.now(),
+        };
+        this.saveQueue(queue);
+        return;
+      }
+    }
+
     const item: QueuedAction = {
       ...action,
       id: `queue_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -53,6 +75,14 @@ export class OfflineQueueManager {
     };
     queue.push(item);
     this.saveQueue(queue);
+  }
+
+  clear(): void {
+    try {
+      localStorage.removeItem(QUEUE_STORAGE_KEY);
+    } catch {
+      // Ignore
+    }
   }
 
   async processQueue(onSuccessNotice?: (count: number, droppedCount: number) => void): Promise<number> {

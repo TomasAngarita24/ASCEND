@@ -16,11 +16,11 @@ interface AddExerciseInput { position?: number }
 interface SetInput {
   isCompleted?: boolean;
   notes?: string;
-  repetitions?: number;
+  repetitions?: number | null;
   rpe?: number;
   setNumber?: number;
   setType?: string;
-  weight?: number;
+  weight?: number | null;
 }
 
 interface WorkoutHistoryInput {

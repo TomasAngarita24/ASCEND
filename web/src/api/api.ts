@@ -378,6 +378,14 @@ export class ApiError extends Error {
   }
 }
 
+/** Sent when a mutation was enqueued for offline sync (it will be replayed later). */
+export class OfflineQueuedError extends Error {
+  constructor() {
+    super('Sin conexión: los cambios quedarán guardados y se sincronizarán al reconectarte.');
+    this.name = 'OfflineQueuedError';
+  }
+}
+
 /** Coerces an unknown thrown value into an error, keeping the HTTP status when present. */
 export function toError(err: unknown): { message: string; status?: number } {
   if (err instanceof ApiError) {
@@ -464,6 +472,7 @@ class ApiClient {
           body,
           description: `${method} ${path}`,
         });
+        throw new OfflineQueuedError();
       }
       throw new Error('No fue posible conectar con el servidor. Verifica tu conexión a internet.');
     }
@@ -725,7 +734,7 @@ async reorderRoutineExercises(accessToken: string, routineId: string, routineExe
     workoutId: string,
     exerciseId: string,
     setId: string,
-    input: { weight?: number; repetitions?: number; rpe?: number; isCompleted?: boolean },
+    input: { weight?: number | null; repetitions?: number | null; rpe?: number; isCompleted?: boolean },
   ): Promise<WorkoutSet> {
     const res = await this.request<{ set: WorkoutSet }>(`/workouts/${workoutId}/exercises/${exerciseId}/sets/${setId}`, {
       method: 'PATCH',

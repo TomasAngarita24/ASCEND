@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { api, type ActiveWorkout, type AuthSession, type RoutineDetail, type User } from './api/api';
@@ -105,6 +105,9 @@ export function App() {
 
   const handleLogout = useCallback(() => {
     api.logout().catch(() => {});
+    // Pending offline mutations belong to this user: never replay them under a
+    // different account after the next login.
+    offlineQueue.clear();
     localStorage.removeItem('ascend_session');
     localStorage.removeItem('ascend_profile');
     localStorage.removeItem('ascend_active_workout_id');
@@ -234,8 +237,11 @@ export function App() {
     }
   };
 
+  const startWorkoutInFlight = useRef(false);
+
   const handleStartWorkout = async (routineId?: string) => {
-    if (!session) return;
+    if (!session || startWorkoutInFlight.current) return;
+    startWorkoutInFlight.current = true;
     try {
       const workout = await api.startWorkout(session.tokens.accessToken, routineId);
       setActiveWorkout(workout);
@@ -243,6 +249,8 @@ export function App() {
       navigate('/active-workout');
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Error al iniciar el entrenamiento.');
+    } finally {
+      startWorkoutInFlight.current = false;
     }
   };
 

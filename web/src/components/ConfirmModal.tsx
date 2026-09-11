@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 
 interface ConfirmModalProps {
@@ -8,7 +8,7 @@ interface ConfirmModalProps {
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: 'danger' | 'warning';
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   onCancel: () => void;
 }
 
@@ -22,14 +22,29 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   onConfirm,
   onCancel,
 }) => {
-  if (!isOpen) return null;
+  const [pending, setPending] = useState(false);
+
+  if (!isOpen) {
+    if (pending) setPending(false);
+    return null;
+  }
+
+  const handleConfirm = async () => {
+    if (pending) return;
+    setPending(true);
+    try {
+      await onConfirm();
+    } finally {
+      setPending(false);
+    }
+  };
 
   const accentColor = variant === 'danger' ? 'var(--danger-color)' : 'var(--accent-gold)';
   const accentBg = variant === 'danger' ? 'rgba(192, 105, 105, 0.12)' : 'rgba(192, 138, 90, 0.12)';
   const accentBorder = variant === 'danger' ? 'rgba(192, 105, 105, 0.28)' : 'rgba(192, 138, 90, 0.28)';
 
   return (
-    <div className="modal-overlay" onClick={onCancel}>
+    <div className="modal-overlay" onClick={pending ? undefined : onCancel}>
       <div
         className="modal-content"
         onClick={(e) => e.stopPropagation()}
@@ -37,6 +52,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
       >
         <button
           onClick={onCancel}
+          disabled={pending}
           style={{
             position: 'absolute',
             top: '1.1rem',
@@ -47,6 +63,9 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             color: 'var(--text-muted)',
             display: 'flex',
             alignItems: 'center',
+            opacity: pending ? 0.4 : 1,
+            cursor: pending ? 'default' : 'pointer',
+            border: 'none',
           }}
         >
           <X size={18} />
@@ -94,6 +113,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
           <button
             onClick={onCancel}
+            disabled={pending}
             style={{
               padding: '0.7rem 1.4rem',
               borderRadius: 'var(--radius-control)',
@@ -102,13 +122,16 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
               color: 'var(--text-secondary)',
               fontWeight: 600,
               fontSize: '0.9rem',
+              opacity: pending ? 0.5 : 1,
+              cursor: pending ? 'default' : 'pointer',
             }}
           >
             {cancelLabel}
           </button>
 
           <button
-            onClick={() => { onConfirm(); }}
+            onClick={handleConfirm}
+            disabled={pending}
             style={{
               padding: '0.7rem 1.4rem',
               borderRadius: 'var(--radius-control)',
@@ -117,9 +140,11 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
               color: accentColor,
               fontWeight: 700,
               fontSize: '0.9rem',
+              opacity: pending ? 0.55 : 1,
+              cursor: pending ? 'default' : 'pointer',
             }}
           >
-            {confirmLabel}
+            {pending ? 'Procesando...' : confirmLabel}
           </button>
         </div>
       </div>

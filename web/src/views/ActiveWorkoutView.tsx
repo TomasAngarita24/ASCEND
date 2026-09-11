@@ -15,7 +15,7 @@ import {
   Dumbbell,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { api, type ActiveWorkout, type ExerciseSummary, type Tokens } from '../api/api';
+import { api, ApiError, OfflineQueuedError, type ActiveWorkout, type ExerciseSummary, type Tokens } from '../api/api';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { matchesSearch } from '../utils/text';
 import { soundManager } from '../utils/audio';
@@ -66,6 +66,11 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
   const [allExercises, setAllExercises] = useState<ExerciseSummary[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [completing, setCompleting] = useState(false);
+
+  // Guards against double-firing async mutate actions (fast double-clicks)
+  const [togglingSetIds, setTogglingSetIds] = useState<Set<string>>(() => new Set());
+  const [addingSetExerciseIds, setAddingSetExerciseIds] = useState<Set<string>>(() => new Set());
+  const [addingExerciseId, setAddingExerciseId] = useState<string | null>(null);
 
   // Confirm modal state (replaces window.confirm)
   const [confirmState, setConfirmState] = useState<ConfirmState>({
@@ -226,17 +231,20 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
   };
 
   const handleToggleSet = async (exerciseId: string, setId: string, currentlyCompleted: boolean) => {
+    if (togglingSetIds.has(setId)) return;
     const targetExercise = workout.exercises.find((e) => e.id === exerciseId);
     const targetSet = targetExercise?.sets.find((s) => s.id === setId);
     if (!targetSet) return;
 
     const nextCompleted = !currentlyCompleted;
+    setTogglingSetIds((prev) => new Set(prev).add(setId));
 
     try {
+      // Only flip the completion flag. Sending weight/repetitions here would either
+      // persist phantom zeros (weight 0) or be rejected (repetitions 0) when the
+      // user taps complete before typing values.
       const updatedSet = await api.recordWorkoutSet(tokens.accessToken, workout.id, exerciseId, setId, {
         isCompleted: nextCompleted,
-        weight: targetSet.weight ?? 0,
-        repetitions: targetSet.repetitions ?? 0,
       });
 
       setWorkout((prev) => ({
@@ -270,12 +278,22 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
       }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Error al registrar serie.');
+    } finally {
+      setTogglingSetIds((prev) => {
+        const next = new Set(prev);
+        next.delete(setId);
+        return next;
+      });
     }
   };
 
   const handleUpdateSetField = async (exerciseId: string, setId: string, field: 'weight' | 'repetitions', val: string) => {
     const numVal = val === '' ? null : Number(val);
     if (numVal !== null && isNaN(numVal)) return;
+
+    const prevSet = workout.exercises
+      .find((e) => e.id === exerciseId)
+      ?.sets.find((s) => s.id === setId);
 
     setWorkout((prev) => ({
       ...prev,
@@ -291,16 +309,33 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
 
     try {
       await api.recordWorkoutSet(tokens.accessToken, workout.id, exerciseId, setId, {
-        [field]: numVal ?? 0,
+        [field]: numVal,
       });
-    } catch {
-      // Ignore
+    } catch (err: unknown) {
+      // Roll back the optimistic value and surface the failure instead of
+      // silently keeping a value that never reached the server.
+      setWorkout((prev) => ({
+        ...prev,
+        exercises: prev.exercises.map((ex) =>
+          ex.id === exerciseId
+            ? {
+                ...ex,
+                sets: ex.sets.map((s) =>
+                  s.id === setId && prevSet ? { ...s, [field]: prevSet[field] } : s,
+                ),
+              }
+            : ex,
+        ),
+      }));
+      toast.error(err instanceof OfflineQueuedError ? err.message : `No se pudo guardar: ${err instanceof Error ? err.message : 'error inesperado.'}`);
     }
   };
 
   const handleAddSetToExercise = async (exerciseId: string) => {
+    if (addingSetExerciseIds.has(exerciseId)) return;
     const targetExercise = workout.exercises.find((e) => e.id === exerciseId);
     const lastSet = targetExercise?.sets[targetExercise.sets.length - 1];
+    setAddingSetExerciseIds((prev) => new Set(prev).add(exerciseId));
 
     try {
       const newSet = await api.createWorkoutSet(tokens.accessToken, workout.id, exerciseId, {
@@ -319,6 +354,12 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
       }));
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Error al añadir serie.');
+    } finally {
+      setAddingSetExerciseIds((prev) => {
+        const next = new Set(prev);
+        next.delete(exerciseId);
+        return next;
+      });
     }
   };
 
@@ -498,8 +539,16 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
         try {
           await api.finishWorkout(tokens.accessToken, workout.id, 'cancel');
           onFinished();
-        } catch {
-          onFinished();
+        } catch (err: unknown) {
+          if (err instanceof ApiError) {
+            // A real server rejection (e.g. already completed) — keep the local
+            // session and let the user decide, instead of discarding silently.
+            toast.error(err instanceof Error ? err.message : 'Error al cancelar la sesión.');
+          } else {
+            // Network failure: the mutation was enqueued for offline sync and will
+            // cancel server-side; safe to close the local session.
+            onFinished();
+          }
         }
       },
     });
@@ -516,6 +565,8 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
   };
 
   const handleAddExerciseToWorkout = async (exerciseId: string) => {
+    if (addingExerciseId !== null) return;
+    setAddingExerciseId(exerciseId);
     try {
       const addedExercise = await api.addExerciseToWorkout(tokens.accessToken, workout.id, exerciseId);
       const initialSet = await api.createWorkoutSet(tokens.accessToken, workout.id, addedExercise.id, {
@@ -537,6 +588,8 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
       setIsAddModalOpen(false);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Error al añadir ejercicio al entrenamiento.');
+    } finally {
+      setAddingExerciseId(null);
     }
   };
 

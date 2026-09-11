@@ -359,6 +359,21 @@ it('keeps a workout after deleting its source routine', async () => {
     assert.equal(editedSet.repetitions, 10);
     assert.equal(editedSet.notes, 'Felt very strong');
 
+    // Clear a set field with null on a completed workout
+    const clearRes = await request(`/workouts/${workoutId}/exercises/${workoutExerciseId}/sets/${setId}`, {
+      body: JSON.stringify({ weight: null, repetitions: null }), headers, method: 'PATCH',
+    });
+    assert.equal(clearRes.status, 200);
+    const clearedSet = clearRes.body.set as Record<string, unknown>;
+    assert.equal(clearedSet.weight, null);
+    assert.equal(clearedSet.repetitions, null);
+
+    // Restore the values for the remaining assertions
+    const restoreRes = await request(`/workouts/${workoutId}/exercises/${workoutExerciseId}/sets/${setId}`, {
+      body: JSON.stringify({ weight: 85, repetitions: 10 }), headers, method: 'PATCH',
+    });
+    assert.equal(restoreRes.status, 200);
+
     // Delete the workout
     const deleteRes = await request(`/workouts/${workoutId}`, { headers, method: 'DELETE' });
     assert.equal(deleteRes.status, 204);

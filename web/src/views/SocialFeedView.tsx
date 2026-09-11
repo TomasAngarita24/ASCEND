@@ -341,6 +341,7 @@ const PostCard: React.FC<PostCardProps> = ({
 
 export const SocialFeedView: React.FC<SocialViewProps> = ({ tokens, currentUserId, highlightPostId, onHighlightConsumed }) => {
   const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [pendingLikeIds, setPendingLikeIds] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
@@ -414,8 +415,10 @@ export const SocialFeedView: React.FC<SocialViewProps> = ({ tokens, currentUserI
   };
 
   const handleToggleLike = async (post: FeedPost) => {
+    if (pendingLikeIds.has(post.id)) return;
     const nextLiked = !post.likedByMe;
     const delta = nextLiked ? 1 : -1;
+    setPendingLikeIds((prev) => new Set(prev).add(post.id));
     setPosts((prev) =>
       prev.map((p) =>
         p.id === post.id
@@ -438,6 +441,12 @@ export const SocialFeedView: React.FC<SocialViewProps> = ({ tokens, currentUserI
         ),
       );
       toast.error(err instanceof Error ? err.message : 'No se pudo actualizar el Me gusta.');
+    } finally {
+      setPendingLikeIds((prev) => {
+        const next = new Set(prev);
+        next.delete(post.id);
+        return next;
+      });
     }
   };
 

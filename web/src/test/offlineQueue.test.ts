@@ -42,4 +42,31 @@ offlineQueue.enqueue({
     expect(queue[0].description).toBe('Action 1');
     expect(queue[1].description).toBe('Action 2');
   });
+
+  it('replaces consecutive PATCHes to the same URL instead of stacking them', () => {
+    const url = 'http://localhost:3000/workouts/w1/exercises/e1/sets/s1';
+    offlineQueue.enqueue({ url, method: 'PATCH', body: { weight: 50 }, description: 'Set 50' });
+    offlineQueue.enqueue({ url, method: 'PATCH', body: { weight: 55 }, description: 'Set 55' });
+    offlineQueue.enqueue({ url, method: 'PATCH', body: { weight: 60 }, description: 'Set 60' });
+
+    const queue = offlineQueue.getQueue();
+    expect(queue.length).toBe(1);
+    expect(queue[0].body).toEqual({ weight: 60 });
+    expect(queue[0].description).toBe('Set 60');
+  });
+
+  it('keeps different operations for the same URL to preserve last-write-wins only for PATCH/PUT', () => {
+    const url = 'http://localhost:3000/workouts/w1/exercises/e1/sets/s1';
+    offlineQueue.enqueue({ url, method: 'PATCH', body: { weight: 60 }, description: 'Set 60' });
+    offlineQueue.enqueue({ url, method: 'DELETE', description: 'Delete set' });
+
+    const queue = offlineQueue.getQueue();
+    expect(queue.length).toBe(2);
+  });
+
+  it('clears the entire queue', () => {
+    offlineQueue.enqueue({ url: 'http://localhost:3000/x', method: 'PATCH', body: {}, description: 'Op' });
+    offlineQueue.clear();
+    expect(offlineQueue.getQueue()).toEqual([]);
+  });
 });
