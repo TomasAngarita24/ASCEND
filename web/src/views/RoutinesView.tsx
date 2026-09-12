@@ -509,7 +509,8 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ onStartWorkout, onEx
       </div>
 
       {/* Primary Empty Workout Quick Bar */}
-      <div style={styles.quickStartCard} onClick={() => onStartWorkout()}>
+      <div style={styles.quickStartCard} onClick={() => onStartWorkout()} role="button" tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onStartWorkout(); } }}>
         <div style={styles.quickStartLeft}>
           <div style={styles.quickStartIcon}>
             <Play size={20} fill="var(--accent-teal)" color="var(--accent-teal)" style={{ marginLeft: '2px' }} />

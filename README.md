@@ -6,8 +6,10 @@ ASCEND is a workout tracking and training management application. Plan routines,
 
 ### Workout Tracking
 - Record weight, repetitions, RPE, and set type.
-- Integrated rest timer with sound notification.
+- Integrated rest timer with sound notification — pause/resume, +30s, and server-pushed end-of-rest reminders.
 - View previous performance while recording.
+- In-session coaching: suggests a progressive-overload working weight from the last session and flags weekly-volume (deload) warnings.
+- Drop sets with an automatic suggested weight (70%, plate-rounded).
 - Start a workout from scratch or from a routine.
 - Complete or cancel workouts; edit sets afterwards.
 
@@ -21,6 +23,7 @@ ASCEND is a workout tracking and training management application. Plan routines,
 ### Exercise Library
 - Browse 150+ illustrated exercises.
 - Search (accent-insensitive) and filter by muscle group and equipment.
+- Favorites synced to the server and tolerant to offline use (queued and replayed when back online).
 - Create custom exercises.
 - Muscle group targeting metadata powers progress and balance views.
 
@@ -35,6 +38,7 @@ ASCEND is a workout tracking and training management application. Plan routines,
 - Follow/unfollow other athletes.
 - Social feed with posts, likes, and comments.
 - Share completed workouts and routines.
+- Share routines by direct link (`/r/:routineId`).
 - Copy another user's shared routine into your library.
 - Search people by name or username.
 
@@ -45,7 +49,7 @@ ASCEND is a workout tracking and training management application. Plan routines,
 - Google OAuth sign-in.
 - JSON/CSV export, JSON import/backup restore.
 - Offline action queue that replays when the network returns.
-- Installable PWA offline-first shell with service worker.
+- Installable PWA with an "Install app" button, update prompt, and offline-first shell.
 
 ## Tech Stack
 
@@ -78,6 +82,7 @@ ASCEND/
 ├── Caddyfile         # Caddy config (needs APP_DOMAIN for Let's Encrypt)
 ├── .github/          # CI workflow
 ├── .env.example      # Compose environment template
+├── CHANGELOG.md      # Per-fase history of changes
 └── README.md
 ```
 
@@ -166,6 +171,7 @@ Postgres backups: `bash scripts/backup-postgres.sh` (restore: `bash scripts/rest
 
 ## Documentation
 
+- [`CHANGELOG.md`](CHANGELOG.md) — per-fase history of user-facing changes.
 - [`docs/api.md`](docs/api.md) — full HTTP API reference.
 - [`docs/architecture.md`](docs/architecture.md) — design and decisions.
 - [`docs/requirements.md`](docs/requirements.md) — functional requirements.

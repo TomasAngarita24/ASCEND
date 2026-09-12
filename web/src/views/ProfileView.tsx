@@ -493,7 +493,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 ? `${Math.round(w.durationSeconds / 60)} min`
                 : null;
               return (
-                <div key={w.id} style={styles.workoutFeedItem} onClick={() => onNavigate('history')}>
+                <div key={w.id} style={styles.workoutFeedItem} onClick={() => onNavigate('history')} role="button" tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNavigate('history'); } }}>
                   <div style={styles.feedLeft}>
                     <div style={styles.feedIconBadge}>
                       <Dumbbell size={18} color="var(--accent-teal)" />

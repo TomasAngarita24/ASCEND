@@ -147,3 +147,68 @@ describe('ActiveWorkoutView drop set suggestion', () => {
     expect(weightInput).toBeInTheDocument();
   });
 });
+
+describe('ActiveWorkoutView coaching', () => {
+  const detailWithHistory = (setsCompleted: number, weight: number, reps: number) => {
+    vi.spyOn(api, 'listWorkoutHistory').mockResolvedValue([
+      { id: 'w-x', routineId: null, status: 'completed', startedAt: new Date().toISOString(), completedAt: new Date().toISOString(), durationSeconds: 600, exerciseCount: 1, setsCompleted, totalRepetitions: reps, totalVolume: weight * reps * 2 },
+    ]);
+    vi.spyOn(api, 'getWorkout').mockResolvedValue({
+      id: 'w-x',
+      startedAt: new Date().toISOString(),
+      exercises: [
+        {
+          id: 'wex-x',
+          position: 1,
+          restSeconds: 60,
+          exercise: { id: 'ex-1', name: 'Press Banca' },
+          sets: Array.from({ length: setsCompleted }, (_, i) => ({
+            id: `set-x-${i}`,
+            setNumber: i + 1,
+            weight,
+            repetitions: reps,
+            rpe: null,
+            setType: 'normal',
+            isCompleted: true,
+          })),
+        },
+      ],
+    });
+  };
+
+  it('shows a progressive overload suggestion and applies it', async () => {
+    detailWithHistory(3, 80, 12);
+    renderView();
+    await flush();
+
+    const chip = await screen.findByText('Sugerido: 82.5 kg');
+    expect(chip).toBeInTheDocument();
+
+    fireEvent.click(chip);
+    await flush();
+
+    expect(screen.getByDisplayValue('82.5')).toBeInTheDocument();
+    expect(api.recordWorkoutSet).toHaveBeenCalled();
+  });
+
+  it('shows a deload warning for high weekly volume', async () => {
+    detailWithHistory(12, 80, 10);
+    renderView();
+    await flush();
+
+    await screen.findByText(/Deload/);
+    expect(screen.getByText(/Deload \(12 series\/sem\)/)).toBeInTheDocument();
+  });
+
+  it('applies the suggestion by calling recordWorkoutSet with the suggested weight', async () => {
+    detailWithHistory(2, 40, 15);
+    renderView();
+    await flush();
+
+    const chip = await screen.findByText('Sugerido: 42.5 kg');
+    fireEvent.click(chip);
+    await flush();
+
+    expect(api.recordWorkoutSet).toHaveBeenCalledWith('workout-1', 'wex-1', 'set-1', { weight: 42.5 });
+  });
+});

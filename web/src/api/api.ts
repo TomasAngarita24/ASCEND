@@ -14,8 +14,7 @@ const API_BASE_URL =
  * Session architecture: access and refresh tokens live only in httpOnly,
  * SameSite cookies. JavaScript never sees a token value, which makes the app
  * resilient to token exfiltration via XSS. All requests authenticate via
- * cookies; the optional `accessToken` option on `request()` remains only as a
- * legacy discardable field.
+ * cookies.
  */
 
 export interface User {
@@ -488,8 +487,8 @@ class ApiClient {
     });
   }
 
-  async request<T>(path: string, options: RequestInit & { accessToken?: string } = {}, isRetry = false): Promise<T> {
-    const { accessToken: _accessToken, headers, ...rest } = options;
+  async request<T>(path: string, options: RequestInit = {}, isRetry = false): Promise<T> {
+    const { headers, ...rest } = options;
     const isAuthEntry = path === '/auth/login' || path === '/auth/register' || path === '/auth/google';
     let response: Response;
     try {

@@ -437,7 +437,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onStartWorkout }
                 <div style={styles.recentGrid}>
                   {recentWorkouts.map((w) => (
                     <div key={w.id} style={styles.recentItemCard} onClick={() => onNavigate('history')} role="button" tabIndex={0}
-                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onNavigate('history'); }}>
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onNavigate('history'); } if (e.key === ' ') { e.preventDefault(); onNavigate('history'); } }}>
                       <div style={styles.recentItemTop}>
                         <span style={styles.recentDate}>
                           {new Date(w.startedAt).toLocaleDateString('es-ES', {
@@ -473,7 +473,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onStartWorkout }
               <h2 style={styles.cardTitle}>Herramientas del Gimnasio</h2>
 
               <div style={styles.toolsList}>
-                <div style={styles.toolItem} onClick={() => onNavigate('plate-calculator')}>
+                <div style={styles.toolItem} onClick={() => onNavigate('plate-calculator')} role="button" tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNavigate('plate-calculator'); } }}>
                   <div style={{ ...styles.toolIconWrap, backgroundColor: 'rgba(192, 138, 90, 0.12)' }}>
                     <Target size={18} color="var(--accent-blue)" />
                   </div>
@@ -484,7 +485,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onStartWorkout }
                   <ChevronRight size={18} color="var(--text-dim)" />
                 </div>
 
-                <div style={styles.toolItem} onClick={() => onNavigate('measurements')}>
+                <div style={styles.toolItem} onClick={() => onNavigate('measurements')} role="button" tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNavigate('measurements'); } }}>
                   <div style={{ ...styles.toolIconWrap, backgroundColor: 'rgba(192, 138, 90, 0.12)' }}>
                     <Activity size={18} color="var(--accent-teal)" />
                   </div>
@@ -495,7 +497,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onStartWorkout }
                   <ChevronRight size={18} color="var(--text-dim)" />
                 </div>
 
-                <div style={styles.toolItem} onClick={() => onNavigate('exercises')}>
+                <div style={styles.toolItem} onClick={() => onNavigate('exercises')} role="button" tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNavigate('exercises'); } }}>
                   <div style={{ ...styles.toolIconWrap, backgroundColor: 'rgba(192, 138, 90, 0.12)' }}>
                     <Layers size={18} color="var(--accent-gold)" />
                   </div>

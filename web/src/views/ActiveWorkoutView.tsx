@@ -972,7 +972,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
                       }
                     >
                       <Info size={13} />
-                      <span>Deload (${weeklySets} series/sem)</span>
+                      <span>Deload ({weeklySets} series/sem)</span>
                     </button>
                   )}
                 </div>
@@ -1202,6 +1202,8 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
   );
 };
 
+
+const SET_TABLE_GRID_COLUMNS = '56px minmax(0, 1.2fr) minmax(0, 1.1fr) minmax(0, 1.1fr) 50px 32px';
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
@@ -1504,7 +1506,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   tableHeader: {
     display: 'grid',
-    gridTemplateColumns: '56px minmax(0, 1.2fr) minmax(0, 1.1fr) minmax(0, 1.1fr) 50px 32px',
+    gridTemplateColumns: SET_TABLE_GRID_COLUMNS,
     padding: '0.4rem 0.75rem',
     fontSize: '0.72rem',
     fontWeight: 800,
@@ -1514,7 +1516,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   tableRow: {
     display: 'grid',
-    gridTemplateColumns: '56px minmax(0, 1.2fr) minmax(0, 1.1fr) minmax(0, 1.1fr) 50px 32px',
+    gridTemplateColumns: SET_TABLE_GRID_COLUMNS,
     alignItems: 'center',
     padding: '0.45rem 0.75rem',
     borderRadius: 'var(--radius-container)',

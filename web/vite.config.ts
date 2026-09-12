@@ -1,6 +1,29 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import type { ResolvedConfig, Plugin } from 'vite'
+
+/**
+ * vite-plugin-pwa v1.x still hardcodes the deprecated
+ * `output.inlineDynamicImports` for its service worker build (fixed upstream
+ * post-maintenance only). This rewrites the resolved output to the Vite 8
+ * equivalent `codeSplitting: false`, keeping the single-bundle behavior.
+ */
+function fixSwDeprecatedOption(): Plugin {
+  return {
+    name: 'fix-sw-inline-dynamic-imports',
+    configResolved(config: ResolvedConfig) {
+      const output = config.build?.rollupOptions?.output;
+      const outputs = Array.isArray(output) ? output : [output];
+      for (const o of outputs) {
+        if (o && 'inlineDynamicImports' in o) {
+          (o as Record<string, unknown>).codeSplitting = false;
+          delete (o as Record<string, unknown>).inlineDynamicImports;
+        }
+      }
+    },
+  };
+}
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -86,6 +109,9 @@ export default defineConfig({
       },
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png}'],
+        buildPlugins: {
+          vite: [fixSwDeprecatedOption()],
+        },
       },
     }),
   ],
