@@ -1,29 +1,18 @@
 import { prisma } from '../../database/prisma';
 import { dailyReminderMessage, restEndMessage, sendPushToUser } from './push.service';
 
-const restTimers = new Map<string, NodeJS.Timeout>();
-
-/** One-shot "rest finished" push per user; scheduling again replaces the old one. */
-export function scheduleRestPush(userId: string, seconds: number): void {
-  cancelRestPush(userId);
-  const timer = setTimeout(() => {
-    restTimers.delete(userId);
-    void sendPushToUser(userId, {
-      ...restEndMessage,
-      title: '⏰ Descanso terminado',
-      body: '¡A por la siguiente serie!',
-    });
-  }, seconds * 1000);
-  timer.unref();
-  restTimers.set(userId, timer);
+/** Persisted "rest finished" push per user; scheduling again replaces the old one. */
+export async function scheduleRestPush(userId: string, seconds: number): Promise<void> {
+  const scheduledAt = new Date(Date.now() + seconds * 1000);
+  await prisma.restPushSchedule.upsert({
+    where: { userId },
+    update: { scheduledAt },
+    create: { userId, scheduledAt },
+  });
 }
 
-export function cancelRestPush(userId: string): void {
-  const timer = restTimers.get(userId);
-  if (timer) {
-    clearTimeout(timer);
-    restTimers.delete(userId);
-  }
+export async function cancelRestPush(userId: string): Promise<void> {
+  await prisma.restPushSchedule.deleteMany({ where: { userId } });
 }
 
 /**
@@ -85,10 +74,33 @@ async function tickReminders(now: Date): Promise<void> {
 }
 
 export const REMINDER_TICK_MS = 60_000;
+export const REST_SWEEP_MS = 5_000;
 
 let reminderInterval: NodeJS.Timeout | null = null;
+let restSweepInterval: NodeJS.Timeout | null = null;
 
-/** In-process daily reminder scheduler. Run once from server bootstrap. */
+/** Deliver any due rest-push schedules, claiming each row atomically before sending. */
+export async function sweepRestPushes(now: Date = new Date()): Promise<void> {
+  const schedules = await prisma.restPushSchedule.findMany({
+    where: { scheduledAt: { lte: now } },
+    select: { userId: true },
+  });
+
+  for (const schedule of schedules) {
+    const claimed = await prisma.restPushSchedule.deleteMany({
+      where: { userId: schedule.userId, scheduledAt: { lte: now } },
+    });
+    if (claimed.count === 0) continue;
+
+    await sendPushToUser(schedule.userId, {
+      ...restEndMessage,
+      title: '⏰ Descanso terminado',
+      body: '¡A por la siguiente serie!',
+    });
+  }
+}
+
+/** In-process daily reminder + rest-push schedulers. Run once from server bootstrap. */
 export function startReminderScheduler(): void {
   if (reminderInterval) return;
 
@@ -97,6 +109,12 @@ export function startReminderScheduler(): void {
     void tickReminders(new Date());
   }, REMINDER_TICK_MS);
   reminderInterval.unref();
+
+  void sweepRestPushes(new Date());
+  restSweepInterval = setInterval(() => {
+    void sweepRestPushes(new Date());
+  }, REST_SWEEP_MS);
+  restSweepInterval.unref();
 }
 
 export function stopReminderScheduler(): void {
@@ -104,8 +122,8 @@ export function stopReminderScheduler(): void {
     clearInterval(reminderInterval);
     reminderInterval = null;
   }
-  for (const timer of restTimers.values()) {
-    clearTimeout(timer);
+  if (restSweepInterval) {
+    clearInterval(restSweepInterval);
+    restSweepInterval = null;
   }
-  restTimers.clear();
 }

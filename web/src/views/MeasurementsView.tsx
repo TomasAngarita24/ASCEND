@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useId } from 'react';
 import { Scale, Plus, Trash2, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, type Tokens } from '../api/api';
@@ -38,7 +38,8 @@ interface LineChartProps {
   label: string;
 }
 
-const LineChart: React.FC<LineChartProps> = ({ points, color, unit, label }) => {
+const LineChart: React.FC<LineChartProps> = ({ points, color, unit }) => {
+  const gradId = useId();
   const W = 560;
   const H = 160;
   const PAD = { top: 16, right: 20, bottom: 32, left: 48 };
@@ -76,8 +77,6 @@ const LineChart: React.FC<LineChartProps> = ({ points, color, unit, label }) => 
   // X axis labels (show up to 6)
   const step = Math.max(1, Math.floor(points.length / 6));
   const xLabels = points.filter((_, i) => i % step === 0 || i === points.length - 1);
-
-  const gradId = `grad-${label.replace(/\s/g, '')}`;
 
   return (
     <svg viewBox={`0 0 ${W} ${H + PAD.top + PAD.bottom}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
@@ -244,7 +243,7 @@ export const MeasurementsView: React.FC<MeasurementsViewProps> = ({ tokens }) =>
           bodyFat: m.bodyFat,
         })));
       } catch {
-        // Ignore
+        toast.error('Error al cargar tus medidas.');
       } finally {
         setLoading(false);
       }

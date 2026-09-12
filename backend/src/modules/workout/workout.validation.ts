@@ -5,7 +5,9 @@ import { HttpError } from '../../errors/http-error';
 const positiveInteger = z.coerce.number().int().min(1);
 const nonNegativeNumber = z.coerce.number().min(0).max(999999.99);
 const clearableNumber = (schema: z.ZodType<number>) => z.union([z.null(), schema]).optional();
-const setType = z.enum(['normal', 'warmup', 'drop_set', 'failure']);
+const setType = z.enum(['normal', 'warmup', 'drop', 'drop_set', 'failure']).transform((value) =>
+  value === 'drop' ? 'drop_set' : value,
+);
 const workoutId = z.uuid();
 
 const startWorkoutSchema = z.object({ routineId: workoutId.optional() }).strict();
@@ -29,23 +31,22 @@ const reorderWorkoutExercisesSchema = z.object({
   exerciseIds: z.array(workoutId).min(1).max(100),
 }).strict();
 
-const nullableCoercedNumber = (schema: z.ZodType<number>) =>
-  z.union([z.null(), schema]).optional();
-
 const exportRowSchema = z.object({
   workoutId: z.string().trim().max(255).nullish(),
   date: z.string().trim().max(50).nullish(),
   startedAt: z.string().trim().max(50).nullish(),
   completedAt: z.string().trim().max(50).nullish(),
-  durationSeconds: nullableCoercedNumber(z.coerce.number().int().min(0)),
+  durationSeconds: clearableNumber(z.coerce.number().int().min(0)),
   exercise: z.string().trim().max(255).nullish(),
-  setNumber: nullableCoercedNumber(z.coerce.number().int().min(1)),
-  weight: nullableCoercedNumber(z.coerce.number().min(0).max(999999.99)),
-  repetitions: nullableCoercedNumber(z.coerce.number().int().min(0).max(100000)),
-  rpe: nullableCoercedNumber(z.coerce.number().min(0).max(10)),
-  setType: z.enum(['normal', 'warmup', 'drop_set', 'failure']).nullish(),
+  setNumber: clearableNumber(z.coerce.number().int().min(1)),
+  weight: clearableNumber(z.coerce.number().min(0).max(999999.99)),
+  repetitions: clearableNumber(z.coerce.number().int().min(0).max(100000)),
+  rpe: clearableNumber(z.coerce.number().min(0).max(10)),
+  setType: z.enum(['normal', 'warmup', 'drop', 'drop_set', 'failure']).transform((value) =>
+    value === 'drop' ? 'drop_set' : value,
+  ).nullish(),
   notes: z.string().max(2000).nullish(),
-  volume: nullableCoercedNumber(z.coerce.number().min(0).max(99999999)),
+  volume: clearableNumber(z.coerce.number().min(0).max(99999999)),
 });
 const importWorkoutHistorySchema = z.object({
   data: z.array(exportRowSchema).min(1).max(10000),

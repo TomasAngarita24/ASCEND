@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 
 interface ConfirmModalProps {
@@ -24,10 +24,11 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
 }) => {
   const [pending, setPending] = useState(false);
 
-  if (!isOpen) {
-    if (pending) setPending(false);
-    return null;
-  }
+  useEffect(() => {
+    if (!isOpen) setPending(false);
+  }, [isOpen]);
+
+  if (!isOpen) return null;
 
   const handleConfirm = async () => {
     if (pending) return;

@@ -17,7 +17,7 @@ interface ExerciseConfiguration {
   targetWeight?: number;
 }
 
-function toRoutineExerciseResponse(item: RoutineExercise & { exercise: { id: string; name: string } }): RoutineExerciseResponse {
+function toRoutineExerciseResponse(item: RoutineExercise & { exercise: { id: string; name: string; mediaUrl: string | null; targetMuscleGroups: string[] } }): RoutineExerciseResponse {
   return {
     id: item.id,
     position: item.position,
@@ -27,7 +27,7 @@ function toRoutineExerciseResponse(item: RoutineExercise & { exercise: { id: str
     targetWeight: item.targetWeight === null ? null : Number(item.targetWeight),
     restSeconds: item.restSeconds,
     notes: item.notes,
-    exercise: { id: item.exercise.id, name: item.exercise.name },
+    exercise: { id: item.exercise.id, name: item.exercise.name, mediaUrl: item.exercise.mediaUrl, targetMuscleGroups: item.exercise.targetMuscleGroups },
   };
 }
 
@@ -242,9 +242,18 @@ export async function saveRoutine(userId: string, input: RoutineSaveInput): Prom
 }
 
 export async function getRoutine(userId: string, routineId: string): Promise<RoutineResponse> {
-  // Owners see their own routine; any authenticated user can view a public one.
+  // Owners see their own routine; any authenticated user can view a public one
+  // or one that was explicitly shared to the feed as a routine or workout post.
   const routine = await prisma.routine.findFirst({
-    where: { id: routineId, OR: [{ userId }, { isPublic: true }] },
+    where: {
+      id: routineId,
+      OR: [
+        { userId },
+        { isPublic: true },
+        { posts: { some: { postType: 'routine' } } },
+        { posts: { some: { routineId } } },
+      ],
+    },
     include: { routineExercises: { include: { exercise: true }, orderBy: { position: 'asc' } } },
   });
 
@@ -385,7 +394,7 @@ export async function addRoutineExercise(
 
     return transaction.routineExercise.create({
       data: { ...input, exerciseId, position, routineId },
-      include: { exercise: { select: { id: true, name: true } } },
+      include: { exercise: { select: { id: true, name: true, mediaUrl: true, targetMuscleGroups: true } } },
     });
   });
 
@@ -403,7 +412,7 @@ export async function updateRoutineExercise(
   const updated = await prisma.$transaction(async (transaction) => {
     const item = await transaction.routineExercise.findFirst({
       where: { id: routineExerciseId, routineId },
-      include: { exercise: { select: { id: true, name: true } } },
+      include: { exercise: { select: { id: true, name: true, mediaUrl: true, targetMuscleGroups: true } } },
     });
     if (!item) {
       throw new HttpError(404, 'ROUTINE_EXERCISE_NOT_FOUND', 'Routine exercise does not exist or is not accessible.');
@@ -444,7 +453,7 @@ export async function updateRoutineExercise(
         ...(input.targetSets !== undefined ? { targetSets: input.targetSets } : {}),
         ...(input.targetWeight !== undefined ? { targetWeight: input.targetWeight } : {}),
       },
-      include: { exercise: { select: { id: true, name: true } } },
+      include: { exercise: { select: { id: true, name: true, mediaUrl: true, targetMuscleGroups: true } } },
     });
   });
 

@@ -14,7 +14,6 @@ import {
   Sun,
   Moon,
 } from 'lucide-react';
-import type { User as UserType } from '../api/api';
 import { useTheme } from '../context/ThemeContext';
 
 export type NavTab =
@@ -32,16 +31,12 @@ export type NavTab =
 interface SidebarProps {
   activeTab: NavTab;
   onTabChange: (tab: NavTab) => void;
-  user: UserType;
-  onLogout: () => void;
   hasActiveWorkout: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onTabChange,
-  user: _user,
-  onLogout: _onLogout,
   hasActiveWorkout,
 }) => {
   const { theme, toggleTheme } = useTheme();

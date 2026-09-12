@@ -13,6 +13,7 @@ export interface FeedWorkoutExercise {
 
 export interface FeedWorkout {
   id: string;
+  routineId: string | null;
   routineName: string | null;
   completedAt: string | null;
   durationSeconds: number;

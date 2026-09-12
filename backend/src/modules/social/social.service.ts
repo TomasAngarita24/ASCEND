@@ -13,7 +13,7 @@ type PostWithDetails = Prisma.PostGetPayload<{
     author: { select: { id: true; fullName: true; avatarUrl: true } };
     workout: {
       include: {
-        routine: { select: { name: true } };
+        routine: { select: { id: true, name: true } };
         workoutExercises: {
           include: {
             exercise: { select: { id: true; name: true; mediaUrl: true } };
@@ -41,7 +41,7 @@ const FEED_INCLUDE = {
   author: { select: { id: true, fullName: true, avatarUrl: true } },
   workout: {
     include: {
-      routine: { select: { name: true } },
+      routine: { select: { id: true, name: true } },
       workoutExercises: {
         include: {
           exercise: { select: { id: true, name: true, mediaUrl: true } },
@@ -127,6 +127,7 @@ function toFeedPost(post: PostWithDetails, likedPostIds: Set<string>): FeedPost 
     workout: workout
       ? {
         id: workout.id,
+        routineId: workout.routine?.id ?? null,
         routineName: workout.routine?.name ?? null,
         completedAt: workout.completedAt?.toISOString() ?? null,
         durationSeconds,

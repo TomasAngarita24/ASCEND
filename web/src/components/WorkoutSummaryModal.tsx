@@ -63,6 +63,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
       setShared(true);
     } catch {
       setShared(false);
+      toast.error('No se pudo compartir el entrenamiento.');
     }
   };
 

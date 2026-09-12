@@ -2,7 +2,7 @@ import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
-import { CacheFirst, NetworkFirst } from 'workbox-strategies';
+import { CacheFirst } from 'workbox-strategies';
 
 type PrecacheEntry = { url: string; revision: string | null };
 
@@ -12,23 +12,6 @@ precacheAndRoute(self.__WB_MANIFEST);
 
 // SPA shell: navigations are served from the precached index.html when offline.
 registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html')));
-
-// Same-origin API reads: network-first with a short timeout + day-long cache.
-registerRoute(
-  ({ request, url }) =>
-    request.method === 'GET' &&
-    /^\/(auth|exercises|routines|routine-templates|workouts|social|users|progress|measurements|health)(\/|$)/.test(
-      url.pathname,
-    ),
-  new NetworkFirst({
-    cacheName: 'ascend-api',
-    networkTimeoutSeconds: 4,
-    plugins: [
-      new CacheableResponsePlugin({ statuses: [0, 200] }),
-      new ExpirationPlugin({ maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 }),
-    ],
-  }),
-);
 
 // Images: cache-first, pruned after 30 days.
 registerRoute(

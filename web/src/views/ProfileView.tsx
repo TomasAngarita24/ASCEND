@@ -25,32 +25,36 @@ function getMonday(date: Date): Date {
   return d;
 }
 
+/** Return an ISO date string shifted by whole calendar weeks, immune to DST shifts. */
+function addWeeksToIsoDate(isoDate: string, weeks: number): string {
+  const utc = new Date(`${isoDate}T00:00:00.000Z`);
+  utc.setUTCDate(utc.getUTCDate() + weeks * 7);
+  return utc.toISOString().slice(0, 10);
+}
+
 /** Calculate consecutive weekly streak from sorted completed workout dates (desc) */
 function calcWeeklyStreak(workoutDates: Date[]): number {
   if (workoutDates.length === 0) return 0;
 
-  // Get distinct weeks (Mon) that have at least one workout
+  // Get distinct weeks (Mon) that have at least one workout, as ISO dates.
   const weekSet = new Set<string>();
   for (const d of workoutDates) {
-    const mon = getMonday(d);
-    weekSet.add(mon.toISOString().slice(0, 10));
+    weekSet.add(getMonday(d).toISOString().slice(0, 10));
   }
 
-  const sortedWeeks = Array.from(weekSet)
-    .map((s) => new Date(s))
-    .sort((a, b) => b.getTime() - a.getTime());
+  const sortedWeeks = Array.from(weekSet).sort().reverse();
 
-  const thisWeekMon = getMonday(new Date());
+  const thisWeekMonday = getMonday(new Date()).toISOString().slice(0, 10);
 
-  // Allow current week or last week to start streak
+  // Allow the current week or the previous week to start the streak.
   let streak = 0;
-  let expected = new Date(thisWeekMon);
+  let expected = thisWeekMonday;
 
-  for (const weekMon of sortedWeeks) {
-    if (weekMon.getTime() === expected.getTime() || weekMon.getTime() === new Date(expected.getTime() + 7 * 86400000).getTime()) {
+  for (const week of sortedWeeks) {
+    if (week === expected || week === addWeeksToIsoDate(expected, 1)) {
       streak++;
-      expected.setDate(expected.getDate() - 7);
-    } else if (weekMon.getTime() < expected.getTime()) {
+      expected = addWeeksToIsoDate(expected, -1);
+    } else if (week < expected) {
       break;
     }
   }
@@ -158,12 +162,13 @@ const ActivityCalendar: React.FC<CalendarProps> = ({ workoutDays }) => {
           {columns.map((col, wi) => (
             <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap: `${CELL_GAP}px` }}>
               {col.map((cell, di) => {
-                if (!cell) return <div key={di} style={{ width: CELL_SIZE, height: CELL_SIZE }} />;
+                if (!cell) return <div key={di} aria-hidden="true" style={{ width: CELL_SIZE, height: CELL_SIZE }} />;
                 const isWorkout = workoutDays.has(cell.dateKey);
                 return (
                   <div
                     key={di}
-                    title={cell.dateKey}
+                    role="img"
+                    aria-label={`${cell.dateKey}${isWorkout ? ', entrenamiento registrado' : ', sin entrenamiento'}`}
                     style={{
                       width: CELL_SIZE,
                       height: CELL_SIZE,
@@ -203,6 +208,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [workouts, setWorkouts] = useState<WorkoutHistoryEntry[]>([]);
   const [workoutDetails, setWorkoutDetails] = useState<WorkoutDetailEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
 
   const displayName = profileData.fullName.trim()
     || (user.email.includes('@') ? user.email.split('@')[0] : user.email);
@@ -211,15 +218,19 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     Promise.all([
       api.listRoutines(tokens.accessToken).catch(() => []),
       api.listWorkoutHistory(tokens.accessToken).catch(() => []),
-    ]).then(([rList, wList]) => {
+      api.getUserFollowers(tokens.accessToken, user.id, 1, 1).then((res) => res.pagination.total).catch(() => 0),
+      api.getUserFollowing(tokens.accessToken, user.id, 1, 1).then((res) => res.pagination.total).catch(() => 0),
+    ]).then(([rList, wList, followers, following]) => {
       setRoutines(rList);
       setWorkouts(wList);
+      setFollowersCount(followers);
+      setFollowingCount(following);
       // Load last 15 workouts in detail for real PR data
       const recent = wList.slice(0, 15);
       Promise.all(recent.map(w => api.getWorkout(tokens.accessToken, w.id).catch(() => null)))
         .then(results => setWorkoutDetails(results.filter(Boolean) as WorkoutDetailEntry[]));
     }).finally(() => setLoading(false));
-  }, [tokens]);
+  }, [tokens, user.id]);
 
   const workoutDates = useMemo(
     () => workouts.map((w) => new Date(w.startedAt)),
@@ -285,11 +296,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <span style={styles.counterLabel}>Entrenamientos</span>
             </div>
             <div style={styles.counterBox}>
-              <span style={styles.counterNum}>0</span>
+              <span style={styles.counterNum}>{followersCount}</span>
               <span style={styles.counterLabel}>Seguidores</span>
             </div>
             <div style={styles.counterBox}>
-              <span style={styles.counterNum}>0</span>
+              <span style={styles.counterNum}>{followingCount}</span>
               <span style={styles.counterLabel}>Siguiendo</span>
             </div>
           </div>

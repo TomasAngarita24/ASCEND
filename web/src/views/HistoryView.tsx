@@ -19,9 +19,16 @@ import {
   XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { api, type WorkoutHistoryEntry, type WorkoutDetailEntry, type Tokens } from '../api/api';
+import { api, type WorkoutHistoryEntry, type WorkoutDetailEntry, type WorkoutSet, type Tokens } from '../api/api';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { roundOneRepMax } from '../utils/oneRepMax';
+
+// Legacy rows may still carry "drop"; normalize just for display.
+function setTypeCategory(setType: WorkoutSet['setType'] | string): 'warmup' | 'drop' | 'failure' {
+  if (setType === 'warmup') return 'warmup';
+  if (setType === 'drop' || setType === 'drop_set') return 'drop';
+  return 'failure';
+}
 
 interface HistoryViewProps {
   tokens: Tokens;
@@ -69,7 +76,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
       setLoading(true);
       api.listWorkoutHistory(tokens.accessToken)
         .then(setWorkouts)
-        .catch(() => {})
+        .catch(() => toast.error('Error al cargar el historial de entrenamientos.'))
         .finally(() => setLoading(false));
     };
 
@@ -491,6 +498,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
 
                         {exItem.sets.map((s) => {
                           const isDone = s.isCompleted;
+                          const setCat = setTypeCategory(s.setType);
                           const est1RM =
                             s.weight && s.repetitions ? estimate1RM(s.weight, s.repetitions) : null;
 
@@ -559,7 +567,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
                                 <span style={{ fontWeight: 800, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
                                   #{s.setNumber}
                                 </span>
-                                {s.setType && s.setType !== 'normal' && (
+                                {s.setType !== 'normal' && (
                                   <span
                                     style={{
                                       fontSize: '0.68rem',
@@ -567,27 +575,27 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
                                       padding: '1px 5px',
                                       borderRadius: '4px',
                                       backgroundColor:
-                                        s.setType === 'warmup'
+                                        setCat === 'warmup'
                                           ? 'rgba(192, 138, 90, 0.15)'
-                                          : s.setType === 'drop'
+                                          : setCat === 'drop'
                                           ? 'rgba(192, 194, 198, 0.14)'
                                           : 'rgba(192, 105, 105, 0.15)',
                                       color:
-                                        s.setType === 'warmup'
+                                        setCat === 'warmup'
                                           ? 'var(--accent-teal)'
-                                          : s.setType === 'drop'
+                                          : setCat === 'drop'
                                           ? '#C0C2C6'
                                           : 'var(--danger-color)',
                                     }}
                                     title={
-                                      s.setType === 'warmup'
+                                      setCat === 'warmup'
                                         ? 'Serie de Calentamiento'
-                                        : s.setType === 'drop'
+                                        : setCat === 'drop'
                                         ? 'Drop Set'
                                         : 'Serie al Fallo'
                                     }
                                   >
-                                    {s.setType === 'warmup' ? 'W' : s.setType === 'drop' ? 'D' : 'F'}
+                                    {setCat === 'warmup' ? 'W' : setCat === 'drop' ? 'D' : 'F'}
                                   </span>
                                 )}
                               </div>

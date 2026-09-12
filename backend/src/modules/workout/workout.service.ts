@@ -49,6 +49,7 @@ function toWorkoutExerciseResponse(item: WorkoutExercise & { exercise: { id: str
   return {
     id: item.id,
     position: item.position,
+    restSeconds: item.restSeconds,
     exercise: { id: item.exercise.id, name: item.exercise.name, mediaUrl: item.exercise.mediaUrl },
     sets: [...item.sets].sort((left, right) => left.setNumber - right.setNumber).map(toSetResponse),
   };
@@ -118,7 +119,9 @@ export async function startWorkout(userId: string, routineId?: string): Promise<
     position: number;
     targetSets: number | null;
     targetRepetitionsMin: number | null;
+    targetRepetitionsMax: number | null;
     targetWeight: Prisma.Decimal | null;
+    restSeconds: number | null;
   }> = [];
   if (routineId) {
     const routine = await prisma.routine.findFirst({
@@ -133,12 +136,14 @@ export async function startWorkout(userId: string, routineId?: string): Promise<
     if (!routine) {
       throw new HttpError(404, 'ROUTINE_NOT_FOUND', 'Routine does not exist or is not accessible.');
     }
-    routineExercises = routine.routineExercises.map(({ exerciseId, position, targetSets, targetRepetitionsMin, targetWeight }) => ({
+    routineExercises = routine.routineExercises.map(({ exerciseId, position, targetSets, targetRepetitionsMin, targetRepetitionsMax, targetWeight, restSeconds }) => ({
       exerciseId,
       position,
       targetSets,
       targetRepetitionsMin,
+      targetRepetitionsMax,
       targetWeight,
+      restSeconds,
     }));
   }
 
@@ -149,15 +154,17 @@ export async function startWorkout(userId: string, routineId?: string): Promise<
       workoutExercises: {
         create: routineExercises.map((item) => {
           const setCount = Math.max(1, item.targetSets ?? 1);
+          const repsBase = item.targetRepetitionsMax ?? item.targetRepetitionsMin ?? null;
           return {
             exerciseId: item.exerciseId,
             position: item.position,
+            restSeconds: item.restSeconds,
             sets: {
               create: Array.from({ length: setCount }, (_, index) => ({
                 setNumber: index + 1,
                 setType: 'normal',
                 weight: item.targetWeight ?? null,
-                repetitions: item.targetRepetitionsMin ?? null,
+                repetitions: repsBase === null ? null : Math.max(1, repsBase - index),
               })),
             },
           };

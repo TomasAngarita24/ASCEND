@@ -10,6 +10,8 @@ export interface RoutineExerciseResponse {
   exercise: {
     id: string;
     name: string;
+    mediaUrl: string | null;
+    targetMuscleGroups: string[];
   };
 }
 

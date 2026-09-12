@@ -291,7 +291,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
           });
         }
 
-        startRestTimer(90);
+        startRestTimer(targetExercise?.restSeconds ?? 90);
       }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Error al registrar serie.');
@@ -424,10 +424,11 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
   };
 
   const handleCycleSetType = async (exerciseId: string, setId: string, currentType?: string) => {
-    const cycle: Record<string, 'normal' | 'warmup' | 'drop' | 'failure'> = {
+    const cycle: Record<string, 'normal' | 'warmup' | 'drop_set' | 'failure'> = {
       normal: 'warmup',
-      warmup: 'drop',
-      drop: 'failure',
+      warmup: 'drop_set',
+      drop_set: 'failure',
+      drop: 'drop_set',
       failure: 'normal',
     };
     const nextType = cycle[currentType || 'normal'] || 'normal';
@@ -802,7 +803,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
                   <h3 style={styles.exName}>{exItem.exercise.name}</h3>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <span style={styles.restInfoBadge}>Descanso: 90s</span>
+                  <span style={styles.restInfoBadge}>Descanso: {exItem.restSeconds ?? 90}s</span>
                   <button
                     style={styles.deleteExIconBtn}
                     onClick={() => handleDeleteExercise(exItem.id, exItem.exercise.name)}
@@ -816,7 +817,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
 
               {/* Set Table */}
               <div style={styles.setTable}>
-                <div className="aw-set-table" style={styles.tableHeader}>
+                <div className="aw-set-table aw-set-header" style={styles.tableHeader}>
                   <span>Serie / Tipo</span>
                   <span>Anterior</span>
                   <span>Peso (kg)</span>
@@ -837,10 +838,12 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
                   const setType = set.setType || 'normal';
 
                   // Styling for setType
+                  const dropSetConfig = { label: 'D', color: '#C0C2C6', bg: 'rgba(192, 194, 198, 0.15)', title: 'Drop Set (D) - serie descendente (clic para Fallo)' };
                   const setTypeConfig: Record<string, { label: string; color: string; bg: string; title: string }> = {
                     normal: { label: `${set.setNumber}`, color: 'var(--text-primary)', bg: 'transparent', title: 'Serie Normal (clic para cambiar a Calentamiento)' },
                     warmup: { label: 'W', color: 'var(--accent-teal)', bg: 'rgba(192, 138, 90, 0.15)', title: 'Calentamiento (W) - no cuenta en series pesadas (clic para Drop set)' },
-                    drop: { label: 'D', color: '#C0C2C6', bg: 'rgba(192, 194, 198, 0.15)', title: 'Drop Set (D) - serie descendente (clic para Fallo)' },
+                    drop_set: dropSetConfig,
+                    drop: dropSetConfig,
                     failure: { label: 'F', color: 'var(--danger-color)', bg: 'rgba(192, 105, 105, 0.15)', title: 'Fallo muscular (F) - RPE 10 (clic para Normal)' },
                   };
                   const currentConfig = setTypeConfig[setType] || setTypeConfig.normal;
@@ -1240,7 +1243,7 @@ const styles: Record<string, React.CSSProperties> = {
   exThumb: {
     width: '42px',
     height: '42px',
-    borderRadius: 'var(--radius-element)',
+    borderRadius: '50%',
     objectFit: 'cover',
     flexShrink: 0,
     border: '1px solid var(--border-color)',
@@ -1248,7 +1251,7 @@ const styles: Record<string, React.CSSProperties> = {
   exThumbFallback: {
     width: '42px',
     height: '42px',
-    borderRadius: 'var(--radius-element)',
+    borderRadius: '50%',
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
     display: 'flex',

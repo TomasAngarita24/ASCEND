@@ -168,7 +168,8 @@ describe('workouts', () => {
     assert.equal(sets.length, 4);
     assert.deepEqual(sets.map((set) => set.setNumber), [1, 2, 3, 4]);
     assert.equal(sets[0].weight, 60);
-    assert.equal(sets[0].repetitions, 8);
+    assert.deepEqual(sets.map((set) => set.repetitions), [12, 11, 10, 9]);
+    assert.equal((exercises[0] as Record<string, unknown>).restSeconds, 90);
     assert.equal(sets.every((set) => (set as Record<string, unknown>).setType === 'normal'), true);
   });
   it('pre-fills a single default set when the routine has no target sets', async () => {
@@ -193,7 +194,23 @@ describe('workouts', () => {
     assert.equal(sets[0].weight, null);
     assert.equal(sets[0].repetitions, null);
   });
-it('keeps a workout after deleting its source routine', async () => {
+it('normalizes legacy "drop" set type to "drop_set"', async () => {
+    const accessToken = await registerAndGetAccessToken();
+    const headers = { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' };
+    const exerciseId = await createExercise(accessToken);
+    const started = await request('/workouts', { body: '{}', headers, method: 'POST' });
+    const workoutId = (started.body.workout as Record<string, string>).id;
+    const addedEx = await request(`/workouts/${workoutId}/exercises`, {
+      body: JSON.stringify({ exerciseId }), headers, method: 'POST',
+    });
+    const workoutExerciseId = (addedEx.body.workoutExercise as Record<string, string>).id;
+    const created = await request(`/workouts/${workoutId}/exercises/${workoutExerciseId}/sets`, {
+      body: JSON.stringify({ setType: 'drop', weight: 40, repetitions: 6, isCompleted: true }), headers, method: 'POST',
+    });
+    assert.equal(created.status, 201);
+    assert.equal((created.body.set as Record<string, string>).setType, 'drop_set');
+  });
+  it('keeps a workout after deleting its source routine', async () => {
   const accessToken = await registerAndGetAccessToken();
   const headers = {
     authorization: `Bearer ${accessToken}`,

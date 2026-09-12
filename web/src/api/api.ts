@@ -145,6 +145,8 @@ export interface RoutineExercise {
   exercise: {
     id: string;
     name: string;
+    mediaUrl: string | null;
+    targetMuscleGroups: string[];
   };
   position: number;
   restSeconds: number | null;
@@ -223,7 +225,7 @@ export interface WorkoutSet {
   weight: number | null;
   repetitions: number | null;
   rpe: number | null;
-  setType: 'warmup' | 'normal' | 'drop' | 'failure';
+  setType: 'warmup' | 'normal' | 'drop_set' | 'failure';
   isCompleted: boolean;
   notes?: string | null;
 }
@@ -231,6 +233,7 @@ export interface WorkoutSet {
 export interface WorkoutExercise {
   id: string;
   position: number;
+  restSeconds: number | null;
   exercise: {
     id: string;
     name: string;
@@ -282,6 +285,7 @@ export interface FeedWorkoutExercise {
 
 export interface FeedWorkout {
   id: string;
+  routineId: string | null;
   routineName: string | null;
   completedAt: string | null;
   durationSeconds: number;

@@ -132,7 +132,7 @@ export async function addRoutineTemplateToUser(userId: string, templateId: strin
       targetWeight: item.targetWeight === null ? null : Number(item.targetWeight),
       restSeconds: item.restSeconds,
       notes: item.notes,
-      exercise: { id: item.exercise.id, name: item.exercise.name },
+exercise: { id: item.exercise.id, name: item.exercise.name, mediaUrl: item.exercise.mediaUrl, targetMuscleGroups: item.exercise.targetMuscleGroups },
     })),
     createdAt: routine.createdAt.toISOString(),
     updatedAt: routine.updatedAt.toISOString(),

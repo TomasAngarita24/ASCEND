@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { Dumbbell, Repeat, X } from 'lucide-react';
-import { api, type RoutineDetail, type RoutineExercise } from '../api/api';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Check, Dumbbell, Repeat, X } from 'lucide-react';
+import { api, type RoutineDetail, type RoutineExercise, type WorkoutExercise } from '../api/api';
 
 interface RoutineDetailModalProps {
   routineId: string;
   accessToken: string;
   onClose: () => void;
+  /** When provided, also shows what was actually performed in the linked workout. */
+  workoutId?: string;
 }
 
 function formatTarget(ex: RoutineExercise): string {
@@ -23,8 +25,9 @@ function formatTarget(ex: RoutineExercise): string {
   return parts.length > 0 ? parts.join(' · ') : 'Sin configuración de series';
 }
 
-export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({ routineId, accessToken, onClose }) => {
+export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({ routineId, accessToken, onClose, workoutId }) => {
   const [routine, setRoutine] = useState<RoutineDetail | null>(null);
+  const [workout, setWorkout] = useState<WorkoutExercise[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,9 +35,16 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({ routineI
     let active = true;
     setLoading(true);
     setError(null);
-    api.getRoutine(accessToken, routineId)
-      .then((data) => {
-        if (active) setRoutine(data);
+    setWorkout(null);
+    const routinePromise = api.getRoutine(accessToken, routineId);
+    const workoutPromise = workoutId
+      ? api.getWorkout(accessToken, workoutId).then((w) => w.exercises).catch(() => null)
+      : Promise.resolve(null);
+    Promise.all([routinePromise, workoutPromise])
+      .then(([data, workoutExercises]) => {
+        if (!active) return;
+        setRoutine(data);
+        setWorkout(workoutExercises);
       })
       .catch((err: unknown) => {
         if (active) setError(err instanceof Error ? err.message : 'No se pudo cargar la rutina.');
@@ -45,7 +55,19 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({ routineI
     return () => {
       active = false;
     };
-  }, [accessToken, routineId]);
+  }, [accessToken, routineId, workoutId]);
+
+  // exerciseId -> completed sets actually performed in the published workout.
+  const performedMap = useMemo(() => {
+    const map = new Map<string, { weight: number | null; repetitions: number | null }[]>();
+    for (const we of workout ?? []) {
+      const completed = we.sets
+        .filter((s) => s.isCompleted)
+        .map((s) => ({ weight: s.weight, repetitions: s.repetitions }));
+      if (completed.length > 0) map.set(we.exercise.id, completed);
+    }
+    return map;
+  }, [workout]);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -55,6 +77,7 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({ routineI
             <Repeat size={20} color="var(--accent-teal)" />
             <h2 style={styles.modalTitle}>{routine?.name ?? 'Rutina'}</h2>
             {routine?.isPublic && <span style={styles.visibilityBadge}>Compartida</span>}
+            {workoutId && <span style={styles.performedBadge}>Sesión publicada</span>}
           </div>
           <button style={styles.closeBtn} onClick={onClose} aria-label="Cerrar detalle de la rutina">
             <X size={20} color="var(--text-muted)" />
@@ -76,19 +99,39 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({ routineI
           </div>
         ) : routine ? (
           <div style={styles.exerciseList}>
-            {routine.exercises.map((ex, idx) => (
-              <div key={ex.id} style={styles.exerciseCard}>
-                <div style={styles.indexBadge}>{idx + 1}</div>
-                <div style={styles.exerciseInfo}>
-                  <div style={styles.exerciseName}>{ex.exercise.name}</div>
-                  <div style={styles.exerciseMeta}>
-                    <Dumbbell size={13} color="var(--accent-teal)" />
-                    <span>{formatTarget(ex)}</span>
+            {routine.exercises.map((ex) => {
+              const performed = performedMap.get(ex.exercise.id) ?? null;
+              return (
+                <div key={ex.id} style={styles.exerciseCard}>
+                  {ex.exercise.mediaUrl ? (
+                    <img src={ex.exercise.mediaUrl} alt="" style={styles.exThumb} loading="lazy" />
+                  ) : (
+                    <div style={styles.exThumbFallback}>
+                      <Dumbbell size={16} strokeWidth={1.5} color="var(--text-dim)" />
+                    </div>
+                  )}
+                  <div style={styles.exerciseInfo}>
+                    <div style={styles.exerciseName}>{ex.exercise.name}</div>
+                    <div style={styles.exerciseMeta}>
+                      <Dumbbell size={13} color="var(--accent-teal)" />
+                      <span>{formatTarget(ex)}</span>
+                    </div>
+                    {ex.notes && <div style={styles.exerciseNotes}>{ex.notes}</div>}
+                    {performed !== null && (
+                      <div style={styles.performedWrap}>
+                        <Check size={12} color="var(--accent-green)" />
+                        {performed.slice(0, 8).map((set, i) => (
+                          <span key={i} style={styles.performedChip}>
+                            {set.weight ?? 0} kg × {set.repetitions ?? 0}
+                          </span>
+                        ))}
+                        {performed.length > 8 && <span style={styles.performedChip}>+{performed.length - 8}</span>}
+                      </div>
+                    )}
                   </div>
-                  {ex.notes && <div style={styles.exerciseNotes}>{ex.notes}</div>}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : null}
       </div>
@@ -127,6 +170,18 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--accent-teal)',
     backgroundColor: 'rgba(192, 138, 90, 0.12)',
     border: '1px solid rgba(192, 138, 90, 0.28)',
+    padding: '0.25rem 0.6rem',
+    borderRadius: 'var(--radius-full)',
+  },
+  performedBadge: {
+    flexShrink: 0,
+    fontSize: '0.68rem',
+    fontWeight: 800,
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+    color: 'var(--accent-green)',
+    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    border: '1px solid rgba(34, 197, 94, 0.3)',
     padding: '0.25rem 0.6rem',
     borderRadius: 'var(--radius-full)',
   },
@@ -179,15 +234,21 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
   },
-  indexBadge: {
+  exThumb: {
     flexShrink: 0,
-    width: '28px',
-    height: '28px',
-    borderRadius: 'var(--radius-element)',
-    backgroundColor: 'rgba(192, 138, 90, 0.12)',
-    color: 'var(--accent-teal)',
-    fontSize: '0.85rem',
-    fontWeight: 800,
+    width: '42px',
+    height: '42px',
+    borderRadius: '50%',
+    objectFit: 'cover',
+    backgroundColor: 'var(--surface-color)',
+  },
+  exThumbFallback: {
+    flexShrink: 0,
+    width: '42px',
+    height: '42px',
+    borderRadius: '50%',
+    backgroundColor: 'var(--surface-color)',
+    border: '1px solid var(--border-color)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -217,5 +278,22 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-muted)',
     fontStyle: 'italic',
     marginTop: '0.1rem',
+  },
+  performedWrap: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.35rem',
+    flexWrap: 'wrap',
+    marginTop: '0.2rem',
+  },
+  performedChip: {
+    fontSize: '0.74rem',
+    fontWeight: 700,
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+    border: '1px solid rgba(34, 197, 94, 0.28)',
+    color: 'var(--accent-green)',
+    padding: '0.18rem 0.5rem',
+    borderRadius: 'var(--radius-full)',
+    whiteSpace: 'nowrap',
   },
 };

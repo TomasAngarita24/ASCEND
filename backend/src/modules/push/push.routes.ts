@@ -52,11 +52,11 @@ pushRouter.post('/test', asyncHandler(async (request, response) => {
 
 pushRouter.post('/rest', asyncHandler(async (request, response) => {
   const { seconds } = validateScheduleRest(request.body);
-  scheduleRestPush(request.auth!.userId, seconds);
+  await scheduleRestPush(request.auth!.userId, seconds);
   response.status(204).send();
 }));
 
 pushRouter.delete('/rest', asyncHandler(async (request, response) => {
-  cancelRestPush(request.auth!.userId);
+  await cancelRestPush(request.auth!.userId);
   response.status(204).send();
 }));

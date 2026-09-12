@@ -34,6 +34,7 @@ model User {
   following           UserFollow[]         @relation("UserFollowers")
   followers           UserFollow[]         @relation("UserFollowing")
   workouts            Workout[]
+  restPushSchedule    RestPushSchedule?
 
   @@map("users")
 }
@@ -162,6 +163,7 @@ model WorkoutExercise {
   workoutId  String       @map("workout_id") @db.Uuid
   exerciseId String       @map("exercise_id") @db.Uuid
   position   Int
+  restSeconds Int?        @map("rest_seconds")
   createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt  DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   sets       WorkoutSet[]
@@ -230,6 +232,15 @@ model PushSubscription {
 
   @@index([userId])
   @@map("push_subscription")
+}
+
+model RestPushSchedule {
+  userId      String   @id @map("user_id") @db.Uuid
+  scheduledAt DateTime @map("scheduled_at") @db.Timestamptz(6)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("rest_push_schedule")
 }
 
 model RoutineFolder {

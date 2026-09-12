@@ -458,12 +458,16 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
                   <div style={styles.routineRowIcon}>
                     <Layers size={16} color="var(--accent-blue)" />
                   </div>
-                  <div style={styles.routineRowInfo}>
+                  <button
+                    style={styles.routineRowInfo}
+                    onClick={() => setDetailRoutineId(routine.id)}
+                    title="Ver los ejercicios y series configurados de esta rutina"
+                  >
                     <span style={styles.routineRowName}>{routine.name}</span>
                     <span style={styles.routineRowMeta}>
                       {routine.exerciseCount} {routine.exerciseCount === 1 ? 'ejercicio' : 'ejercicios'}
                     </span>
-                  </div>
+                  </button>
                   <button
                     style={styles.routineViewBtn}
                     onClick={() => setDetailRoutineId(routine.id)}
@@ -778,6 +782,12 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '0.15rem',
     flex: 1,
     minWidth: 0,
+    background: 'none',
+    border: 'none',
+    padding: 0,
+    cursor: 'pointer',
+    textAlign: 'left',
+    fontFamily: 'inherit',
   },
   routineRowName: {
     fontWeight: 700,

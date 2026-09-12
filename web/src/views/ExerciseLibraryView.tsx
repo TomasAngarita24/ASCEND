@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   Search,
   Plus,
@@ -105,6 +105,7 @@ interface ChartPoint { date: string; value: number }
 
 const LineChart: React.FC<{ data: ChartPoint[]; color: string; label: string }> = ({ data, color, label }) => {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const gradId = useId();
   const W = 560;
   const H = 190;
   const PAD = { top: 25, right: 25, bottom: 36, left: 55 };
@@ -179,12 +180,12 @@ const LineChart: React.FC<{ data: ChartPoint[]; color: string; label: string }> 
           </g>
         ))}
         <defs>
-          <linearGradient id={`grad-${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={color} stopOpacity="0.25" />
             <stop offset="100%" stopColor={color} stopOpacity="0.01" />
           </linearGradient>
         </defs>
-        <path d={areaD} fill={`url(#grad-${color.replace('#','')})`} />
+        <path d={areaD} fill={`url(#${gradId})`} />
         <path d={pathD} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         {data.map((d, i) => {
           const isHovered = hoveredIdx === i;
@@ -696,7 +697,7 @@ export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens
           setExercises(exList);
           setWorkoutHistory(hist);
         })
-        .catch(() => {})
+        .catch(() => toast.error('Error al cargar la biblioteca de ejercicios.'))
         .finally(() => setLoading(false));
     };
 

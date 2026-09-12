@@ -56,7 +56,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   const [postingComment, setPostingComment] = useState(false);
   const [commentInput, setCommentInput] = useState('');
   const [commentCount, setCommentCount] = useState(post.commentCount);
-  const [detailRoutineId, setDetailRoutineId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<{ routineId: string; workoutId?: string } | null>(null);
 
   const loadComments = useCallback(async (targetPage: number) => {
     setLoadingComments(true);
@@ -141,7 +141,11 @@ export const PostCard: React.FC<PostCardProps> = ({
 
       {/* Workout snapshot */}
       {post.workout && (
-        <div style={styles.workoutCard}>
+        <div
+          style={post.workout.routineId ? { ...styles.workoutCard, ...styles.clickableCard } : styles.workoutCard}
+          onClick={post.workout.routineId ? () => setDetail({ routineId: post.workout!.routineId!, workoutId: post.workout!.id }) : undefined}
+          title={post.workout.routineId ? 'Ver la rutina con lo realizado en esta sesión' : undefined}
+        >
           <div style={styles.workoutTitleRow}>
             <Flame size={16} color="var(--accent-gold)" />
             <span style={styles.workoutTitle}>{post.workout.routineName || 'Entrenamiento libre'}</span>
@@ -206,7 +210,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           )}
           <button
             style={styles.routineDetailBtn}
-            onClick={() => setDetailRoutineId(post.routine!.id)}
+            onClick={() => setDetail({ routineId: post.routine!.id })}
             title="Ver los ejercicios y series configurados de esta rutina"
           >
             <Eye size={15} />
@@ -215,11 +219,12 @@ export const PostCard: React.FC<PostCardProps> = ({
         </div>
       )}
 
-      {detailRoutineId && (
+      {detail && (
         <RoutineDetailModal
-          routineId={detailRoutineId}
+          routineId={detail.routineId}
+          workoutId={detail.workoutId}
           accessToken={accessToken}
-          onClose={() => setDetailRoutineId(null)}
+          onClose={() => setDetail(null)}
         />
       )}
 
@@ -422,6 +427,10 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     gap: '0.75rem',
+  },
+  clickableCard: {
+    cursor: 'pointer',
+    transition: 'border-color 0.15s ease, transform 0.15s ease',
   },
   workoutTitleRow: {
     display: 'flex',

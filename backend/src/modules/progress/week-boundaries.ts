@@ -22,14 +22,18 @@ export function getWeekAndDayStartUtc(now: Date): WeekAndDayStart {
   return { weekStart, todayStart };
 }
 
-/** True when `date` falls on or after the UTC Monday that starts the current week. */
+/** True when `date` falls within the current UTC week (Monday to Sunday, inclusive of the start). */
 export function isCurrentUtcWeek(date: Date, now: Date): boolean {
   const { weekStart } = getWeekAndDayStartUtc(now);
-  return date >= weekStart;
+  const nextWeekStart = new Date(weekStart);
+  nextWeekStart.setUTCDate(nextWeekStart.getUTCDate() + 7);
+  return date >= weekStart && date < nextWeekStart;
 }
 
 /** True when `date` falls on the current UTC calendar day. */
 export function isCurrentUtcDay(date: Date, now: Date): boolean {
   const { todayStart } = getWeekAndDayStartUtc(now);
-  return date >= todayStart;
+  const nextDayStart = new Date(todayStart);
+  nextDayStart.setUTCDate(nextDayStart.getUTCDate() + 1);
+  return date >= todayStart && date < nextDayStart;
 }

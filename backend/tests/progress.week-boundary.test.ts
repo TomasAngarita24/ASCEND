@@ -61,4 +61,17 @@ describe('progress week boundaries (UTC, Monday start)', () => {
     assert.equal(isCurrentUtcDay(earlyToday, now), true);
     assert.equal(isCurrentUtcDay(yesterday, now), false);
   });
+
+  it('rejects future dates outside the current week and day', () => {
+    const now = new Date('2026-09-09T18:00:00.000Z'); // Wednesday
+    const nextMonday = new Date('2026-09-14T00:00:01.000Z');
+    const nextTuesday = new Date('2026-09-15T12:00:00.000Z');
+    const tomorrow = new Date('2026-09-10T00:00:00.000Z');
+    const nextWeekWednesday = new Date('2026-09-16T09:00:00.000Z');
+
+    assert.equal(isCurrentUtcWeek(nextMonday, now), false);
+    assert.equal(isCurrentUtcWeek(nextWeekWednesday, now), false);
+    assert.equal(isCurrentUtcDay(tomorrow, now), false);
+    assert.equal(isCurrentUtcDay(nextTuesday, now), false);
+  });
 });

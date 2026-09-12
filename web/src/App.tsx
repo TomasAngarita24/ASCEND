@@ -316,8 +316,6 @@ export function App() {
       <Sidebar
         activeTab={activeTab}
         onTabChange={navigateToTab}
-        user={session.user}
-        onLogout={handleLogout}
         hasActiveWorkout={activeWorkout !== null}
       />
 

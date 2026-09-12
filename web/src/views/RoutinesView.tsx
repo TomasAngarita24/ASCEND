@@ -307,7 +307,7 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
         }));
       });
     } catch {
-      // Ignore
+      toast.error('Error al cargar tus rutinas.');
     } finally {
       setLoading(false);
     }

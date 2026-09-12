@@ -31,7 +31,7 @@ interface ProgressChartInput extends StatisticsInput {
 
 function getWeekCount(dateFrom: Date, dateTo: Date): number {
   const millisecondsPerWeek = 7 * 24 * 60 * 60 * 1000;
-  return Math.max(1, (dateTo.getTime() - dateFrom.getTime()) / millisecondsPerWeek);
+  return Math.max(1, Math.ceil((dateTo.getTime() - dateFrom.getTime()) / millisecondsPerWeek));
 }
 
 function getWeekStart(date: Date): string {
@@ -45,25 +45,7 @@ export async function getEstimatedOneRepMax(
   userId: string,
   exerciseId: string,
 ): Promise<EstimatedOneRepMaxResponse> {
-  const exercise = await prisma.exercise.findFirst({
-    where: {
-      id: exerciseId,
-      deletedAt: null,
-      OR: [
-        { createdByUserId: null },
-        { createdByUserId: userId },
-      ],
-    },
-    select: { id: true, name: true },
-  });
-
-  if (!exercise) {
-    throw new HttpError(
-      404,
-      'EXERCISE_NOT_FOUND',
-      'Exercise does not exist or is not accessible.',
-    );
-  }
+  const exercise = await findAccessibleExercise(userId, exerciseId);
 
   const sets = await prisma.workoutSet.findMany({
     where: {
