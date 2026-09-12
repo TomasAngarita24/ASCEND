@@ -1,10 +1,11 @@
 import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { api, type ActiveWorkout, type AuthSession, type RoutineDetail, type User } from './api/api';
 import { Sidebar } from './components/Sidebar';
 import { BottomNav } from './components/BottomNav';
 import { WorkoutSummaryModal, type WorkoutSummaryData } from './components/WorkoutSummaryModal';
+import { RoutineDetailModal } from './components/RoutineDetailModal';
 import type { NavTab } from './components/Sidebar';
 import { AuthView } from './views/AuthView';
 import type { UserProfileCustomData } from './views/SettingsView';
@@ -49,6 +50,23 @@ function makePlaceholderTokens(accessTokenExpiresAt: string): AuthSession['token
   return { accessToken: '', refreshToken: '', accessTokenExpiresAt };
 }
 
+/** Opens a shared routine from a /r/:routineId deep-link, falling back to /routines on close. */
+function RoutineDeepLink({ routineId }: { routineId: string }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  return (
+    <RoutineDetailModal
+      routineId={routineId}
+      onClose={() => (location.key !== 'default' ? navigate(-1) : navigate('/routines'))}
+    />
+  );
+}
+
+function RoutineDeepLinkWrapper() {
+  const { routineId = '' } = useParams<{ routineId: string }>();
+  return <RoutineDeepLink routineId={routineId} />;
+}
+
 export function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -84,7 +102,7 @@ export function App() {
     if (!session) return;
     setSharingWorkout(true);
     try {
-      const post = await api.shareWorkout(session.tokens.accessToken, workoutId, caption, imageUrl);
+      const post = await api.shareWorkout(workoutId, caption, imageUrl);
       setHighlightPostId(post.id);
       toast.success('Entrenamiento publicado en el feed social.');
     } catch (err: unknown) {
@@ -163,7 +181,7 @@ export function App() {
         }
         // Tokens live in httpOnly cookies now; keep only user + expiry locally.
         const tokens = makePlaceholderTokens(parsed.tokens?.accessTokenExpiresAt ?? parsed.expiresAt ?? '');
-        api.getProfile(tokens.accessToken)
+        api.getProfile()
           .then(async (user) => {
             setSession({ user, tokens });
 
@@ -177,7 +195,7 @@ export function App() {
               if (user.avatarUrl && !initialProfile.avatarUrl) initialProfile.avatarUrl = user.avatarUrl;
               // If local has custom name/bio, sync to backend
               if ((initialProfile.fullName || initialProfile.bio) && (!user.fullName || !user.bio)) {
-                api.updateProfile(tokens.accessToken, {
+                api.updateProfile({
                   fullName: initialProfile.fullName,
                   bio: initialProfile.bio,
                   avatarUrl: initialProfile.avatarUrl,
@@ -198,7 +216,7 @@ export function App() {
             const savedWorkoutId = localStorage.getItem('ascend_active_workout_id');
             if (savedWorkoutId) {
               try {
-                const detail = await api.getWorkout(tokens.accessToken, savedWorkoutId);
+                const detail = await api.getWorkout(savedWorkoutId);
                 // Only restore if still active (not completed or cancelled)
                 const asActive = detail as unknown as ActiveWorkout;
                 if (asActive.status === 'active' || asActive.status === 'in_progress') {
@@ -245,7 +263,7 @@ export function App() {
       return updated;
     });
     if (session?.tokens.accessToken && (data.fullName !== undefined || data.bio !== undefined || data.avatarUrl !== undefined)) {
-      api.updateProfile(session.tokens.accessToken, {
+      api.updateProfile({
         fullName: data.fullName,
         bio: data.bio,
         avatarUrl: data.avatarUrl,
@@ -259,7 +277,7 @@ export function App() {
     if (!session || startWorkoutInFlight.current) return;
     startWorkoutInFlight.current = true;
     try {
-      const workout = await api.startWorkout(session.tokens.accessToken, routineId);
+      const workout = await api.startWorkout(routineId);
       setActiveWorkout(workout);
       localStorage.setItem('ascend_active_workout_id', workout.id);
       navigate('/active-workout');
@@ -330,7 +348,6 @@ export function App() {
             path="/home"
             element={
               <HomeView
-                tokens={session.tokens}
                 onNavigate={navigateToTab}
                 onStartWorkout={handleStartWorkout}
               />
@@ -342,7 +359,6 @@ export function App() {
             element={
               routineEditorState.isOpen ? (
                 <RoutineEditorView
-                  tokens={session.tokens}
                   isNew={routineEditorState.isNew}
                   routineId={routineEditorState.routineId}
                   initialName={routineEditorState.name}
@@ -353,7 +369,6 @@ export function App() {
                 />
               ) : (
                 <RoutinesView
-                  tokens={session.tokens}
                   onStartWorkout={handleStartWorkout}
                   onExplore={() => navigate('/exercises')}
                   onOpenEditor={(opts) => setRoutineEditorState({ ...opts, isOpen: true })}
@@ -364,11 +379,11 @@ export function App() {
 
           <Route
             path="/exercises"
-            element={<ExerciseLibraryView tokens={session.tokens} />}
+            element={<ExerciseLibraryView />}
           />
           <Route
             path="/exercises/:exerciseId"
-            element={<ExerciseLibraryView tokens={session.tokens} />}
+            element={<ExerciseLibraryView />}
           />
 
           <Route
@@ -376,7 +391,6 @@ export function App() {
             element={
               activeWorkout ? (
                 <ActiveWorkoutView
-                  tokens={session.tokens}
                   workout={activeWorkout}
                   onFinished={handleFinishWorkout}
                 />
@@ -394,17 +408,24 @@ export function App() {
 
           <Route
             path="/history"
-            element={<HistoryView tokens={session.tokens} />}
+            element={<HistoryView />}
           />
 
           <Route
             path="/social"
-            element={<SocialFeedView tokens={session.tokens} currentUserId={session.user.id} highlightPostId={highlightPostId} onHighlightConsumed={() => setHighlightPostId(null)} />}
+            element={<SocialFeedView currentUserId={session.user.id} highlightPostId={highlightPostId} onHighlightConsumed={() => setHighlightPostId(null)} />}
+          />
+
+          <Route
+            path="/r/:routineId"
+            element={
+              <RoutineDeepLinkWrapper />
+            }
           />
 
           <Route
             path="/users/:userId"
-            element={<UserProfileView tokens={session.tokens} viewerUserId={session.user.id} />}
+            element={<UserProfileView viewerUserId={session.user.id} />}
           />
 
           <Route
@@ -412,7 +433,6 @@ export function App() {
             element={
               <ProfileView
                 user={session.user}
-                tokens={session.tokens}
                 profileData={profileData}
                 onNavigate={navigateToTab}
                 onStartWorkout={handleStartWorkout}
@@ -423,7 +443,7 @@ export function App() {
 
           <Route
             path="/measurements"
-            element={<MeasurementsView tokens={session.tokens} />}
+            element={<MeasurementsView />}
           />
 
           <Route
@@ -436,7 +456,6 @@ export function App() {
             element={
               <SettingsView
                 user={session.user}
-                tokens={session.tokens}
                 profileData={profileData}
                 onUpdateProfileData={handleUpdateProfileData}
                 onLogout={handleLogout}

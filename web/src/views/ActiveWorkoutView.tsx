@@ -13,9 +13,11 @@ import {
   ChevronUp,
   ChevronDown,
   Dumbbell,
+  Pause,
+  Play,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { api, ApiError, OfflineQueuedError, type ActiveWorkout, type ExerciseSummary, type Tokens } from '../api/api';
+import { api, ApiError, OfflineQueuedError, type ActiveWorkout, type ExerciseSummary } from '../api/api';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { matchesSearch } from '../utils/text';
 import { soundManager } from '../utils/audio';
@@ -23,7 +25,6 @@ import { roundOneRepMax } from '../utils/oneRepMax';
 import type { WorkoutSummaryData } from '../components/WorkoutSummaryModal';
 
 interface ActiveWorkoutViewProps {
-  tokens: Tokens;
   workout: ActiveWorkout;
   onFinished: (summary?: WorkoutSummaryData) => void;
 }
@@ -44,7 +45,6 @@ interface ConfirmState {
 }
 
 export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
-  tokens,
   workout: initialWorkout,
   onFinished,
 }) => {
@@ -54,13 +54,15 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
   // Rest Timer State
   const [restSecondsLeft, setRestSecondsLeft] = useState<number | null>(null);
   const [isRestTimerActive, setIsRestTimerActive] = useState(false);
+  const [isRestPaused, setIsRestPaused] = useState(false);
   const restTargetMsRef = useRef<number | null>(null);
+  const restPausedMsRef = useRef<number>(0);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   // Best-effort: cancels a pending rest-end push remotely (no-op when offline).
   const cancelRestPushRemote = useCallback(() => {
-    void api.cancelRestPush(tokens.accessToken).catch(() => {});
-  }, [tokens.accessToken]);
+    void api.cancelRestPush().catch(() => {});
+  }, []);
 
   // Previous performance map: exerciseId -> array of previous sets (FR-WORK-004)
   const [prevPerformanceMap, setPrevPerformanceMap] = useState<Record<string, PrevSetData[]>>({});
@@ -107,7 +109,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
   // Rest countdown anchored to an absolute timestamp. The interval only reads
   // Date.now(), so background throttling or sleep never drifts the countdown.
   useEffect(() => {
-    if (!isRestTimerActive || restTargetMsRef.current === null) return;
+    if (!isRestTimerActive || isRestPaused || restTargetMsRef.current === null) return;
     const target = restTargetMsRef.current;
     const tick = () => {
       const remaining = Math.max(0, Math.ceil((target - Date.now()) / 1000));
@@ -125,19 +127,19 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
     tick();
     const interval = window.setInterval(tick, 250);
     return () => window.clearInterval(interval);
-  }, [isRestTimerActive, soundEnabled, cancelRestPushRemote]);
+  }, [isRestTimerActive, isRestPaused, soundEnabled, cancelRestPushRemote]);
 
   // Load previous workout performance
   useEffect(() => {
     const fetchPreviousPerformance = async () => {
       try {
-        const history = await api.listWorkoutHistory(tokens.accessToken);
+        const history = await api.listWorkoutHistory();
         if (!history || history.length === 0) return;
 
         // Fetch recent workout details in parallel
         const recentIds = history.slice(0, 5).map((e) => e.id);
         const details = await Promise.all(
-          recentIds.map((id) => api.getWorkout(tokens.accessToken, id).catch(() => null))
+          recentIds.map((id) => api.getWorkout(id).catch(() => null))
         );
 
         const perfMap: Record<string, PrevSetData[]> = {};
@@ -166,7 +168,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
     };
 
     fetchPreviousPerformance();
-  }, [tokens]);
+  }, []);
 
   // Load all-time Personal Records (PR) baseline for all exercises in current workout
   const exerciseIdsKey = workout.exercises.map((e) => e.exercise.id).join(',');
@@ -179,7 +181,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
           const rawId = wex.exercise?.id;
           if (!rawId) return;
           try {
-            const prog = await api.getExerciseProgression(tokens.accessToken, rawId);
+            const prog = await api.getExerciseProgression(rawId);
             if (prog && Array.isArray(prog.data) && prog.data.length > 0) {
               let maxW = 0;
               let max1 = 0;
@@ -207,7 +209,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
       fetchBaselines();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tokens, exerciseIdsKey]);
+  }, [exerciseIdsKey]);
 
   const checkIsPR = (exerciseId: string, weight: number | null, reps: number | null) => {
     if (!weight || !reps || weight <= 0 || reps <= 0) return { isPR: false, reason: '', est1RM: 0 };
@@ -241,7 +243,25 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
     restTargetMsRef.current = Date.now() + seconds * 1000;
     setRestSecondsLeft(seconds);
     setIsRestTimerActive(true);
-    void api.scheduleRestPush(tokens.accessToken, seconds).catch(() => {});
+    setIsRestPaused(false);
+    restPausedMsRef.current = 0;
+    void api.scheduleRestPush(seconds).catch(() => {});
+  };
+
+  const pauseRestTimer = () => {
+    const target = restTargetMsRef.current ?? Date.now();
+    restPausedMsRef.current = Math.max(0, target - Date.now());
+    setIsRestPaused(true);
+    cancelRestPushRemote();
+  };
+
+  const resumeRestTimer = () => {
+    const remainingMs = Math.max(0, restPausedMsRef.current);
+    restTargetMsRef.current = Date.now() + remainingMs;
+    const next = Math.max(1, Math.ceil(remainingMs / 1000));
+    setRestSecondsLeft(next);
+    setIsRestPaused(false);
+    void api.scheduleRestPush(next).catch(() => {});
   };
 
   // Cancel a pending rest-end push if the workout screen unmounts mid-rest.
@@ -260,7 +280,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
       // Only flip the completion flag. Sending weight/repetitions here would either
       // persist phantom zeros (weight 0) or be rejected (repetitions 0) when the
       // user taps complete before typing values.
-      const updatedSet = await api.recordWorkoutSet(tokens.accessToken, workout.id, exerciseId, setId, {
+      const updatedSet = await api.recordWorkoutSet(workout.id, exerciseId, setId, {
         isCompleted: nextCompleted,
       });
 
@@ -325,7 +345,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
     }));
 
     try {
-      await api.recordWorkoutSet(tokens.accessToken, workout.id, exerciseId, setId, {
+      await api.recordWorkoutSet(workout.id, exerciseId, setId, {
         [field]: numVal,
       });
     } catch (err: unknown) {
@@ -355,7 +375,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
     setAddingSetExerciseIds((prev) => new Set(prev).add(exerciseId));
 
     try {
-      const newSet = await api.createWorkoutSet(tokens.accessToken, workout.id, exerciseId, {
+      const newSet = await api.createWorkoutSet(workout.id, exerciseId, {
         weight: lastSet?.weight ?? 0,
         repetitions: lastSet?.repetitions ?? 10,
         setType: 'normal',
@@ -382,7 +402,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
 
   const handleDeleteSet = async (exerciseId: string, setId: string) => {
     try {
-      await api.deleteWorkoutSet(tokens.accessToken, workout.id, exerciseId, setId);
+      await api.deleteWorkoutSet(workout.id, exerciseId, setId);
       setWorkout((prev) => ({
         ...prev,
         exercises: prev.exercises.map((ex) => {
@@ -412,7 +432,6 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
 
     try {
       await api.reorderWorkoutExercises(
-        tokens.accessToken,
         workout.id,
         updated.map((e) => e.id)
       );
@@ -445,12 +464,57 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
       ),
     }));
 
+    if (nextType === 'drop_set') {
+      const exItem = workout.exercises.find((e) => e.id === exerciseId);
+      const setItem = exItem?.sets.find((s) => s.id === setId);
+      const base = setItem?.weight;
+      if (base != null && base > 0) {
+        const suggested = suggestDropWeight(base);
+        if (suggested < base) {
+          const actionId = `drop-suggest:${exerciseId}:${setId}`;
+          toast(`💪 Drop set recomendado: ${suggested} kg`, {
+            id: actionId,
+            description: `Empieza en ${base} kg, baja a ${suggested} kg y encadena series sin descanso.`,
+            action: {
+              label: `Usar ${suggested} kg`,
+              onClick: () => {
+                void applyDropSetWeight(exerciseId, setId, suggested, actionId);
+              },
+            },
+          });
+        }
+      }
+    }
+
     try {
-      await api.recordWorkoutSet(tokens.accessToken, workout.id, exerciseId, setId, {
+      await api.recordWorkoutSet(workout.id, exerciseId, setId, {
         setType: nextType,
-      } as Parameters<typeof api.recordWorkoutSet>[4]);
+      } as Parameters<typeof api.recordWorkoutSet>[3]);
     } catch {
       // Background / offline will sync
+    }
+  };
+
+  /** Rounds a suggested drop weight down to the nearest 2.5 kg plate-friendly step. */
+  const suggestDropWeight = (baseWeight: number): number => {
+    const step = 2.5;
+    return Math.max(2.5, Math.round((baseWeight * 0.7) / step) * step);
+  };
+
+  const applyDropSetWeight = async (exerciseId: string, setId: string, weight: number, actionId: string) => {
+    toast.dismiss(actionId);
+    setWorkout((prev) => ({
+      ...prev,
+      exercises: prev.exercises.map((ex) =>
+        ex.id === exerciseId
+          ? { ...ex, sets: ex.sets.map((s) => (s.id === setId ? { ...s, weight } : s)) }
+          : ex
+      ),
+    }));
+    try {
+      await api.recordWorkoutSet(workout.id, exerciseId, setId, { weight });
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Error al ajustar el peso de la serie.');
     }
   };
 
@@ -462,7 +526,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
       variant: 'danger',
       onConfirm: async () => {
         try {
-          await api.deleteWorkoutExercise(tokens.accessToken, workout.id, exerciseId);
+          await api.deleteWorkoutExercise(workout.id, exerciseId);
           setWorkout((prev) => ({
             ...prev,
             exercises: prev.exercises
@@ -482,7 +546,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
   // present on the server that the local session does not know about.
   const reconcileOrphanSets = async () => {
     try {
-      const serverWorkout = await api.getWorkout(tokens.accessToken, workout.id);
+      const serverWorkout = await api.getWorkout(workout.id);
       const localExerciseIds = new Set(workout.exercises.map((e) => e.id));
       const deletes: Promise<void>[] = [];
       for (const serverEx of serverWorkout.exercises) {
@@ -491,7 +555,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
         const localSetIds = new Set((localEx?.sets ?? []).map((s) => s.id));
         for (const serverSet of serverEx.sets) {
           if (!localSetIds.has(serverSet.id)) {
-            deletes.push(api.deleteWorkoutSet(tokens.accessToken, workout.id, serverEx.id, serverSet.id));
+            deletes.push(api.deleteWorkoutSet(workout.id, serverEx.id, serverSet.id));
           }
         }
       }
@@ -511,7 +575,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
         setCompleting(true);
         try {
           await reconcileOrphanSets();
-          await api.finishWorkout(tokens.accessToken, workout.id, 'complete');
+          await api.finishWorkout(workout.id, 'complete');
 
           // Compute summary metrics
           let totalVolume = 0;
@@ -580,7 +644,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
       variant: 'danger',
       onConfirm: async () => {
         try {
-          await api.finishWorkout(tokens.accessToken, workout.id, 'cancel');
+          await api.finishWorkout(workout.id, 'cancel');
           onFinished();
         } catch (err: unknown) {
           if (err instanceof ApiError) {
@@ -600,7 +664,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
   const openAddModal = async () => {
     setIsAddModalOpen(true);
     try {
-      const list = await api.listExercises(tokens.accessToken);
+      const list = await api.listExercises();
       setAllExercises(list);
     } catch {
       // Ignore
@@ -611,8 +675,8 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
     if (addingExerciseId !== null) return;
     setAddingExerciseId(exerciseId);
     try {
-      const addedExercise = await api.addExerciseToWorkout(tokens.accessToken, workout.id, exerciseId);
-      const initialSet = await api.createWorkoutSet(tokens.accessToken, workout.id, addedExercise.id, {
+      const addedExercise = await api.addExerciseToWorkout(workout.id, exerciseId);
+      const initialSet = await api.createWorkoutSet(workout.id, addedExercise.id, {
         setType: 'normal',
         weight: 0,
         repetitions: 10,
@@ -702,7 +766,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
               <Timer size={20} color="var(--accent-teal)" />
             </div>
             <div>
-              <div style={styles.restTitle}>TIEMPO DE DESCANSO</div>
+              <div style={styles.restTitle}>{isRestPaused ? 'DESCANSO EN PAUSA' : 'TIEMPO DE DESCANSO'}</div>
               <div style={styles.restTime}>
                 {Math.floor(restSecondsLeft / 60)}:{(restSecondsLeft % 60) < 10 ? '0' : ''}{restSecondsLeft % 60}
               </div>
@@ -721,22 +785,46 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
                 <VolumeX size={16} color="var(--text-muted)" />
               )}
             </button>
-            <button
-              style={styles.restBtn}
-              onClick={() => {
-                restTargetMsRef.current = (restTargetMsRef.current ?? Date.now()) + 30_000;
-                const next = (restSecondsLeft ?? 0) + 30;
-                setRestSecondsLeft(next);
-                void api.scheduleRestPush(tokens.accessToken, next).catch(() => {});
-              }}
-            >
-              +30s
-            </button>
+            {isRestPaused ? (
+              <button
+                style={styles.restBtn}
+                onClick={resumeRestTimer}
+                title="Reanudar el descanso"
+                aria-label="Reanudar el temporizador de descanso"
+              >
+                <Play size={16} color="var(--accent-teal)" />
+                Reanudar
+              </button>
+            ) : (
+              <button
+                style={styles.restBtn}
+                onClick={pauseRestTimer}
+                title="Pausar el descanso (el chime y la notificación no sonarán hasta que reanudes)"
+                aria-label="Pausar el temporizador de descanso"
+              >
+                <Pause size={16} color="var(--accent-teal)" />
+                Pausar
+              </button>
+            )}
+            {!isRestPaused && (
+              <button
+                style={styles.restBtn}
+                onClick={() => {
+                  restTargetMsRef.current = (restTargetMsRef.current ?? Date.now()) + 30_000;
+                  const next = (restSecondsLeft ?? 0) + 30;
+                  setRestSecondsLeft(next);
+                  void api.scheduleRestPush(next).catch(() => {});
+                }}
+              >
+                +30s
+              </button>
+            )}
             <button
               style={styles.restBtnDismiss}
               onClick={() => {
                 restTargetMsRef.current = null;
                 setIsRestTimerActive(false);
+                setIsRestPaused(false);
                 cancelRestPushRemote();
               }}
             >

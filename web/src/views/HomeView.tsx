@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import {
   api,
-  type Tokens,
   type ProgressStatistics,
   type MuscleGroupStat,
   type WorkoutHistoryEntry,
@@ -21,12 +20,11 @@ import {
 } from '../api/api';
 
 interface HomeViewProps {
-  tokens: Tokens;
   onNavigate: (tab: 'routines' | 'exercises' | 'history' | 'profile' | 'plate-calculator' | 'measurements') => void;
   onStartWorkout: (routineId?: string) => void;
 }
 
-export const HomeView: React.FC<HomeViewProps> = ({ tokens, onNavigate, onStartWorkout }) => {
+export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onStartWorkout }) => {
   const [stats, setStats] = useState<ProgressStatistics | null>(null);
   const [muscleStats, setMuscleStats] = useState<MuscleGroupStat[]>([]);
   const [weeklyMuscleSets, setWeeklyMuscleSets] = useState<WeeklyMuscleSetStat[]>([]);
@@ -41,10 +39,10 @@ export const HomeView: React.FC<HomeViewProps> = ({ tokens, onNavigate, onStartW
       setLoading(true);
       try {
         const [statsRes, muscleRes, historyRes, weeklyRes] = await Promise.allSettled([
-          api.getStatistics(tokens.accessToken),
-          api.getMuscleGroupStatistics(tokens.accessToken),
-          api.listWorkoutHistory(tokens.accessToken),
-          api.getWeeklyMuscleSets(tokens.accessToken),
+          api.getStatistics(),
+          api.getMuscleGroupStatistics(),
+          api.listWorkoutHistory(),
+          api.getWeeklyMuscleSets(),
         ]);
 
         if (statsRes.status === 'fulfilled') setStats(statsRes.value);
@@ -63,7 +61,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ tokens, onNavigate, onStartW
     };
 
     loadDashboardData();
-  }, [tokens]);
+  }, []);
 
   const getGreeting = () => {
     const hour = new Date().getHours();

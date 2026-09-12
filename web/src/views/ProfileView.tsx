@@ -1,12 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Dumbbell, Flame, Trophy, Calendar, Award, Play, ChevronRight, BookOpen, Ruler, Calculator, Settings, LogOut } from 'lucide-react';
-import { api, type RoutineSummary, type WorkoutHistoryEntry, type WorkoutDetailEntry, type User as UserType, type Tokens } from '../api/api';
+import { api, type RoutineSummary, type WorkoutHistoryEntry, type WorkoutDetailEntry, type User as UserType } from '../api/api';
 import type { UserProfileCustomData } from './SettingsView';
 import type { NavTab } from '../components/Sidebar';
 
 interface ProfileViewProps {
   user: UserType;
-  tokens: Tokens;
   profileData: UserProfileCustomData;
   onNavigate: (tab: NavTab) => void;
   onStartWorkout: (routineId?: string) => void;
@@ -198,7 +197,6 @@ const ActivityCalendar: React.FC<CalendarProps> = ({ workoutDays }) => {
 // ─── Main Component ─────────────────────────────────────────────────────────
 export const ProfileView: React.FC<ProfileViewProps> = ({
   user,
-  tokens,
   profileData,
   onNavigate,
   onStartWorkout,
@@ -216,10 +214,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   useEffect(() => {
     Promise.all([
-      api.listRoutines(tokens.accessToken).catch(() => []),
-      api.listWorkoutHistory(tokens.accessToken).catch(() => []),
-      api.getUserFollowers(tokens.accessToken, user.id, 1, 1).then((res) => res.pagination.total).catch(() => 0),
-      api.getUserFollowing(tokens.accessToken, user.id, 1, 1).then((res) => res.pagination.total).catch(() => 0),
+      api.listRoutines().catch(() => []),
+      api.listWorkoutHistory().catch(() => []),
+      api.getUserFollowers(user.id, 1, 1).then((res) => res.pagination.total).catch(() => 0),
+      api.getUserFollowing(user.id, 1, 1).then((res) => res.pagination.total).catch(() => 0),
     ]).then(([rList, wList, followers, following]) => {
       setRoutines(rList);
       setWorkouts(wList);
@@ -227,10 +225,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       setFollowingCount(following);
       // Load last 15 workouts in detail for real PR data
       const recent = wList.slice(0, 15);
-      Promise.all(recent.map(w => api.getWorkout(tokens.accessToken, w.id).catch(() => null)))
+      Promise.all(recent.map(w => api.getWorkout(w.id).catch(() => null)))
         .then(results => setWorkoutDetails(results.filter(Boolean) as WorkoutDetailEntry[]));
     }).finally(() => setLoading(false));
-  }, [tokens, user.id]);
+  }, [user.id]);
 
   const workoutDates = useMemo(
     () => workouts.map((w) => new Date(w.startedAt)),

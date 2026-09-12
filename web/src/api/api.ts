@@ -13,9 +13,9 @@ const API_BASE_URL =
 /**
  * Session architecture: access and refresh tokens live only in httpOnly,
  * SameSite cookies. JavaScript never sees a token value, which makes the app
- * resilient to token exfiltration via XSS. The `accessToken` parameters kept on
- * the API methods below are vestigial (always ignored by the client) and exist
- * only so existing call sites keep compiling; requests authenticate via cookies.
+ * resilient to token exfiltration via XSS. All requests authenticate via
+ * cookies; the optional `accessToken` option on `request()` remains only as a
+ * legacy discardable field.
  */
 
 export interface User {
@@ -606,13 +606,13 @@ class ApiClient {
     });
   }
 
-  async getProfile(accessToken: string): Promise<User> {
-    const res = await this.request<{ user: User }>('/auth/me', { accessToken });
+  async getProfile(): Promise<User> {
+    const res = await this.request<{ user: User }>('/auth/me');
     return res.user;
   }
 
   // --- Exercises ---
-  async listExercises(accessToken: string, params: { query?: string; muscleGroup?: string; equipment?: string } = {}): Promise<ExerciseSummary[]> {
+  async listExercises(params: { query?: string; muscleGroup?: string; equipment?: string } = {}): Promise<ExerciseSummary[]> {
     const search = new URLSearchParams({ limit: '200' });
     if (params.query) search.set('query', params.query);
     if (params.muscleGroup) search.set('muscleGroup', params.muscleGroup);
@@ -622,7 +622,7 @@ class ApiClient {
     let page = 1;
     for (;;) {
       search.set('page', String(page));
-      const res = await this.request<{ data: ExerciseSummary[]; pagination: { page: number; limit: number; total: number } }>(`/exercises?${search.toString()}`, { accessToken });
+      const res = await this.request<{ data: ExerciseSummary[]; pagination: { page: number; limit: number; total: number } }>(`/exercises?${search.toString()}`);
       collected.push(...res.data);
       const total = res.pagination?.total ?? collected.length;
       if (collected.length >= total || res.data.length === 0) break;
@@ -631,163 +631,164 @@ class ApiClient {
     return collected;
   }
 
-  async createExercise(accessToken: string, input: { name: string; targetMuscleGroups?: string[]; equipment?: string; description?: string; instructions?: string; mediaUrl?: string }): Promise<ExerciseDetail> {
+  async createExercise(input: { name: string; targetMuscleGroups?: string[]; equipment?: string; description?: string; instructions?: string; mediaUrl?: string }): Promise<ExerciseDetail> {
     const res = await this.request<{ exercise: ExerciseDetail }>('/exercises', {
       method: 'POST',
-      accessToken,
       body: JSON.stringify(input),
     });
     return res.exercise;
   }
 
-  async updateExercise(accessToken: string, exerciseId: string, input: { name?: string; targetMuscleGroups?: string[]; equipment?: string; description?: string; instructions?: string; mediaUrl?: string }): Promise<ExerciseDetail> {
+  async updateExercise(exerciseId: string, input: { name?: string; targetMuscleGroups?: string[]; equipment?: string; description?: string; instructions?: string; mediaUrl?: string }): Promise<ExerciseDetail> {
     const res = await this.request<{ exercise: ExerciseDetail }>(`/exercises/${exerciseId}`, {
       method: 'PUT',
-      accessToken,
       body: JSON.stringify(input),
     });
     return res.exercise;
   }
 
-  async deleteExercise(accessToken: string, exerciseId: string): Promise<void> {
+  async deleteExercise(exerciseId: string): Promise<void> {
     await this.request<void>(`/exercises/${exerciseId}`, {
       method: 'DELETE',
-      accessToken,
+    });
+  }
+
+  async listFavorites(): Promise<string[]> {
+    const res = await this.request<{ exerciseIds: string[] }>('/exercises/favorites');
+    return res.exerciseIds;
+  }
+
+  async addExerciseFavorite(exerciseId: string): Promise<void> {
+    await this.request<void>(`/exercises/favorites/${exerciseId}`, {
+      method: 'PUT',
+    });
+  }
+
+  async removeExerciseFavorite(exerciseId: string): Promise<void> {
+    await this.request<void>(`/exercises/favorites/${exerciseId}`, {
+      method: 'DELETE',
     });
   }
 
   // --- Routines ---
-  async listRoutines(accessToken: string): Promise<RoutineSummary[]> {
-    const res = await this.request<{ data: RoutineSummary[] }>('/routines', { accessToken });
+  async listRoutines(): Promise<RoutineSummary[]> {
+    const res = await this.request<{ data: RoutineSummary[] }>('/routines');
     return res.data;
   }
 
-  async getRoutine(accessToken: string, routineId: string): Promise<RoutineDetail> {
-    const res = await this.request<{ routine: RoutineDetail }>(`/routines/${routineId}`, { accessToken });
+  async getRoutine(routineId: string): Promise<RoutineDetail> {
+    const res = await this.request<{ routine: RoutineDetail }>(`/routines/${routineId}`);
     return res.routine;
   }
 
-  async createRoutine(accessToken: string, name: string): Promise<RoutineSummary> {
+  async createRoutine(name: string): Promise<RoutineSummary> {
     const res = await this.request<{ routine: { id: string; name: string } }>('/routines', {
       method: 'POST',
-      accessToken,
       body: JSON.stringify({ name }),
     });
     return { id: res.routine.id, name: res.routine.name, isPublic: false, exerciseCount: 0, totalSets: 0, muscleSets: [] };
   }
 
-  async saveRoutine(accessToken: string, input: RoutineSaveInput): Promise<RoutineDetail> {
+  async saveRoutine(input: RoutineSaveInput): Promise<RoutineDetail> {
     const res = await this.request<{ routine: RoutineDetail }>('/routines/save', {
       method: 'POST',
-      accessToken,
       body: JSON.stringify(input),
     });
     return res.routine;
   }
 
-  async updateRoutine(accessToken: string, routineId: string, name: string): Promise<RoutineDetail> {
+  async updateRoutine(routineId: string, name: string): Promise<RoutineDetail> {
     const res = await this.request<{ routine: RoutineDetail }>(`/routines/${routineId}`, {
       method: 'PATCH',
-      accessToken,
       body: JSON.stringify({ name }),
     });
     return res.routine;
   }
 
-  async deleteRoutine(accessToken: string, routineId: string): Promise<void> {
+  async deleteRoutine(routineId: string): Promise<void> {
     await this.request<void>(`/routines/${routineId}`, {
       method: 'DELETE',
-      accessToken,
     });
   }
 
-  async addExerciseToRoutine(accessToken: string, routineId: string, exerciseId: string): Promise<RoutineExercise> {
+  async addExerciseToRoutine(routineId: string, exerciseId: string): Promise<RoutineExercise> {
     const res = await this.request<{ routineExercise: RoutineExercise }>(`/routines/${routineId}/exercises`, {
       method: 'POST',
-      accessToken,
       body: JSON.stringify({ exerciseId }),
     });
     return res.routineExercise;
   }
 
-  async updateRoutineExercise(accessToken: string, routineId: string, routineExerciseId: string, input: Partial<RoutineExercise>): Promise<RoutineExercise> {
+  async updateRoutineExercise(routineId: string, routineExerciseId: string, input: Partial<RoutineExercise>): Promise<RoutineExercise> {
     const res = await this.request<{ routineExercise: RoutineExercise }>(`/routines/${routineId}/exercises/${routineExerciseId}`, {
       method: 'PATCH',
-      accessToken,
       body: JSON.stringify(input),
     });
     return res.routineExercise;
   }
 
-  async deleteRoutineExercise(accessToken: string, routineId: string, routineExerciseId: string): Promise<void> {
+  async deleteRoutineExercise(routineId: string, routineExerciseId: string): Promise<void> {
     await this.request<void>(`/routines/${routineId}/exercises/${routineExerciseId}`, {
       method: 'DELETE',
-      accessToken,
     });
   }
 
-async reorderRoutineExercises(accessToken: string, routineId: string, routineExerciseIds: string[]): Promise<RoutineDetail> {
+  async reorderRoutineExercises(routineId: string, routineExerciseIds: string[]): Promise<RoutineDetail> {
     const res = await this.request<{ routine: RoutineDetail }>(`/routines/${routineId}/exercises/reorder`, {
       method: 'POST',
       body: JSON.stringify({ routineExerciseIds }),
-      accessToken,
     });
     return res.routine;
   }
 
-  async listRoutineTemplates(accessToken: string, filters: RoutineTemplateFilters = {}): Promise<RoutineTemplateSummary[]> {
+  async listRoutineTemplates(filters: RoutineTemplateFilters = {}): Promise<RoutineTemplateSummary[]> {
     const search = new URLSearchParams();
     if (filters.level) search.set('level', filters.level);
     if (filters.goal) search.set('goal', filters.goal);
     if (filters.equipment) search.set('equipment', filters.equipment);
     const query = search.toString();
-    const res = await this.request<{ data: RoutineTemplateSummary[] }>(`/routine-templates${query ? `?${query}` : ''}`, { accessToken });
+    const res = await this.request<{ data: RoutineTemplateSummary[] }>(`/routine-templates${query ? `?${query}` : ''}`);
     return res.data;
   }
 
-  async getRoutineTemplate(accessToken: string, templateId: string): Promise<RoutineTemplateDetail> {
-    const res = await this.request<{ template: RoutineTemplateDetail }>(`/routine-templates/${templateId}`, { accessToken });
+  async getRoutineTemplate(templateId: string): Promise<RoutineTemplateDetail> {
+    const res = await this.request<{ template: RoutineTemplateDetail }>(`/routine-templates/${templateId}`);
     return res.template;
   }
 
-  async addRoutineTemplate(accessToken: string, templateId: string): Promise<RoutineDetail> {
+  async addRoutineTemplate(templateId: string): Promise<RoutineDetail> {
     const res = await this.request<{ routine: RoutineDetail }>(`/routine-templates/${templateId}/add`, {
       method: 'POST',
-      accessToken,
     });
     return res.routine;
   }
 
   // --- Workouts ---
-  async startWorkout(accessToken: string, routineId?: string): Promise<ActiveWorkout> {
+  async startWorkout(routineId?: string): Promise<ActiveWorkout> {
     const res = await this.request<{ workout: ActiveWorkout }>('/workouts', {
       method: 'POST',
-      accessToken,
       body: JSON.stringify({ ...(routineId ? { routineId } : {}) }),
     });
     return res.workout;
   }
 
-  async addExerciseToWorkout(accessToken: string, workoutId: string, exerciseId: string): Promise<WorkoutExercise> {
+  async addExerciseToWorkout(workoutId: string, exerciseId: string): Promise<WorkoutExercise> {
     const res = await this.request<{ workoutExercise: WorkoutExercise }>(`/workouts/${workoutId}/exercises`, {
       method: 'POST',
-      accessToken,
       body: JSON.stringify({ exerciseId }),
     });
     return res.workoutExercise;
   }
 
-  async createWorkoutSet(accessToken: string, workoutId: string, exerciseId: string, input: { setType?: string; weight?: number; repetitions?: number } = {}): Promise<WorkoutSet> {
+  async createWorkoutSet(workoutId: string, exerciseId: string, input: { setType?: string; weight?: number; repetitions?: number } = {}): Promise<WorkoutSet> {
     const res = await this.request<{ set: WorkoutSet }>(`/workouts/${workoutId}/exercises/${exerciseId}/sets`, {
       method: 'POST',
-      accessToken,
       body: JSON.stringify(input),
     });
     return res.set;
   }
 
   async recordWorkoutSet(
-    accessToken: string,
     workoutId: string,
     exerciseId: string,
     setId: string,
@@ -795,47 +796,42 @@ async reorderRoutineExercises(accessToken: string, routineId: string, routineExe
   ): Promise<WorkoutSet> {
     const res = await this.request<{ set: WorkoutSet }>(`/workouts/${workoutId}/exercises/${exerciseId}/sets/${setId}`, {
       method: 'PATCH',
-      accessToken,
       body: JSON.stringify(input),
     });
     return res.set;
   }
 
-  async deleteWorkoutSet(accessToken: string, workoutId: string, exerciseId: string, setId: string): Promise<void> {
+  async deleteWorkoutSet(workoutId: string, exerciseId: string, setId: string): Promise<void> {
     await this.request<void>(`/workouts/${workoutId}/exercises/${exerciseId}/sets/${setId}`, {
       method: 'DELETE',
-      accessToken,
     });
   }
 
-  async deleteWorkoutExercise(accessToken: string, workoutId: string, workoutExerciseId: string): Promise<void> {
+  async deleteWorkoutExercise(workoutId: string, workoutExerciseId: string): Promise<void> {
     await this.request<void>(`/workouts/${workoutId}/exercises/${workoutExerciseId}`, {
       method: 'DELETE',
-      accessToken,
     });
   }
 
-  async finishWorkout(accessToken: string, workoutId: string, action: 'complete' | 'cancel' = 'complete'): Promise<ActiveWorkout> {
+  async finishWorkout(workoutId: string, action: 'complete' | 'cancel' = 'complete'): Promise<ActiveWorkout> {
     const res = await this.request<{ workout: ActiveWorkout }>(`/workouts/${workoutId}/${action}`, {
       method: 'POST',
-      accessToken,
     });
     return res.workout;
   }
 
-  async deleteWorkout(accessToken: string, workoutId: string): Promise<void> {
+  async deleteWorkout(workoutId: string): Promise<void> {
     await this.request<void>(`/workouts/${workoutId}`, {
       method: 'DELETE',
-      accessToken,
     });
   }
 
-  async listWorkoutHistory(accessToken: string): Promise<WorkoutHistoryEntry[]> {
+  async listWorkoutHistory(): Promise<WorkoutHistoryEntry[]> {
     const collected: WorkoutHistoryEntry[] = [];
     let page = 1;
     const limit = 100;
     for (;;) {
-      const res = await this.request<{ data: WorkoutHistoryEntry[]; pagination: { page: number; limit: number; total: number } }>(`/workouts?status=completed&page=${page}&limit=${limit}`, { accessToken });
+      const res = await this.request<{ data: WorkoutHistoryEntry[]; pagination: { page: number; limit: number; total: number } }>(`/workouts?status=completed&page=${page}&limit=${limit}`);
       collected.push(...res.data);
       const total = res.pagination?.total ?? collected.length;
       if (collected.length >= total || res.data.length === 0) break;
@@ -845,7 +841,7 @@ async reorderRoutineExercises(accessToken: string, routineId: string, routineExe
   }
 
   /** Fetches the export blob and triggers a browser download. */
-  async exportWorkouts(_accessToken: string, format: 'csv' | 'json'): Promise<void> {
+  async exportWorkouts(format: 'csv' | 'json'): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/workouts/export?format=${format}`, {
       credentials: 'include',
     });
@@ -864,256 +860,234 @@ async reorderRoutineExercises(accessToken: string, routineId: string, routineExe
     URL.revokeObjectURL(url);
   }
 
-  async reorderWorkoutExercises(accessToken: string, workoutId: string, exerciseIds: string[]): Promise<ActiveWorkout> {
+  async reorderWorkoutExercises(workoutId: string, exerciseIds: string[]): Promise<ActiveWorkout> {
     const res = await this.request<{ workout: ActiveWorkout }>(`/workouts/${workoutId}/exercises/reorder`, {
       method: 'PATCH',
-      accessToken,
       body: JSON.stringify({ exerciseIds }),
     });
     return res.workout;
   }
 
-  async importWorkouts(accessToken: string, backupData: unknown): Promise<{ importedWorkouts: number; importedSets: number }> {
+  async importWorkouts(backupData: unknown): Promise<{ importedWorkouts: number; importedSets: number }> {
     return await this.request<{ importedWorkouts: number; importedSets: number }>('/workouts/import', {
       method: 'POST',
-      accessToken,
       body: JSON.stringify(backupData),
     });
   }
 
-  async getWorkout(accessToken: string, workoutId: string): Promise<WorkoutDetailEntry> {
-    const res = await this.request<{ workout: WorkoutDetailEntry }>(`/workouts/${workoutId}`, { accessToken });
+  async getWorkout(workoutId: string): Promise<WorkoutDetailEntry> {
+    const res = await this.request<{ workout: WorkoutDetailEntry }>(`/workouts/${workoutId}`);
     return res.workout;
   }
 
   // --- Social feed ---
-  async shareWorkout(accessToken: string, workoutId: string, caption?: string, imageUrl?: string): Promise<FeedPost> {
+  async shareWorkout(workoutId: string, caption?: string, imageUrl?: string): Promise<FeedPost> {
     const res = await this.request<{ post: FeedPost }>(`/workouts/${workoutId}/share`, {
       method: 'POST',
-      accessToken,
       body: JSON.stringify({ ...(caption ? { caption } : {}), ...(imageUrl ? { imageUrl } : {}) }),
     });
     return res.post;
   }
 
-  async copyRoutinePost(accessToken: string, postId: string): Promise<{ id: string; name: string }> {
+  async copyRoutinePost(postId: string): Promise<{ id: string; name: string }> {
     const res = await this.request<{ routine: { id: string; name: string } }>(`/social/posts/${postId}/copy-routine`, {
       method: 'POST',
-      accessToken,
     });
     return res.routine;
   }
 
-  async getSocialFeed(accessToken: string, page = 1, limit = 20): Promise<FeedResponse> {
-    return await this.request<FeedResponse>(`/social/feed?page=${page}&limit=${limit}`, { accessToken });
+  async getSocialFeed(page = 1, limit = 20): Promise<FeedResponse> {
+    return await this.request<FeedResponse>(`/social/feed?page=${page}&limit=${limit}`);
   }
 
-  async getUserPosts(accessToken: string, userId: string, page = 1, limit = 20): Promise<FeedResponse> {
-    return await this.request<FeedResponse>(`/users/${userId}/posts?page=${page}&limit=${limit}`, { accessToken });
+  async getUserPosts(userId: string, page = 1, limit = 20): Promise<FeedResponse> {
+    return await this.request<FeedResponse>(`/users/${userId}/posts?page=${page}&limit=${limit}`);
   }
 
-  async likePost(accessToken: string, postId: string): Promise<void> {
+  async likePost(postId: string): Promise<void> {
     await this.request<void>(`/social/posts/${postId}/likes`, {
       method: 'POST',
-      accessToken,
     });
   }
 
-  async unlikePost(accessToken: string, postId: string): Promise<void> {
+  async unlikePost(postId: string): Promise<void> {
     await this.request<void>(`/social/posts/${postId}/likes`, {
       method: 'DELETE',
-      accessToken,
     });
   }
 
-  async deletePost(accessToken: string, postId: string): Promise<void> {
+  async deletePost(postId: string): Promise<void> {
     await this.request<void>(`/social/posts/${postId}`, {
       method: 'DELETE',
-      accessToken,
     });
   }
 
-  async getPostComments(accessToken: string, postId: string, page = 1, limit = 20): Promise<CommentsResponse> {
-    return await this.request<CommentsResponse>(`/social/posts/${postId}/comments?page=${page}&limit=${limit}`, { accessToken });
+  async getPostComments(postId: string, page = 1, limit = 20): Promise<CommentsResponse> {
+    return await this.request<CommentsResponse>(`/social/posts/${postId}/comments?page=${page}&limit=${limit}`);
   }
 
-  async addPostComment(accessToken: string, postId: string, body: string): Promise<PostComment> {
+  async addPostComment(postId: string, body: string): Promise<PostComment> {
     const res = await this.request<{ comment: PostComment }>(`/social/posts/${postId}/comments`, {
       method: 'POST',
-      accessToken,
       body: JSON.stringify({ body }),
     });
     return res.comment;
   }
 
   // --- Public profiles & follows ---
-  async getPublicProfile(accessToken: string, userId: string): Promise<PublicProfileResponse> {
-    return await this.request<PublicProfileResponse>(`/users/${userId}/profile`, { accessToken });
+  async getPublicProfile(userId: string): Promise<PublicProfileResponse> {
+    return await this.request<PublicProfileResponse>(`/users/${userId}/profile`);
   }
 
-  async followUser(accessToken: string, userId: string): Promise<FollowMutationResponse> {
+  async followUser(userId: string): Promise<FollowMutationResponse> {
     return await this.request<FollowMutationResponse>(`/users/${userId}/follow`, {
       method: 'POST',
-      accessToken,
     });
   }
 
-  async unfollowUser(accessToken: string, userId: string): Promise<FollowMutationResponse> {
+  async unfollowUser(userId: string): Promise<FollowMutationResponse> {
     return await this.request<FollowMutationResponse>(`/users/${userId}/follow`, {
       method: 'DELETE',
-      accessToken,
     });
   }
 
-  async getUserFollowers(accessToken: string, userId: string, page = 1, limit = 20): Promise<FollowListResponse> {
-    return await this.request<FollowListResponse>(`/users/${userId}/followers?page=${page}&limit=${limit}`, { accessToken });
+  async getUserFollowers(userId: string, page = 1, limit = 20): Promise<FollowListResponse> {
+    return await this.request<FollowListResponse>(`/users/${userId}/followers?page=${page}&limit=${limit}`);
   }
 
-  async getUserFollowing(accessToken: string, userId: string, page = 1, limit = 20): Promise<FollowListResponse> {
-    return await this.request<FollowListResponse>(`/users/${userId}/following?page=${page}&limit=${limit}`, { accessToken });
+  async getUserFollowing(userId: string, page = 1, limit = 20): Promise<FollowListResponse> {
+    return await this.request<FollowListResponse>(`/users/${userId}/following?page=${page}&limit=${limit}`);
   }
 
-  async searchUsers(accessToken: string, query: string, page = 1, limit = 20): Promise<FollowListResponse> {
+  async searchUsers(query: string, page = 1, limit = 20): Promise<FollowListResponse> {
     const q = encodeURIComponent(query);
-    return await this.request<FollowListResponse>(`/users/search?q=${q}&page=${page}&limit=${limit}`, { accessToken });
+    return await this.request<FollowListResponse>(`/users/search?q=${q}&page=${page}&limit=${limit}`);
   }
 
   // --- Progress & Analytics ---
-  async getStatistics(accessToken: string): Promise<ProgressStatistics> {
-    const res = await this.request<{ statistics: ProgressStatistics }>('/progress/statistics', { accessToken });
+  async getStatistics(): Promise<ProgressStatistics> {
+    const res = await this.request<{ statistics: ProgressStatistics }>('/progress/statistics');
     return res.statistics;
   }
 
-  async getMuscleGroupStatistics(accessToken: string): Promise<MuscleGroupStat[]> {
-    const res = await this.request<{ data: MuscleGroupStat[] }>('/progress/muscle-groups', { accessToken });
+  async getMuscleGroupStatistics(): Promise<MuscleGroupStat[]> {
+    const res = await this.request<{ data: MuscleGroupStat[] }>('/progress/muscle-groups');
     return res.data;
   }
 
-  async getWeeklyMuscleSets(accessToken: string): Promise<{ data: WeeklyMuscleSetStat[]; totalWeeklySets: number; totalDailySets: number }> {
-    return await this.request<{ data: WeeklyMuscleSetStat[]; totalWeeklySets: number; totalDailySets: number }>('/progress/weekly-muscle-sets', { accessToken });
+  async getWeeklyMuscleSets(): Promise<{ data: WeeklyMuscleSetStat[]; totalWeeklySets: number; totalDailySets: number }> {
+    return await this.request<{ data: WeeklyMuscleSetStat[]; totalWeeklySets: number; totalDailySets: number }>('/progress/weekly-muscle-sets');
   }
 
-  async getExerciseProgression(accessToken: string, exerciseId: string): Promise<ExerciseProgressionResponse> {
-    return await this.request<ExerciseProgressionResponse>(`/progress/exercises/${exerciseId}`, { accessToken });
+  async getExerciseProgression(exerciseId: string): Promise<ExerciseProgressionResponse> {
+    return await this.request<ExerciseProgressionResponse>(`/progress/exercises/${exerciseId}`);
   }
 
   // --- Profile ---
-  async updateProfile(accessToken: string, data: { fullName?: string | null; bio?: string | null; avatarUrl?: string | null }): Promise<User> {
+  async updateProfile(data: { fullName?: string | null; bio?: string | null; avatarUrl?: string | null }): Promise<User> {
     const res = await this.request<{ user: User }>('/auth/me', {
       method: 'PATCH',
-      accessToken,
       body: JSON.stringify(data),
     });
     return res.user;
   }
 
-  async changePassword(accessToken: string, currentPassword: string, newPassword: string): Promise<void> {
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
     await this.request<void>('/auth/me/password', {
       method: 'PATCH',
-      accessToken,
       body: JSON.stringify({ currentPassword, newPassword }),
     });
   }
 
-  async deleteAccount(accessToken: string): Promise<void> {
+  async deleteAccount(): Promise<void> {
     await this.request<void>('/auth/me', {
       method: 'DELETE',
-      accessToken,
     });
   }
 
   // --- Routine Folders ---
-  async listFolders(accessToken: string): Promise<RoutineFolder[]> {
-    const res = await this.request<{ data: RoutineFolder[] }>('/routines/folders', { accessToken });
+  async listFolders(): Promise<RoutineFolder[]> {
+    const res = await this.request<{ data: RoutineFolder[] }>('/routines/folders');
     return res.data;
   }
 
-  async createFolder(accessToken: string, name: string): Promise<RoutineFolder> {
+  async createFolder(name: string): Promise<RoutineFolder> {
     const res = await this.request<{ folder: RoutineFolder }>('/routines/folders', {
       method: 'POST',
-      accessToken,
       body: JSON.stringify({ name }),
     });
     return res.folder;
   }
 
-  async deleteFolder(accessToken: string, folderId: string): Promise<void> {
+  async deleteFolder(folderId: string): Promise<void> {
     await this.request<void>(`/routines/folders/${folderId}`, {
       method: 'DELETE',
-      accessToken,
     });
   }
 
-  async setRoutineFolder(accessToken: string, routineId: string, folderId: string | null): Promise<void> {
+  async setRoutineFolder(routineId: string, folderId: string | null): Promise<void> {
     await this.request<{ routine: RoutineDetail }>(`/routines/${routineId}/folder`, {
       method: 'PATCH',
-      accessToken,
       body: JSON.stringify({ folderId }),
     });
   }
 
-  async reorderRoutines(accessToken: string, folderId: string | null, routineIds: string[]): Promise<void> {
+  async reorderRoutines(folderId: string | null, routineIds: string[]): Promise<void> {
     await this.request<void>('/routines/order', {
       method: 'PUT',
-      accessToken,
       body: JSON.stringify({ folderId, routineIds }),
     });
   }
 
-  async copyRoutine(accessToken: string, routineId: string): Promise<RoutineDetail> {
+  async copyRoutine(routineId: string): Promise<RoutineDetail> {
     const res = await this.request<{ routine: RoutineDetail }>(`/routines/${routineId}/copy`, {
       method: 'POST',
-      accessToken,
     });
     return res.routine;
   }
 
-  async getUserPublicRoutines(accessToken: string, userId: string): Promise<PublicRoutineSummary[]> {
-    const res = await this.request<{ data: PublicRoutineSummary[] }>(`/users/${userId}/public-routines`, { accessToken });
+  async getUserPublicRoutines(userId: string): Promise<PublicRoutineSummary[]> {
+    const res = await this.request<{ data: PublicRoutineSummary[] }>(`/users/${userId}/public-routines`);
     return res.data;
   }
 
   // --- Measurements ---
-  async listMeasurements(accessToken: string): Promise<BodyMeasurement[]> {
-    const res = await this.request<{ data: BodyMeasurement[] }>('/measurements', { accessToken });
+  async listMeasurements(): Promise<BodyMeasurement[]> {
+    const res = await this.request<{ data: BodyMeasurement[] }>('/measurements');
     return res.data;
   }
 
-  async saveMeasurement(accessToken: string, input: SaveMeasurementInput): Promise<BodyMeasurement> {
+  async saveMeasurement(input: SaveMeasurementInput): Promise<BodyMeasurement> {
     const res = await this.request<{ measurement: BodyMeasurement }>('/measurements', {
       method: 'POST',
-      accessToken,
       body: JSON.stringify(input),
     });
     return res.measurement;
   }
 
-  async deleteMeasurement(accessToken: string, id: string): Promise<void> {
+  async deleteMeasurement(id: string): Promise<void> {
     await this.request<void>(`/measurements/${id}`, {
       method: 'DELETE',
-      accessToken,
     });
   }
 
   // --- Push notifications ---
-  async getPushSettings(accessToken: string): Promise<PushSettings> {
-    const res = await this.request<{ settings: PushSettings }>('/push/settings', { accessToken });
+  async getPushSettings(): Promise<PushSettings> {
+    const res = await this.request<{ settings: PushSettings }>('/push/settings');
     return res.settings;
   }
 
-  async savePushSettings(accessToken: string, input: SavePushSettingsInput): Promise<PushSettings> {
+  async savePushSettings(input: SavePushSettingsInput): Promise<PushSettings> {
     const res = await this.request<{ settings: PushSettings }>('/push/settings', {
       method: 'PUT',
-      accessToken,
       body: JSON.stringify(input),
     });
     return res.settings;
   }
 
-  async savePushSubscription(accessToken: string, subscription: PushSubscriptionJSON): Promise<void> {
+  async savePushSubscription(subscription: PushSubscriptionJSON): Promise<void> {
     await this.request<void>('/push/subscriptions', {
       method: 'POST',
-      accessToken,
       body: JSON.stringify({
         endpoint: subscription.endpoint,
         keys: subscription.keys,
@@ -1121,33 +1095,29 @@ async reorderRoutineExercises(accessToken: string, routineId: string, routineExe
     });
   }
 
-  async deletePushSubscription(accessToken: string, endpoint: string): Promise<void> {
+  async deletePushSubscription(endpoint: string): Promise<void> {
     await this.request<void>('/push/subscriptions', {
       method: 'DELETE',
-      accessToken,
       body: JSON.stringify({ endpoint }),
     });
   }
 
-  async sendTestPush(accessToken: string): Promise<void> {
+  async sendTestPush(): Promise<void> {
     await this.request<void>('/push/test', {
       method: 'POST',
-      accessToken,
     });
   }
 
-  async scheduleRestPush(accessToken: string, seconds: number): Promise<void> {
+  async scheduleRestPush(seconds: number): Promise<void> {
     await this.request<void>('/push/rest', {
       method: 'POST',
-      accessToken,
       body: JSON.stringify({ seconds }),
     });
   }
 
-  async cancelRestPush(accessToken: string): Promise<void> {
+  async cancelRestPush(): Promise<void> {
     await this.request<void>('/push/rest', {
       method: 'DELETE',
-      accessToken,
     });
   }
 }

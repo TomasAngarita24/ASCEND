@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User as UserIcon, Camera, LogOut, Trash2, Check, AlertTriangle, Shield, KeyRound, Mail, Sun, Moon, Download, FileJson, FileText, Upload, Bell, Clock3, Send } from 'lucide-react';
+import { User as UserIcon, Camera, LogOut, Trash2, Check, AlertTriangle, Shield, KeyRound, Mail, Sun, Moon, Download, FileJson, FileText, Upload, Bell, Clock3, Send, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
-import type { User as UserType, Tokens, PushSettings } from '../api/api';
+import type { User as UserType, PushSettings } from '../api/api';
 import { api } from '../api/api';
 import { useTheme } from '../context/ThemeContext';
 import { getActiveSubscription, subscribeToPush, unsubscribeFromPush } from '../utils/push';
+import { useInstallPrompt } from '../hooks/useInstallPrompt';
 
 function ToggleSwitch({
   checked,
@@ -64,7 +65,6 @@ export interface UserProfileCustomData {
 
 interface SettingsViewProps {
   user: UserType;
-  tokens: Tokens;
   profileData: UserProfileCustomData;
   onUpdateProfileData: (data: Partial<UserProfileCustomData>) => void;
   onLogout: () => void;
@@ -72,7 +72,6 @@ interface SettingsViewProps {
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   user,
-  tokens,
   profileData,
   onUpdateProfileData,
   onLogout,
@@ -97,6 +96,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const installPrompt = useInstallPrompt();
 
   // Notifications state
   const [pushSettings, setPushSettings] = useState<PushSettings | null>(null);
@@ -107,7 +107,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     let cancelled = false;
     (async () => {
       try {
-        const settings = await api.getPushSettings(tokens.accessToken);
+        const settings = await api.getPushSettings();
         if (cancelled) return;
         setPushSettings(settings);
         if (settings.reminderHour !== null && settings.reminderMinute !== null) {
@@ -131,7 +131,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [tokens.accessToken]);
+  }, []);
 
   const tzOffsetMin = -new Date().getTimezoneOffset();
 
@@ -146,17 +146,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           });
           return;
         }
-        await api.savePushSubscription(tokens.accessToken, subscription.toJSON());
+        await api.savePushSubscription(subscription.toJSON());
         toast.success('Notificaciones push activadas');
       } else {
         const subscription = await getActiveSubscription();
         if (subscription) {
-          await api.deletePushSubscription(tokens.accessToken, subscription.endpoint);
+          await api.deletePushSubscription(subscription.endpoint);
         }
         await unsubscribeFromPush();
         toast.success('Notificaciones push desactivadas');
       }
-      setPushSettings(await api.getPushSettings(tokens.accessToken));
+      setPushSettings(await api.getPushSettings());
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'No fue posible cambiar las notificaciones.');
     } finally {
@@ -168,7 +168,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     if (!pushSettings) return;
     const [hour, minute] = time.split(':').map((part) => Number.parseInt(part, 10));
     try {
-      const settings = await api.savePushSettings(tokens.accessToken, {
+      const settings = await api.savePushSettings({
         reminderEnabled: enabled && pushSettings.subscribed,
         reminderHour: enabled ? hour : null,
         reminderMinute: enabled ? minute : null,
@@ -184,7 +184,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleTestPush = async () => {
     setPushBusy(true);
     try {
-      await api.sendTestPush(tokens.accessToken);
+      await api.sendTestPush();
       toast.success('Notificación de prueba enviada');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'No fue posible enviar la notificación.');
@@ -196,7 +196,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleExport = async (format: 'csv' | 'json') => {
     setIsExporting(true);
     try {
-      await api.exportWorkouts(tokens.accessToken, format);
+      await api.exportWorkouts(format);
       toast.success(`Historial exportado como ${format.toUpperCase()} ✓`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al exportar los datos.');
@@ -213,7 +213,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     try {
       const text = await file.text();
       const json = JSON.parse(text);
-      const res = await api.importWorkouts(tokens.accessToken, json);
+      const res = await api.importWorkouts(json);
       toast.success(`¡Backup restaurado!`, {
         description: `Se importaron ${res.importedWorkouts} entrenamientos y ${res.importedSets} series exitosamente.`,
         duration: 5000,
@@ -229,7 +229,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.updateProfile(tokens.accessToken, {
+      await api.updateProfile({
         fullName: fullName.trim(),
         bio: bio.trim(),
         avatarUrl,
@@ -273,7 +273,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
     setIsSavingSecurity(true);
     try {
-      await api.changePassword(tokens.accessToken, currentPassword, newPassword);
+      await api.changePassword(currentPassword, newPassword);
       setSecSuccess(true);
       setCurrentPassword('');
       setNewPassword('');
@@ -316,7 +316,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleDeleteAccount = async () => {
     setIsDeletingAccount(true);
     try {
-      await api.deleteAccount(tokens.accessToken);
+      await api.deleteAccount();
       toast.success('Cuenta eliminada. Gracias por usar ASCEND.');
       onLogout();
     } catch (err) {
@@ -730,6 +730,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         </div>
       </div>
+
+      {installPrompt.canInstall && (
+        <div style={styles.card}>
+          <div style={styles.cardHeader}>
+            <div style={styles.titleRow}>
+              <Smartphone size={24} color="var(--accent-teal)" />
+              <h2 style={styles.cardTitle}>Instala la app</h2>
+            </div>
+            <p style={styles.subtitle}>
+              Añade ASCEND a tu pantalla de inicio y ábrela como una app nativa, con acceso rápido desde tu dispositivo.
+            </p>
+          </div>
+
+          <div style={styles.exportBtnGroup}>
+            <button
+              style={styles.exportCsvBtn}
+              onClick={() => {
+                void installPrompt.install();
+              }}
+            >
+              <Download size={18} />
+              <span>Instalar app</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Danger Zone / Account Management Card */}
       <div style={styles.dangerCard}>

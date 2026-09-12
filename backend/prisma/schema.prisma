@@ -23,6 +23,7 @@ model User {
   reminderTzOffsetMin Int?                 @map("reminder_tz_offset_min")
   bodyMeasurements    BodyMeasurement[]
   customExercises     Exercise[]           @relation("CustomExercises")
+  exerciseBookmarks   ExerciseBookmark[]
   passwordResetTokens PasswordResetToken[]
   posts               Post[]               @relation("Posts")
   postComments        PostComment[]        @relation("UserPostComments")
@@ -57,10 +58,24 @@ model Exercise {
   routineExercises         RoutineExercise[]
   routineTemplateExercises RoutineTemplateExercise[]
   workoutExercises         WorkoutExercise[]
+  bookmarkedBy             ExerciseBookmark[]
 
   @@index([equipment])
   @@index([createdByUserId])
   @@map("exercise")
+}
+
+model ExerciseBookmark {
+  userId     String   @map("user_id") @db.Uuid
+  exerciseId String   @map("exercise_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@id([userId, exerciseId])
+  @@index([userId])
+  @@map("exercise_bookmark")
 }
 
 model Routine {

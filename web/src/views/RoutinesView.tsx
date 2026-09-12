@@ -14,12 +14,11 @@ import {
   ClipboardList,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { api, type RoutineSummary, type RoutineDetail, type Tokens } from '../api/api';
+import { api, type RoutineSummary, type RoutineDetail } from '../api/api';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { RoutineTemplatesModal } from '../components/RoutineTemplatesModal';
 
 interface RoutinesViewProps {
-  tokens: Tokens;
   onStartWorkout: (routineId?: string) => Promise<void>;
   onExplore: () => void;
   onOpenEditor: (opts: { isNew: boolean; routineId: string | null; name: string; detail: RoutineDetail | null }) => void;
@@ -64,7 +63,7 @@ const MUSCLE_COLOR_MAP: Record<string, string> = {
   Trapecio: '#A67B4A',
 };
 
-export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorkout, onExplore: _onExplore, onOpenEditor }) => {
+export const RoutinesView: React.FC<RoutinesViewProps> = ({ onStartWorkout, onExplore: _onExplore, onOpenEditor }) => {
   const [routines, setRoutines] = useState<RoutineSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -95,7 +94,7 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
   const handleCreateGroup = async () => {
     if (!newGroupName.trim()) return;
     try {
-      const folder = await api.createFolder(tokens.accessToken, newGroupName.trim());
+      const folder = await api.createFolder(newGroupName.trim());
       setGroups(prev => [...prev, { id: folder.id, name: folder.name, routineIds: [], isExpanded: true }]);
       setNewGroupName('');
       setIsGroupModalOpen(false);
@@ -113,7 +112,7 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
       variant: 'danger',
       onConfirm: async () => {
         try {
-          await api.deleteFolder(tokens.accessToken, groupId);
+          await api.deleteFolder(groupId);
           setGroups(prev => prev.filter(g => g.id !== groupId));
           setRoutines(prev => prev.map(r => r.folderId === groupId ? { ...r, folderId: null } : r));
           toast.success('Carpeta eliminada');
@@ -130,7 +129,7 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
 
   const handleMoveToGroup = async (routineId: string, groupId: string) => {
     try {
-      await api.setRoutineFolder(tokens.accessToken, routineId, groupId);
+      await api.setRoutineFolder(routineId, groupId);
       setGroups(prev => prev.map(g => {
         const ids = Array.isArray(g.routineIds) ? g.routineIds : [];
         if (g.id === groupId) return { ...g, routineIds: [...ids.filter(id => id !== routineId), routineId] };
@@ -145,7 +144,7 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
 
   const handleRemoveFromGroup = async (routineId: string) => {
     try {
-      await api.setRoutineFolder(tokens.accessToken, routineId, null);
+      await api.setRoutineFolder(routineId, null);
       setGroups(prev => prev.map(g => ({
         ...g,
         routineIds: (Array.isArray(g.routineIds) ? g.routineIds : []).filter(id => id !== routineId),
@@ -181,7 +180,7 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
     setRoutines([...orderedRoutines, ...remaining]);
     setGroups(prev => prev.map(g => (g.id === folderId ? { ...g, routineIds: orderedIds } : g)));
     try {
-      await api.reorderRoutines(tokens.accessToken, folderId, orderedIds);
+      await api.reorderRoutines(folderId, orderedIds);
       await loadRoutinesAndFolders();
     } catch {
       toast.error('No se pudo guardar el orden.');
@@ -271,11 +270,11 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
           if (Array.isArray(parsed) && parsed.length > 0) {
             for (const localGroup of parsed) {
               if (localGroup && localGroup.name) {
-                const created = await api.createFolder(tokens.accessToken, String(localGroup.name));
+                const created = await api.createFolder(String(localGroup.name));
                 if (Array.isArray(localGroup.routineIds)) {
                   for (const rId of localGroup.routineIds) {
                     try {
-                      await api.setRoutineFolder(tokens.accessToken, String(rId), created.id);
+                      await api.setRoutineFolder(String(rId), created.id);
                     } catch {
                       // ignore if routine doesn't exist anymore
                     }
@@ -292,8 +291,8 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
 
       // 2. Fetch routines and folders from backend
       const [routinesData, foldersData] = await Promise.all([
-        api.listRoutines(tokens.accessToken),
-        api.listFolders(tokens.accessToken),
+        api.listRoutines(),
+        api.listFolders(),
       ]);
 
       setRoutines(routinesData);
@@ -311,7 +310,7 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
     } finally {
       setLoading(false);
     }
-  }, [tokens]);
+  }, []);
 
   useEffect(() => {
     loadRoutinesAndFolders();
@@ -329,7 +328,7 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
 
   const handleEditRoutine = async (routineId: string) => {
     try {
-      const detail = await api.getRoutine(tokens.accessToken, routineId);
+      const detail = await api.getRoutine(routineId);
       onOpenEditor({ isNew: false, routineId, name: detail.name, detail });
     } catch {
       toast.error('Error al cargar la rutina.');
@@ -338,8 +337,8 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
 
   const handleDuplicateRoutine = async (routineId: string) => {
     try {
-      const detail = await api.getRoutine(tokens.accessToken, routineId);
-      await api.saveRoutine(tokens.accessToken, {
+      const detail = await api.getRoutine(routineId);
+      await api.saveRoutine({
         name: `${detail.name} (Copia)`,
         exercises: detail.exercises.map((ex) => ({
           exerciseId: ex.exercise.id,
@@ -367,7 +366,7 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
       variant: 'danger',
       onConfirm: async () => {
         try {
-          await api.deleteRoutine(tokens.accessToken, routineId);
+          await api.deleteRoutine(routineId);
           setRoutines((prev) => prev.filter((r) => r.id !== routineId));
           setGroups((prev) => prev.map((g) => ({
             ...g,
@@ -773,7 +772,6 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ tokens, onStartWorko
       {/* Routine Templates Modal */}
       {isTemplatesModalOpen && (
         <RoutineTemplatesModal
-          tokens={tokens}
           onClose={() => setIsTemplatesModalOpen(false)}
           onAdded={handleTemplateAdded}
         />

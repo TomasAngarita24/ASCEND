@@ -17,11 +17,9 @@ import {
   type RoutineTemplateGoal,
   type RoutineTemplateLevel,
   type RoutineTemplateSummary,
-  type Tokens,
 } from '../api/api';
 
 interface RoutineTemplatesModalProps {
-  tokens: Tokens;
   onClose: () => void;
   onAdded: (routine: RoutineDetail) => void;
 }
@@ -45,7 +43,7 @@ const EQUIPMENT_LABELS: Record<string, string> = {
   Ninguno: 'Sin material',
 };
 
-export const RoutineTemplatesModal: React.FC<RoutineTemplatesModalProps> = ({ tokens, onClose, onAdded }) => {
+export const RoutineTemplatesModal: React.FC<RoutineTemplatesModalProps> = ({ onClose, onAdded }) => {
   const [loading, setLoading] = useState(true);
   const [templates, setTemplates] = useState<RoutineTemplateSummary[]>([]);
   const [level, setLevel] = useState<RoutineTemplateLevel | ''>('');
@@ -64,14 +62,14 @@ export const RoutineTemplatesModal: React.FC<RoutineTemplatesModalProps> = ({ to
       if (level) filters.level = level;
       if (goal) filters.goal = goal;
       if (equipment) filters.equipment = equipment;
-      const data = await api.listRoutineTemplates(tokens.accessToken, filters);
+      const data = await api.listRoutineTemplates(filters);
       setTemplates(data);
     } catch {
       toast.error('No fue posible cargar las plantillas.');
     } finally {
       setLoading(false);
     }
-  }, [tokens, level, goal, equipment]);
+  }, [level, goal, equipment]);
 
   useEffect(() => {
     load();
@@ -86,7 +84,7 @@ export const RoutineTemplatesModal: React.FC<RoutineTemplatesModalProps> = ({ to
     if (details[templateId]) return;
     setDetailLoading(true);
     try {
-      const detail = await api.getRoutineTemplate(tokens.accessToken, templateId);
+      const detail = await api.getRoutineTemplate(templateId);
       setDetails((prev) => ({ ...prev, [templateId]: detail }));
     } catch {
       toast.error('No fue posible cargar el detalle de la plantilla.');
@@ -98,7 +96,7 @@ export const RoutineTemplatesModal: React.FC<RoutineTemplatesModalProps> = ({ to
   const handleAdd = async (templateId: string) => {
     setAddingId(templateId);
     try {
-      const routine = await api.addRoutineTemplate(tokens.accessToken, templateId);
+      const routine = await api.addRoutineTemplate(templateId);
       toast.success('Plantilla añadida a Mis Rutinas');
       onAdded(routine);
       onClose();

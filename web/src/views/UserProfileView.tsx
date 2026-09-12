@@ -2,13 +2,12 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Dumbbell, FileText, Users, UserPlus, UserCheck, Activity, Loader2, Repeat, Layers, Eye } from 'lucide-react';
 import { toast } from 'sonner';
-import { api, toError, type FeedPost, type PublicProfileResponse, type PublicRoutineSummary, type SocialUserSummary, type Tokens } from '../api/api';
+import { api, toError, type FeedPost, type PublicProfileResponse, type PublicRoutineSummary, type SocialUserSummary } from '../api/api';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { PostCard } from '../components/PostCard';
 import { RoutineDetailModal } from '../components/RoutineDetailModal';
 
 interface UserProfileViewProps {
-  tokens: Tokens;
   viewerUserId: string;
 }
 
@@ -55,7 +54,7 @@ const FollowRow: React.FC<FollowRowProps> = ({ user, viewerUserId, pending, onTo
   );
 };
 
-export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewerUserId }) => {
+export const UserProfileView: React.FC<UserProfileViewProps> = ({ viewerUserId }) => {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
 
@@ -93,7 +92,7 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
     setLoadingProfile(true);
     setNotFound(false);
     try {
-      const res = await api.getPublicProfile(tokens.accessToken, userId);
+      const res = await api.getPublicProfile(userId);
       setProfile(res);
     } catch (err: unknown) {
       const { message, status } = toError(err);
@@ -105,7 +104,7 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
     } finally {
       setLoadingProfile(false);
     }
-  }, [tokens, userId]);
+  }, [userId]);
 
   useEffect(() => {
     loadProfile();
@@ -114,7 +113,7 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
   const loadPosts = useCallback(async (targetPage: number, targetUserId: string) => {
     if (targetPage === 1) setLoadingPosts(true);
     try {
-      const res = await api.getUserPosts(tokens.accessToken, targetUserId, targetPage, 10);
+      const res = await api.getUserPosts(targetUserId, targetPage, 10);
       setPosts((prev) => (targetPage === 1 ? res.data : [...prev, ...res.data]));
       setPostsTotal(res.pagination.total);
       setPostsPage(targetPage);
@@ -123,14 +122,14 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
     } finally {
       setLoadingPosts(false);
     }
-  }, [tokens]);
+  }, []);
 
   const loadList = useCallback(async (targetTab: 'followers' | 'following', targetUserId: string, page: number) => {
     if (page === 1) setLoadingList(true);
     try {
       const res = targetTab === 'followers'
-        ? await api.getUserFollowers(tokens.accessToken, targetUserId, page)
-        : await api.getUserFollowing(tokens.accessToken, targetUserId, page);
+        ? await api.getUserFollowers(targetUserId, page)
+        : await api.getUserFollowing(targetUserId, page);
       setList((prev) => (page === 1 ? res.data : [...prev, ...res.data]));
       setListTotal(res.pagination.total);
       setListPage(page);
@@ -139,19 +138,19 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
     } finally {
       setLoadingList(false);
     }
-  }, [tokens]);
+  }, []);
 
   const loadRoutines = useCallback(async (targetUserId: string) => {
     setLoadingRoutines(true);
     try {
-      const data = await api.getUserPublicRoutines(tokens.accessToken, targetUserId);
+      const data = await api.getUserPublicRoutines(targetUserId);
       setPublicRoutines(data);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'No se pudieron cargar las rutinas.');
     } finally {
       setLoadingRoutines(false);
     }
-  }, [tokens]);
+  }, []);
 
   useEffect(() => {
     if (profile && userId) {
@@ -178,8 +177,8 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
     );
     try {
       const res = wasFollowing
-        ? await api.unfollowUser(tokens.accessToken, userId)
-        : await api.followUser(tokens.accessToken, userId);
+        ? await api.unfollowUser(userId)
+        : await api.followUser(userId);
       setProfile((p) => (p ? { ...p, followersCount: res.followersCount } : p));
     } catch (err: unknown) {
       setProfile((p) =>
@@ -200,9 +199,9 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
     );
     try {
       if (wasFollowing) {
-        await api.unfollowUser(tokens.accessToken, user.id);
+        await api.unfollowUser(user.id);
       } else {
-        await api.followUser(tokens.accessToken, user.id);
+        await api.followUser(user.id);
       }
     } catch (err: unknown) {
       setList((prev) => prev.map((u) => (u.id === user.id ? { ...u, isFollowing: wasFollowing } : u)));
@@ -230,9 +229,9 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
     );
     try {
       if (nextLiked) {
-        await api.likePost(tokens.accessToken, post.id);
+        await api.likePost(post.id);
       } else {
-        await api.unlikePost(tokens.accessToken, post.id);
+        await api.unlikePost(post.id);
       }
     } catch (err: unknown) {
       setPosts((prev) =>
@@ -257,7 +256,7 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
     const post = confirmDelete;
     setConfirmDelete(null);
     try {
-      await api.deletePost(tokens.accessToken, post.id);
+      await api.deletePost(post.id);
       setPosts((prev) => prev.filter((p) => p.id !== post.id));
       setPostsTotal((t) => Math.max(0, t - 1));
       toast.success('Publicación eliminada.');
@@ -269,7 +268,7 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
   const handleCopyRoutine = async (post: FeedPost) => {
     setCopyingPostId(post.id);
     try {
-      const routine = await api.copyRoutinePost(tokens.accessToken, post.id);
+      const routine = await api.copyRoutinePost(post.id);
       toast.success(`Rutina "${routine.name}" copiada a tu biblioteca.`);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'No se pudo copiar la rutina.');
@@ -281,7 +280,7 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
   const handleCopyPublicRoutine = async (routineId: string) => {
     setCopyingRoutineId(routineId);
     try {
-      const routine = await api.copyRoutine(tokens.accessToken, routineId);
+      const routine = await api.copyRoutine(routineId);
       toast.success(`Rutina "${routine.name}" copiada a tu biblioteca.`);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'No se pudo copiar la rutina.');
@@ -423,7 +422,6 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
                   key={post.id}
                   post={post}
                   currentUserId={viewerUserId}
-                  accessToken={tokens.accessToken}
                   copying={copyingPostId === post.id}
                   onToggleLike={handleToggleLike}
                   onDelete={setConfirmDelete}
@@ -532,7 +530,6 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ tokens, viewer
       {detailRoutineId && (
         <RoutineDetailModal
           routineId={detailRoutineId}
-          accessToken={tokens.accessToken}
           onClose={() => setDetailRoutineId(null)}
         />
       )}

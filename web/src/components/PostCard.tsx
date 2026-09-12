@@ -8,7 +8,6 @@ import { RoutineDetailModal } from './RoutineDetailModal';
 interface PostCardProps {
   post: FeedPost;
   currentUserId: string;
-  accessToken: string;
   highlighted?: boolean;
   copying?: boolean;
   onToggleLike: (post: FeedPost) => void;
@@ -42,7 +41,7 @@ function initials(fullName: string | null): string {
 }
 
 export const PostCard: React.FC<PostCardProps> = ({
-  post, currentUserId, accessToken, highlighted, copying, onToggleLike, onDelete, onCopyRoutine,
+  post, currentUserId, highlighted, copying, onToggleLike, onDelete, onCopyRoutine,
 }) => {
   const navigate = useNavigate();
   const isMine = post.author.id === currentUserId;
@@ -61,7 +60,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   const loadComments = useCallback(async (targetPage: number) => {
     setLoadingComments(true);
     try {
-      const res = await api.getPostComments(accessToken, post.id, targetPage, 10);
+      const res = await api.getPostComments(post.id, targetPage, 10);
       setComments((prev) => (targetPage === 1 ? res.data : [...prev, ...res.data]));
       setCommentsTotal(res.pagination.total);
       setCommentsPage(targetPage);
@@ -70,7 +69,7 @@ export const PostCard: React.FC<PostCardProps> = ({
     } finally {
       setLoadingComments(false);
     }
-  }, [accessToken, post.id]);
+  }, [post.id]);
 
   const toggleComments = () => {
     if (commentsOpen) {
@@ -88,7 +87,7 @@ export const PostCard: React.FC<PostCardProps> = ({
     if (!body || postingComment) return;
     setPostingComment(true);
     try {
-      const created = await api.addPostComment(accessToken, post.id, body);
+      const created = await api.addPostComment(post.id, body);
       setComments((prev) => [...prev, created]);
       setCommentsTotal((t) => t + 1);
       setCommentCount((c) => c + 1);
@@ -223,7 +222,6 @@ export const PostCard: React.FC<PostCardProps> = ({
         <RoutineDetailModal
           routineId={detail.routineId}
           workoutId={detail.workoutId}
-          accessToken={accessToken}
           onClose={() => setDetail(null)}
         />
       )}

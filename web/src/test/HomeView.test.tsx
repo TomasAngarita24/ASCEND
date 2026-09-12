@@ -8,15 +8,8 @@ import {
   type MuscleGroupStat,
   type WeeklyMuscleSetStat,
   type WorkoutHistoryEntry,
-  type Tokens,
 } from '../api/api';
 import { HomeView } from '../views/HomeView';
-
-const tokens: Tokens = {
-  accessToken: 'fixture-access-token',
-  refreshToken: 'fixture-refresh-token',
-  accessTokenExpiresAt: '2099-01-01T00:00:00.000Z',
-};
 
 const stats: ProgressStatistics = {
   totalWorkouts: 12,
@@ -97,7 +90,7 @@ function mockProgress(resolved: {
 function renderHome() {
   const onNavigate = vi.fn();
   const onStartWorkout = vi.fn();
-  render(<HomeView tokens={tokens} onNavigate={onNavigate} onStartWorkout={onStartWorkout} />);
+  render(<HomeView onNavigate={onNavigate} onStartWorkout={onStartWorkout} />);
   return { onNavigate, onStartWorkout };
 }
 

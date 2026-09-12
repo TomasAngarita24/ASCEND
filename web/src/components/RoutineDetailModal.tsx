@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Check, Dumbbell, Repeat, X } from 'lucide-react';
+import { Check, Dumbbell, Link2, Repeat, X } from 'lucide-react';
+import { toast } from 'sonner';
 import { api, type RoutineDetail, type RoutineExercise, type WorkoutExercise } from '../api/api';
 
 interface RoutineDetailModalProps {
   routineId: string;
-  accessToken: string;
   onClose: () => void;
   /** When provided, also shows what was actually performed in the linked workout. */
   workoutId?: string;
@@ -25,20 +25,57 @@ function formatTarget(ex: RoutineExercise): string {
   return parts.length > 0 ? parts.join(' · ') : 'Sin configuración de series';
 }
 
-export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({ routineId, accessToken, onClose, workoutId }) => {
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    /* fall through to the legacy path */
+  }
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({ routineId, onClose, workoutId }) => {
   const [routine, setRoutine] = useState<RoutineDetail | null>(null);
   const [workout, setWorkout] = useState<WorkoutExercise[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const copyShareLink = async () => {
+    const url = `${window.location.origin}/r/${routineId}`;
+    const ok = await copyToClipboard(url);
+    if (ok) {
+      setCopied(true);
+      toast.success('Enlace de la rutina copiado.');
+      window.setTimeout(() => setCopied(false), 2000);
+    } else {
+      toast.error('No se pudo copiar el enlace.');
+    }
+  };
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError(null);
     setWorkout(null);
-    const routinePromise = api.getRoutine(accessToken, routineId);
+    const routinePromise = api.getRoutine(routineId);
     const workoutPromise = workoutId
-      ? api.getWorkout(accessToken, workoutId).then((w) => w.exercises).catch(() => null)
+      ? api.getWorkout(workoutId).then((w) => w.exercises).catch(() => null)
       : Promise.resolve(null);
     Promise.all([routinePromise, workoutPromise])
       .then(([data, workoutExercises]) => {
@@ -55,7 +92,7 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({ routineI
     return () => {
       active = false;
     };
-  }, [accessToken, routineId, workoutId]);
+  }, [routineId, workoutId]);
 
   // exerciseId -> completed sets actually performed in the published workout.
   const performedMap = useMemo(() => {
@@ -79,9 +116,21 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({ routineI
             {routine?.isPublic && <span style={styles.visibilityBadge}>Compartida</span>}
             {workoutId && <span style={styles.performedBadge}>Sesión publicada</span>}
           </div>
-          <button style={styles.closeBtn} onClick={onClose} aria-label="Cerrar detalle de la rutina">
-            <X size={20} color="var(--text-muted)" />
-          </button>
+          <div style={styles.headerActions}>
+            <button
+              style={styles.shareBtn}
+              onClick={() => {
+                void copyShareLink();
+              }}
+              aria-label="Copiar enlace de la rutina"
+              title="Copiar enlace"
+            >
+              {copied ? <Check size={18} color="var(--accent-green)" /> : <Link2 size={18} color="var(--text-muted)" />}
+            </button>
+            <button style={styles.closeBtn} onClick={onClose} aria-label="Cerrar detalle de la rutina">
+              <X size={20} color="var(--text-muted)" />
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -186,6 +235,22 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 'var(--radius-full)',
   },
   closeBtn: {
+    flexShrink: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '0.35rem',
+    borderRadius: 'var(--radius-element)',
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+  },
+  headerActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.15rem',
+  },
+  shareBtn: {
     flexShrink: 0,
     display: 'flex',
     alignItems: 'center',

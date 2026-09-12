@@ -4,10 +4,9 @@ import { Users, Dumbbell, Search, UserPlus, UserCheck, Loader2 } from 'lucide-re
 import { toast } from 'sonner';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { PostCard } from '../components/PostCard';
-import { api, type FeedPost, type SocialUserSummary, type Tokens } from '../api/api';
+import { api, type FeedPost, type SocialUserSummary } from '../api/api';
 
 interface SocialViewProps {
-  tokens: Tokens;
   currentUserId: string;
   highlightPostId?: string | null;
   onHighlightConsumed?: () => void;
@@ -55,7 +54,7 @@ const SearchRow: React.FC<SearchRowProps> = ({ user, currentUserId, pending, onT
   );
 };
 
-export const SocialFeedView: React.FC<SocialViewProps> = ({ tokens, currentUserId, highlightPostId, onHighlightConsumed }) => {
+export const SocialFeedView: React.FC<SocialViewProps> = ({ currentUserId, highlightPostId, onHighlightConsumed }) => {
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [pendingLikeIds, setPendingLikeIds] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
@@ -84,7 +83,7 @@ export const SocialFeedView: React.FC<SocialViewProps> = ({ tokens, currentUserI
     setSearching(true);
     const timer = window.setTimeout(async () => {
       try {
-        const res = await api.searchUsers(tokens.accessToken, query, 1, 20);
+        const res = await api.searchUsers(query, 1, 20);
         setSearchResults(res.data);
         setSearchTotal(res.pagination.total);
       } catch (err: unknown) {
@@ -94,13 +93,13 @@ export const SocialFeedView: React.FC<SocialViewProps> = ({ tokens, currentUserI
       }
     }, 300);
     return () => window.clearTimeout(timer);
-  }, [searchQuery, tokens]);
+  }, [searchQuery]);
 
   const fetchFeed = useCallback(async (targetPage: number) => {
     if (targetPage === 1) setLoading(true);
     else setLoadingMore(true);
     try {
-      const res = await api.getSocialFeed(tokens.accessToken, targetPage, 20);
+      const res = await api.getSocialFeed(targetPage, 20);
       setPosts((prev) => (targetPage === 1 ? res.data : [...prev, ...res.data]));
       setTotal(res.pagination.total);
       setPage(targetPage);
@@ -110,7 +109,7 @@ export const SocialFeedView: React.FC<SocialViewProps> = ({ tokens, currentUserI
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [tokens]);
+  }, []);
 
   useEffect(() => {
     fetchFeed(1);
@@ -119,7 +118,7 @@ export const SocialFeedView: React.FC<SocialViewProps> = ({ tokens, currentUserI
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      const res = await api.getSocialFeed(tokens.accessToken, 1, 20);
+      const res = await api.getSocialFeed(1, 20);
       setPosts(res.data);
       setTotal(res.pagination.total);
       setPage(1);
@@ -144,9 +143,9 @@ export const SocialFeedView: React.FC<SocialViewProps> = ({ tokens, currentUserI
     );
     try {
       if (nextLiked) {
-        await api.likePost(tokens.accessToken, post.id);
+        await api.likePost(post.id);
       } else {
-        await api.unlikePost(tokens.accessToken, post.id);
+        await api.unlikePost(post.id);
       }
     } catch (err: unknown) {
       setPosts((prev) =>
@@ -175,7 +174,7 @@ export const SocialFeedView: React.FC<SocialViewProps> = ({ tokens, currentUserI
     const post = confirmDelete;
     setConfirmDelete(null);
     try {
-      await api.deletePost(tokens.accessToken, post.id);
+      await api.deletePost(post.id);
       setPosts((prev) => prev.filter((p) => p.id !== post.id));
       setTotal((t) => Math.max(0, t - 1));
       toast.success('Publicación eliminada.');
@@ -187,7 +186,7 @@ export const SocialFeedView: React.FC<SocialViewProps> = ({ tokens, currentUserI
   const handleCopyRoutine = async (post: FeedPost) => {
     setCopyingPostId(post.id);
     try {
-      const routine = await api.copyRoutinePost(tokens.accessToken, post.id);
+      const routine = await api.copyRoutinePost(post.id);
       toast.success(`Rutina "${routine.name}" copiada a tu biblioteca.`);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'No se pudo copiar la rutina.');
@@ -205,9 +204,9 @@ export const SocialFeedView: React.FC<SocialViewProps> = ({ tokens, currentUserI
     );
     try {
       if (wasFollowing) {
-        await api.unfollowUser(tokens.accessToken, user.id);
+        await api.unfollowUser(user.id);
       } else {
-        await api.followUser(tokens.accessToken, user.id);
+        await api.followUser(user.id);
       }
     } catch (err: unknown) {
       setSearchResults((prev) => prev.map((u) => (u.id === user.id ? { ...u, isFollowing: wasFollowing } : u)));
@@ -307,7 +306,6 @@ export const SocialFeedView: React.FC<SocialViewProps> = ({ tokens, currentUserI
                 key={post.id}
                 post={post}
                 currentUserId={currentUserId}
-                accessToken={tokens.accessToken}
                 highlighted={post.id === highlightPostId}
                 copying={copyingPostId === post.id}
                 onToggleLike={handleToggleLike}

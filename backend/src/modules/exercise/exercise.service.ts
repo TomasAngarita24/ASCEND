@@ -207,6 +207,37 @@ export async function listExercises(
     },
   };
 }
+export async function getFavoriteIds(userId: string): Promise<{ exerciseIds: string[] }> {
+  const rows = await prisma.exerciseBookmark.findMany({
+    where: { userId },
+    select: { exerciseId: true },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  return { exerciseIds: rows.map((row) => row.exerciseId) };
+}
+
+export async function addExerciseFavorite(userId: string, exerciseId: string): Promise<void> {
+  const exercise = await prisma.exercise.findFirst({
+    where: { AND: [visibleTo(userId), { id: exerciseId }] },
+    select: { id: true },
+  });
+
+  if (!exercise) {
+    throw new HttpError(404, 'EXERCISE_NOT_FOUND', 'Exercise does not exist or is not accessible.');
+  }
+
+  await prisma.exerciseBookmark.upsert({
+    where: { userId_exerciseId: { userId, exerciseId } },
+    create: { userId, exerciseId },
+    update: {},
+  });
+}
+
+export async function removeExerciseFavorite(userId: string, exerciseId: string): Promise<void> {
+  await prisma.exerciseBookmark.deleteMany({ where: { userId, exerciseId } });
+}
+
 export async function getPreviousPerformance(
   userId: string,
   exerciseId: string,

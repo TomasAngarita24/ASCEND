@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useId } from 'react';
 import { Scale, Plus, Trash2, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { toast } from 'sonner';
-import { api, type Tokens } from '../api/api';
+import { api } from '../api/api';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -19,10 +19,6 @@ export interface MeasurementEntry {
   calf: number | null;         // cm
   bodyFat: number | null;      // %
   [key: string]: string | number | null; // index signature for dynamic access
-}
-
-export interface MeasurementsViewProps {
-  tokens: Tokens;
 }
 
 const STORAGE_KEY = 'ascend_measurements';
@@ -183,7 +179,7 @@ function emptyForm() {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export const MeasurementsView: React.FC<MeasurementsViewProps> = ({ tokens }) => {
+export const MeasurementsView: React.FC = () => {
   const [entries, setEntries] = useState<MeasurementEntry[]>([]);
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
@@ -203,8 +199,8 @@ export const MeasurementsView: React.FC<MeasurementsViewProps> = ({ tokens }) =>
             const localList = JSON.parse(raw);
             if (Array.isArray(localList) && localList.length > 0) {
               for (const item of localList) {
-                if (item && item.date) {
-                  await api.saveMeasurement(tokens.accessToken, {
+if (item && item.date) {
+                  await api.saveMeasurement({
                     date: item.date,
                     weight: item.weight !== null && item.weight !== undefined ? Number(item.weight) : null,
                     neck: item.neck !== null && item.neck !== undefined ? Number(item.neck) : null,
@@ -227,7 +223,7 @@ export const MeasurementsView: React.FC<MeasurementsViewProps> = ({ tokens }) =>
         }
 
         // 2. Fetch measurements from backend
-        const data = await api.listMeasurements(tokens.accessToken);
+        const data = await api.listMeasurements();
         setEntries(data.map((m) => ({
           id: m.id,
           date: m.date.slice(0, 10),
@@ -250,7 +246,7 @@ export const MeasurementsView: React.FC<MeasurementsViewProps> = ({ tokens }) =>
     };
 
     loadMeasurements();
-  }, [tokens]);
+  }, []);
 
   const sortedEntries = useMemo(
     () => [...entries].sort((a, b) => a.date.localeCompare(b.date)),
@@ -276,7 +272,7 @@ export const MeasurementsView: React.FC<MeasurementsViewProps> = ({ tokens }) =>
     e.preventDefault();
     setSaving(true);
     try {
-      const saved = await api.saveMeasurement(tokens.accessToken, {
+      const saved = await api.saveMeasurement({
         date: form.date,
         weight: form.weight ? parseFloat(form.weight) : null,
         neck: form.neck ? parseFloat(form.neck) : null,
@@ -327,7 +323,7 @@ export const MeasurementsView: React.FC<MeasurementsViewProps> = ({ tokens }) =>
 
   async function handleDelete(id: string) {
     try {
-      await api.deleteMeasurement(tokens.accessToken, id);
+      await api.deleteMeasurement(id);
       setEntries((prevEntries) => prevEntries.filter((e) => e.id !== id));
       setConfirmDelete(null);
       toast.success('Medida eliminada');

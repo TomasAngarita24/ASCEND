@@ -2,7 +2,7 @@ import { Router } from 'express';
 
 import { asyncHandler } from '../../lib/async-handler';
 import { authenticate } from '../auth/auth.middleware';
-import { createCustomExercise, deleteCustomExercise, getExercise, getPreviousPerformance, listExercises, updateCustomExercise } from './exercise.service';
+import { addExerciseFavorite, createCustomExercise, deleteCustomExercise, getExercise, getFavoriteIds, getPreviousPerformance, listExercises, removeExerciseFavorite, updateCustomExercise } from './exercise.service';
 import { validateCreateExercise, validateExerciseId, validateExerciseList, validateUpdateExercise } from './exercise.validation';
 
 export const exerciseRouter = Router();
@@ -34,6 +34,25 @@ exerciseRouter.put('/:exerciseId', asyncHandler(async (request, response) => {
 exerciseRouter.delete('/:exerciseId', asyncHandler(async (request, response) => {
   const exerciseId = validateExerciseId(request.params.exerciseId);
   await deleteCustomExercise(request.auth!.userId, exerciseId);
+
+  response.status(204).send();
+}));
+
+exerciseRouter.get('/favorites', asyncHandler(async (request, response) => {
+  const result = await getFavoriteIds(request.auth!.userId);
+  response.status(200).json(result);
+}));
+
+exerciseRouter.put('/favorites/:exerciseId', asyncHandler(async (request, response) => {
+  const exerciseId = validateExerciseId(request.params.exerciseId);
+  await addExerciseFavorite(request.auth!.userId, exerciseId);
+
+  response.status(204).send();
+}));
+
+exerciseRouter.delete('/favorites/:exerciseId', asyncHandler(async (request, response) => {
+  const exerciseId = validateExerciseId(request.params.exerciseId);
+  await removeExerciseFavorite(request.auth!.userId, exerciseId);
 
   response.status(204).send();
 }));

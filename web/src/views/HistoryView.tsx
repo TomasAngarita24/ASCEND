@@ -19,7 +19,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { api, type WorkoutHistoryEntry, type WorkoutDetailEntry, type WorkoutSet, type Tokens } from '../api/api';
+import { api, type WorkoutHistoryEntry, type WorkoutDetailEntry, type WorkoutSet } from '../api/api';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { roundOneRepMax } from '../utils/oneRepMax';
 
@@ -28,10 +28,6 @@ function setTypeCategory(setType: WorkoutSet['setType'] | string): 'warmup' | 'd
   if (setType === 'warmup') return 'warmup';
   if (setType === 'drop' || setType === 'drop_set') return 'drop';
   return 'failure';
-}
-
-interface HistoryViewProps {
-  tokens: Tokens;
 }
 
 interface ConfirmState {
@@ -43,7 +39,7 @@ interface ConfirmState {
   onConfirm: () => void;
 }
 
-export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
+export const HistoryView: React.FC = () => {
   const [workouts, setWorkouts] = useState<WorkoutHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
@@ -74,21 +70,21 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
   useEffect(() => {
     const loadHistory = () => {
       setLoading(true);
-      api.listWorkoutHistory(tokens.accessToken)
+      api.listWorkoutHistory()
         .then(setWorkouts)
         .catch(() => toast.error('Error al cargar el historial de entrenamientos.'))
         .finally(() => setLoading(false));
     };
 
     loadHistory();
-  }, [tokens]);
+  }, []);
 
   const handleOpenDetail = async (workoutId: string) => {
     setSelectedWorkoutId(workoutId);
     setDetailLoading(true);
     setWorkoutDetail(null);
     try {
-      const detail = await api.getWorkout(tokens.accessToken, workoutId);
+      const detail = await api.getWorkout(workoutId);
       setWorkoutDetail(detail);
     } catch {
       toast.error('Error al cargar el detalle del entrenamiento.');
@@ -108,7 +104,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
     if (!shareWorkoutId || sharingWorkout) return;
     setSharingWorkout(true);
     try {
-      await api.shareWorkout(tokens.accessToken, shareWorkoutId, shareCaption.trim(), shareImageUrl ?? undefined);
+      await api.shareWorkout(shareWorkoutId, shareCaption.trim(), shareImageUrl ?? undefined);
       toast.success('Entrenamiento publicado en el feed social.');
       setShareWorkoutId(null);
       setShareCaption('');
@@ -146,7 +142,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
       variant: 'danger',
       onConfirm: async () => {
         try {
-          await api.deleteWorkout(tokens.accessToken, workoutId);
+          await api.deleteWorkout(workoutId);
           setWorkouts((prev) => prev.filter((w) => w.id !== workoutId));
           if (selectedWorkoutId === workoutId) {
             handleCloseDetail();
@@ -199,7 +195,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
     setWorkoutDetail(nextDetail);
 
     try {
-      await api.recordWorkoutSet(tokens.accessToken, selectedWorkoutId, exerciseId, setId, {
+      await api.recordWorkoutSet(selectedWorkoutId, exerciseId, setId, {
         ...(fields.weight !== undefined ? { weight: fields.weight } : {}),
         ...(fields.repetitions !== undefined ? { repetitions: fields.repetitions } : {}),
         ...(fields.notes !== undefined ? { notes: fields.notes } : {}),
@@ -230,7 +226,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
   const handleDeleteHistoricalSet = async (exerciseId: string, setId: string) => {
     if (!selectedWorkoutId || !workoutDetail) return;
     try {
-      await api.deleteWorkoutSet(tokens.accessToken, selectedWorkoutId, exerciseId, setId);
+      await api.deleteWorkoutSet(selectedWorkoutId, exerciseId, setId);
       setWorkoutDetail((prev) => {
         if (!prev) return prev;
         return {
@@ -257,7 +253,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ tokens }) => {
     const lastSet = targetEx?.sets[targetEx.sets.length - 1];
 
     try {
-      const newSet = await api.createWorkoutSet(tokens.accessToken, selectedWorkoutId, exerciseId, {
+      const newSet = await api.createWorkoutSet(selectedWorkoutId, exerciseId, {
         weight: lastSet?.weight ?? 0,
         repetitions: lastSet?.repetitions ?? 10,
         setType: 'normal',

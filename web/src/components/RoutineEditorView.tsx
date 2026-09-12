@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { api, type ExerciseSummary, type RoutineDetail, type Tokens } from '../api/api';
+import { api, type ExerciseSummary, type RoutineDetail } from '../api/api';
 import { matchesSearch } from '../utils/text';
 import { ConfirmModal } from './ConfirmModal';
 
@@ -35,7 +35,6 @@ export interface RoutineEditorExercise {
 }
 
 interface RoutineEditorViewProps {
-  tokens: Tokens;
   isNew: boolean;
   routineId: string | null;
   initialName: string;
@@ -115,7 +114,6 @@ const ThumbImg: React.FC<{ url: string; name: string }> = ({ url, name }) => {
 };
 
 export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
-  tokens,
   isNew,
   routineId,
   initialName,
@@ -205,11 +203,11 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
   // Load catalog exercises
   useEffect(() => {
     setLibraryLoading(true);
-    api.listExercises(tokens.accessToken)
+    api.listExercises()
       .then((data) => setCatalogExercises(data))
       .catch(() => {})
       .finally(() => setLibraryLoading(false));
-  }, [tokens]);
+  }, []);
 
   // Backfill thumbnails from the catalog for exercises loaded from a saved routine
   useEffect(() => {
@@ -482,7 +480,7 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
     if (!customName.trim()) return;
     setCustomCreating(true);
     try {
-      const created = await api.createExercise(tokens.accessToken, {
+      const created = await api.createExercise({
         name: customName.trim(),
         targetMuscleGroups: [customMuscle],
         equipment: customEquipment,
@@ -512,7 +510,7 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
 
     setSaving(true);
     try {
-      await api.saveRoutine(tokens.accessToken, {
+      await api.saveRoutine({
         id: isNew ? undefined : (routineId ?? undefined),
         name: routineName.trim(),
         isPublic,

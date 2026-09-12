@@ -404,4 +404,104 @@ describe('exercises', () => {
       },
     ]);
   });
+
+  it('marks and un-marks an exercise as favorite, scoped per user', async () => {
+    const ownerToken = await registerAndGetAccessToken();
+    const otherUserToken = await registerAndGetAccessToken();
+    const ownerHeaders = {
+      authorization: `Bearer ${ownerToken}`,
+      'content-type': 'application/json',
+    };
+
+    const creation = await request('/exercises', {
+      body: JSON.stringify({ name: `Favorite exercise ${randomUUID()}`, targetMuscleGroups: ['Chest'] }),
+      headers: ownerHeaders,
+      method: 'POST',
+    });
+
+    assert.equal(creation.status, 201);
+    const exerciseId = (creation.body.exercise as Record<string, string>).id;
+
+    // Starts empty and is isolated from other users
+    const emptyList = await request('/exercises/favorites', {
+      headers: ownerHeaders,
+    });
+    assert.equal(emptyList.status, 200);
+    assert.deepEqual(emptyList.body.exerciseIds, []);
+
+    const emptyOther = await request('/exercises/favorites', {
+      headers: { authorization: `Bearer ${otherUserToken}` },
+    });
+    assert.deepEqual(emptyOther.body.exerciseIds, []);
+
+    // Favorite it (idempotent upsert)
+    const added = await request(`/exercises/favorites/${exerciseId}`, {
+      headers: ownerHeaders,
+      method: 'PUT',
+    });
+    assert.equal(added.status, 204);
+
+    const addedAgain = await request(`/exercises/favorites/${exerciseId}`, {
+      headers: ownerHeaders,
+      method: 'PUT',
+    });
+    assert.equal(addedAgain.status, 204);
+
+    const list = await request('/exercises/favorites', {
+      headers: ownerHeaders,
+    });
+    assert.deepEqual(list.body.exerciseIds, [exerciseId]);
+
+    // Still isolated per user
+    const otherList = await request('/exercises/favorites', {
+      headers: { authorization: `Bearer ${otherUserToken}` },
+    });
+    assert.deepEqual(otherList.body.exerciseIds, []);
+
+    // Remove it (idempotent delete)
+    const removed = await request(`/exercises/favorites/${exerciseId}`, {
+      headers: ownerHeaders,
+      method: 'DELETE',
+    });
+    assert.equal(removed.status, 204);
+
+    const removedAgain = await request(`/exercises/favorites/${exerciseId}`, {
+      headers: ownerHeaders,
+      method: 'DELETE',
+    });
+    assert.equal(removedAgain.status, 204);
+
+    const afterRemoval = await request('/exercises/favorites', {
+      headers: ownerHeaders,
+    });
+    assert.deepEqual(afterRemoval.body.exerciseIds, []);
+  });
+
+  it('rejects favoriting an inaccessible exercise', async () => {
+    const ownerToken = await registerAndGetAccessToken();
+    const otherUserToken = await registerAndGetAccessToken();
+
+    const creation = await request('/exercises', {
+      body: JSON.stringify({ name: `Private favorite target ${randomUUID()}` }),
+      headers: {
+        authorization: `Bearer ${ownerToken}`,
+        'content-type': 'application/json',
+      },
+      method: 'POST',
+    });
+
+    assert.equal(creation.status, 201);
+    const exerciseId = (creation.body.exercise as Record<string, string>).id;
+
+    const forbidden = await request(`/exercises/favorites/${exerciseId}`, {
+      headers: { authorization: `Bearer ${otherUserToken}` },
+      method: 'PUT',
+    });
+
+    assert.equal(forbidden.status, 404);
+    assert.equal(
+      (forbidden.body.error as Record<string, string>).code,
+      'EXERCISE_NOT_FOUND',
+    );
+  });
 });

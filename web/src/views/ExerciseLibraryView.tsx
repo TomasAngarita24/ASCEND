@@ -28,15 +28,10 @@ import { roundOneRepMax } from '../utils/oneRepMax';
 import {
   api,
   type ExerciseSummary,
-  type Tokens,
   type WorkoutHistoryEntry,
   type WorkoutDetailEntry,
   type ExerciseProgressionPoint,
 } from '../api/api';
-
-interface ExerciseLibraryViewProps {
-  tokens: Tokens;
-}
 
 const MUSCLE_GROUPS = [
   'Todos',
@@ -93,6 +88,15 @@ const SORT_OPTIONS = [
 type SortKey = typeof SORT_OPTIONS[number]['key'];
 
 const FAVORITES_KEY = 'ascend_exercise_favorites';
+
+function readLegacyFavoriteIds(): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]');
+    return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
 
 // ─── 1RM estimate (Epley, same as backend) ─────────────────────────────────
 function calc1RM(weight: number, reps: number): number {
@@ -224,14 +228,13 @@ const LineChart: React.FC<{ data: ChartPoint[]; color: string; label: string }> 
 // ─── Exercise Detail Panel ───────────────────────────────────────────────────
 interface ExerciseDetailPanelProps {
   exercise: ExerciseSummary;
-  tokens: Tokens;
   history: WorkoutHistoryEntry[];
   onBack: () => void;
   onEdit?: (exercise: ExerciseSummary) => void;
   onDelete?: (exercise: ExerciseSummary) => void;
 }
 
-const ExerciseDetailPanel: React.FC<ExerciseDetailPanelProps> = ({ exercise, tokens, history, onBack, onEdit, onDelete }) => {
+const ExerciseDetailPanel: React.FC<ExerciseDetailPanelProps> = ({ exercise, history, onBack, onEdit, onDelete }) => {
   const [progressionData, setProgressionData] = useState<ExerciseProgressionPoint[]>([]);
   const [loadedWorkouts, setLoadedWorkouts] = useState<WorkoutDetailEntry[]>([]);
   const [loadingDetails, setLoadingDetails] = useState(true);
@@ -254,8 +257,8 @@ const ExerciseDetailPanel: React.FC<ExerciseDetailPanelProps> = ({ exercise, tok
     setLoadingDetails(true);
     const recent = history.slice(0, 8);
     Promise.all([
-      api.getExerciseProgression(tokens.accessToken, exercise.id).catch(() => null),
-      Promise.all(recent.map(w => api.getWorkout(tokens.accessToken, w.id).catch(() => null))),
+      api.getExerciseProgression(exercise.id).catch(() => null),
+      Promise.all(recent.map(w => api.getWorkout(w.id).catch(() => null))),
     ])
       .then(([progRes, workoutsRes]) => {
         if (progRes?.data) {
@@ -264,7 +267,7 @@ const ExerciseDetailPanel: React.FC<ExerciseDetailPanelProps> = ({ exercise, tok
         setLoadedWorkouts((workoutsRes || []).filter(Boolean) as WorkoutDetailEntry[]);
       })
       .finally(() => setLoadingDetails(false));
-  }, [exercise.id, tokens, history]);
+  }, [exercise.id, history]);
 
   const exerciseSets = useMemo(() => {
     const points: { date: string; weight: number; reps: number }[] = [];
@@ -624,7 +627,7 @@ const CardImage: React.FC<{ url?: string | null; name: string }> = ({ url, name 
 };
 
 // ─── Main View ───────────────────────────────────────────────────────────────
-export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens }) => {
+export const ExerciseLibraryView: React.FC = () => {
   const [exercises, setExercises] = useState<ExerciseSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'all' | 'custom' | 'favorites'>('all');
@@ -638,18 +641,13 @@ export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens
   const [selectedExercise, setSelectedExercise] = useState<ExerciseSummary | null>(null);
   const [workoutHistory, setWorkoutHistory] = useState<WorkoutHistoryEntry[]>([]);
 
-  const [favoriteIds, setFavoriteIds] = useState<string[]>(() => {
-    try {
-      const raw = JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]');
-      return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : [];
-    } catch {
-      return [];
-    }
-  });
+  const [favoriteIds, setFavoriteIds] = useState<string[]>(readLegacyFavoriteIds);
 
   const filtersRef = useRef<HTMLDivElement>(null);
   const sortRef = useRef<HTMLDivElement>(null);
 
+  // Keep the legacy localStorage key as an offline cache; the server is the
+  // source of truth after the one-time migration below.
   useEffect(() => {
     try {
       localStorage.setItem(FAVORITES_KEY, JSON.stringify(favoriteIds));
@@ -690,19 +688,39 @@ export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens
     const fetchExercises = () => {
       setLoading(true);
       Promise.all([
-        api.listExercises(tokens.accessToken),
-        api.listWorkoutHistory(tokens.accessToken).catch(() => []),
+        api.listExercises(),
+        api.listWorkoutHistory().catch(() => []),
       ])
-        .then(([exList, hist]) => {
+        .then(async ([exList, hist]) => {
           setExercises(exList);
           setWorkoutHistory(hist);
+
+          const validIds = new Set(exList.map((ex) => ex.id));
+          let serverIds: string[] = [];
+          let serverOk = false;
+          try {
+            serverIds = await api.listFavorites();
+            serverOk = true;
+          } catch {
+            // offline — keep whatever local cache exists
+          }
+
+          const legacyIds = readLegacyFavoriteIds().filter((id) => validIds.has(id));
+          const merged = serverOk ? Array.from(new Set([...serverIds, ...legacyIds])) : legacyIds;
+
+          if (serverOk && legacyIds.length > 0) {
+            const missing = legacyIds.filter((id) => !serverIds.includes(id));
+            missing.forEach((id) => api.addExerciseFavorite(id).catch(() => {}));
+          }
+
+          setFavoriteIds(merged);
         })
         .catch(() => toast.error('Error al cargar la biblioteca de ejercicios.'))
         .finally(() => setLoading(false));
     };
 
     fetchExercises();
-  }, [tokens]);
+  }, []);
 
   // The URL is the source of truth: /exercises shows the grid, /exercises/:id shows that exercise's detail
   useEffect(() => {
@@ -722,8 +740,19 @@ export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens
     return exercises.filter(ex => favoriteIds.includes(ex.id));
   }, [exercises, favoriteIds]);
 
-  const toggleFavorite = (id: string) => {
-    setFavoriteIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const toggleFavorite = async (id: string) => {
+    const adding = !favoriteIds.includes(id);
+    setFavoriteIds((prev) => (adding ? [...prev, id] : prev.filter((x) => x !== id)));
+    try {
+      if (adding) {
+        await api.addExerciseFavorite(id);
+      } else {
+        await api.removeExerciseFavorite(id);
+      }
+    } catch {
+      setFavoriteIds((prev) => (adding ? prev.filter((x) => x !== id) : [...prev, id]));
+      toast.error('No se pudo actualizar el favorito.');
+    }
   };
 
   const baseList = activeTab === 'custom'
@@ -820,7 +849,7 @@ export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens
 
     try {
       if (editingExercise) {
-        const updated = await api.updateExercise(tokens.accessToken, editingExercise.id, {
+        const updated = await api.updateExercise(editingExercise.id, {
           name: formName.trim(),
           targetMuscleGroups: [formMuscle],
           equipment: formEquipment,
@@ -833,7 +862,7 @@ export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens
           setSelectedExercise(prev => prev ? { ...prev, ...updated } : null);
         }
       } else {
-        const created = await api.createExercise(tokens.accessToken, {
+        const created = await api.createExercise({
           name: formName.trim(),
           targetMuscleGroups: [formMuscle],
           equipment: formEquipment,
@@ -856,7 +885,7 @@ export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens
     if (!deletingExercise) return;
     setDeleting(true);
     try {
-      await api.deleteExercise(tokens.accessToken, deletingExercise.id);
+      await api.deleteExercise(deletingExercise.id);
       setExercises(prev => prev.filter(ex => ex.id !== deletingExercise.id));
       setFavoriteIds(prev => prev.filter(id => id !== deletingExercise.id));
       if (selectedExercise && selectedExercise.id === deletingExercise.id) {
@@ -876,7 +905,6 @@ export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({ tokens
       <div style={styles.container}>
         <ExerciseDetailPanel
           exercise={selectedExercise}
-          tokens={tokens}
           history={workoutHistory}
           onBack={() => navigate('/exercises')}
           onEdit={openEditModal}
