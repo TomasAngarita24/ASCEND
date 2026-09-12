@@ -27,6 +27,7 @@ import { matchesSearch } from '../utils/text';
 import { roundOneRepMax } from '../utils/oneRepMax';
 import {
   api,
+  OfflineQueuedError,
   type ExerciseSummary,
   type WorkoutHistoryEntry,
   type WorkoutDetailEntry,
@@ -749,7 +750,11 @@ export const ExerciseLibraryView: React.FC = () => {
       } else {
         await api.removeExerciseFavorite(id);
       }
-    } catch {
+    } catch (err: unknown) {
+      if (err instanceof OfflineQueuedError) {
+        toast.info('Guardado. Se sincronizará cuando recuperes la conexión.');
+        return;
+      }
       setFavoriteIds((prev) => (adding ? prev.filter((x) => x !== id) : [...prev, id]));
       toast.error('No se pudo actualizar el favorito.');
     }

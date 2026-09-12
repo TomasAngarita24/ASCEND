@@ -11,6 +11,19 @@ export default defineConfig({
   },
   server: {
     allowedHosts: true, // Permite ngrok y cualquier host externo
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (!id.includes('node_modules')) return;
+          if (/[\\/]react[\\/]|[\\/]react-dom[\\/]|[\\/]scheduler[\\/]|[\\/]react-is[\\/]/.test(id)) return 'react-vendor';
+          if (/[\\/]react-router(-dom)?[\\/]/.test(id)) return 'router-vendor';
+          if (/[\\/]sonner[\\/]|[\\/]lucide-react[\\/]/.test(id)) return 'ui-vendor';
+          return 'misc-vendor';
+        },
+      },
+    },
   },  
   plugins: [
     react(),

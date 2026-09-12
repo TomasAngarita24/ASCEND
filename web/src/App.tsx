@@ -11,6 +11,7 @@ import { AuthView } from './views/AuthView';
 import type { UserProfileCustomData } from './views/SettingsView';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { offlineQueue } from './utils/offlineQueue';
+import { prefetchOnIdle } from './utils/prefetch';
 
 const HomeView = lazy(() => import('./views/HomeView').then((m) => ({ default: m.HomeView })));
 const ActiveWorkoutView = lazy(() => import('./views/ActiveWorkoutView').then((m) => ({ default: m.ActiveWorkoutView })));
@@ -169,6 +170,13 @@ export function App() {
       });
     }
   }, [isOnline]);
+
+  // Warm up the most common lazy views while the browser is idle
+  useEffect(() => {
+    prefetchOnIdle(() => import('./views/HomeView'));
+    prefetchOnIdle(() => import('./views/RoutinesView'));
+    prefetchOnIdle(() => import('./views/ExerciseLibraryView'));
+  }, []);
 
   // Restore saved session from localStorage and restore an in-progress workout
   useEffect(() => {

@@ -15,13 +15,18 @@ import {
   Dumbbell,
   Pause,
   Play,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Info,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { api, ApiError, OfflineQueuedError, type ActiveWorkout, type ExerciseSummary } from '../api/api';
+import { api, ApiError, OfflineQueuedError, type ActiveWorkout, type ExerciseSummary, type WorkoutExercise } from '../api/api';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { matchesSearch } from '../utils/text';
 import { soundManager } from '../utils/audio';
 import { roundOneRepMax } from '../utils/oneRepMax';
+import { DELOAD_SETS_THRESHOLD, suggestWorkingWeight, sumSetsByExercise } from '../utils/coaching';
 import type { WorkoutSummaryData } from '../components/WorkoutSummaryModal';
 
 interface ActiveWorkoutViewProps {
@@ -66,6 +71,9 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
 
   // Previous performance map: exerciseId -> array of previous sets (FR-WORK-004)
   const [prevPerformanceMap, setPrevPerformanceMap] = useState<Record<string, PrevSetData[]>>({});
+
+  // Completed-set volume per exercise within the last 7 days (deload detection)
+  const [recentSetsByExercise, setRecentSetsByExercise] = useState<Record<string, number>>({});
 
   // Baseline Personal Records map: exerciseId -> { maxWeight, max1RM }
   const [baselinePRMap, setBaselinePRMap] = useState<Record<string, { maxWeight: number; max1RM: number }>>({});
@@ -129,7 +137,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
     return () => window.clearInterval(interval);
   }, [isRestTimerActive, isRestPaused, soundEnabled, cancelRestPushRemote]);
 
-  // Load previous workout performance
+  // Load previous workout performance + weekly volume for deload detection
   useEffect(() => {
     const fetchPreviousPerformance = async () => {
       try {
@@ -137,14 +145,21 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
         if (!history || history.length === 0) return;
 
         // Fetch recent workout details in parallel
-        const recentIds = history.slice(0, 5).map((e) => e.id);
+        const recentIds = history.slice(0, 10).map((e) => e.id);
         const details = await Promise.all(
           recentIds.map((id) => api.getWorkout(id).catch(() => null))
         );
 
         const perfMap: Record<string, PrevSetData[]> = {};
+        const weekStart = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        const recentWorkouts: Array<{ exercises: WorkoutExercise[] }> = [];
+
         for (const detail of details) {
           if (!detail?.exercises) continue;
+          const startedAt = new Date(detail.startedAt).getTime();
+          if (startedAt >= weekStart) {
+            recentWorkouts.push({ exercises: detail.exercises });
+          }
           for (const wex of detail.exercises) {
             const exId = wex.exercise?.id;
             if (exId && !perfMap[exId] && wex.sets && wex.sets.length > 0) {
@@ -162,6 +177,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
           }
         }
         setPrevPerformanceMap(perfMap);
+        setRecentSetsByExercise(sumSetsByExercise(recentWorkouts));
       } catch {
         // Silently ignore
       }
@@ -518,6 +534,27 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
     }
   };
 
+  const applyCoachingSuggestion = async (exerciseId: string, weight: number) => {
+    const exercise = workout.exercises.find((ex) => ex.id === exerciseId);
+    const targetSet = exercise?.sets.find((s) => !s.isCompleted && (s.setType || 'normal') === 'normal');
+    if (!exercise || !targetSet) return;
+
+    setWorkout((prev) => ({
+      ...prev,
+      exercises: prev.exercises.map((ex) =>
+        ex.id === exerciseId
+          ? { ...ex, sets: ex.sets.map((s) => (s.id === targetSet.id ? { ...s, weight } : s)) }
+          : ex
+      ),
+    }));
+    try {
+      await api.recordWorkoutSet(workout.id, exerciseId, targetSet.id, { weight });
+      toast.info(`Peso de trabajo puesto en ${weight} kg.`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Error al ajustar el peso sugerido.');
+    }
+  };
+
   const handleDeleteExercise = (exerciseId: string, exerciseName: string) => {
     showConfirm({
       title: 'Quitar ejercicio',
@@ -838,6 +875,9 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
       <div style={styles.exercisesList}>
         {workout.exercises.map((exItem, exIdx) => {
           const prevSets = prevPerformanceMap[exItem.exercise.id] || [];
+          const coaching = suggestWorkingWeight(prevSets);
+          const weeklySets = recentSetsByExercise[exItem.exercise.id] ?? 0;
+          const deloadWarning = weeklySets >= DELOAD_SETS_THRESHOLD;
 
           return (
             <div key={exItem.id} style={styles.exerciseCard}>
@@ -902,6 +942,41 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
                   </button>
                 </div>
               </div>
+
+              {(coaching || deloadWarning) && (
+                <div style={styles.coachingRow}>
+                  {coaching && (
+                    <button
+                      type="button"
+                      style={{
+                        ...styles.coachingChip,
+                        ...(coaching.direction === 'up' ? styles.coachingChipUp : {}),
+                        ...(coaching.direction === 'down' ? styles.coachingChipDown : {}),
+                      }}
+                      title={coaching.reason}
+                      onClick={() => void applyCoachingSuggestion(exItem.id, coaching.weight)}
+                    >
+                      {coaching.direction === 'up' ? <TrendingUp size={13} /> : coaching.direction === 'down' ? <TrendingDown size={13} /> : <Minus size={13} />}
+                      <span>Sugerido: {coaching.weight} kg</span>
+                    </button>
+                  )}
+                  {deloadWarning && (
+                    <button
+                      type="button"
+                      style={styles.deloadChip}
+                      title={`Llevas ${weeklySets} series completadas de este ejercicio en los últimos 7 días. Considera una semana de descarga.`}
+                      onClick={() =>
+                        toast.info(`Volumen semanal: ${weeklySets} series. Más de ${DELOAD_SETS_THRESHOLD} sin descarga puede frenar tu progreso.`, {
+                          duration: 5000,
+                        })
+                      }
+                    >
+                      <Info size={13} />
+                      <span>Deload (${weeklySets} series/sem)</span>
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Set Table */}
               <div style={styles.setTable}>
@@ -1372,6 +1447,53 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  coachingRow: {
+    display: 'flex',
+    gap: '0.5rem',
+    flexWrap: 'wrap',
+    padding: '0 0.75rem 0.25rem',
+  },
+  coachingChip: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.4rem',
+    padding: '0.3rem 0.65rem',
+    borderRadius: '999px',
+    fontSize: '0.74rem',
+    fontWeight: 700,
+    letterSpacing: '0.02em',
+    cursor: 'pointer',
+    border: '1px solid',
+    background: 'rgba(192, 138, 90, 0.16)',
+    borderColor: 'rgba(192, 138, 90, 0.5)',
+    color: 'var(--accent-teal)',
+    transition: 'transform 0.15s ease, background 0.15s ease',
+  },
+  coachingChipUp: {
+    background: 'rgba(125, 211, 175, 0.12)',
+    borderColor: 'rgba(125, 211, 175, 0.45)',
+    color: '#6fd99e',
+  },
+  coachingChipDown: {
+    background: 'rgba(192, 105, 105, 0.12)',
+    borderColor: 'rgba(192, 105, 105, 0.45)',
+    color: 'var(--danger-color)',
+  },
+  deloadChip: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.4rem',
+    padding: '0.3rem 0.65rem',
+    borderRadius: '999px',
+    fontSize: '0.74rem',
+    fontWeight: 700,
+    letterSpacing: '0.02em',
+    cursor: 'pointer',
+    border: '1px solid rgba(192, 138, 90, 0.5)',
+    background: 'rgba(192, 138, 90, 0.12)',
+    color: 'var(--accent-teal)',
+    transition: 'transform 0.15s ease, background 0.15s ease',
   },
   setTable: {
     display: 'flex',
