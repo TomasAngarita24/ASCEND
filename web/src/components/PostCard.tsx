@@ -440,6 +440,8 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 800,
     fontSize: '0.95rem',
     color: 'var(--text-primary)',
+    minWidth: 0,
+    wordBreak: 'break-word',
   },
   prBadge: {
     display: 'inline-flex',

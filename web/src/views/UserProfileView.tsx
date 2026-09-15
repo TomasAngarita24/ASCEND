@@ -466,22 +466,24 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ viewerUserId }
                       {routine.exerciseCount} {routine.exerciseCount === 1 ? 'ejercicio' : 'ejercicios'}
                     </span>
                   </button>
-                  <button
-                    style={styles.routineViewBtn}
-                    onClick={() => setDetailRoutineId(routine.id)}
-                    title="Ver los ejercicios y series configurados de esta rutina"
-                  >
-                    <Eye size={14} />
-                    Ver detalle
-                  </button>
-                  <button
-                    style={styles.routineCopyBtn}
-                    disabled={copyingRoutineId === routine.id}
-                    onClick={() => handleCopyPublicRoutine(routine.id)}
-                  >
-                    {copyingRoutineId === routine.id ? <Loader2 size={14} className="spin" /> : <Repeat size={14} />}
-                    Copiar rutina
-                  </button>
+                  <div style={styles.routineRowActions}>
+                    <button
+                      style={styles.routineViewBtn}
+                      onClick={() => setDetailRoutineId(routine.id)}
+                      title="Ver los ejercicios y series configurados de esta rutina"
+                    >
+                      <Eye size={14} />
+                      Ver detalle
+                    </button>
+                    <button
+                      style={styles.routineCopyBtn}
+                      disabled={copyingRoutineId === routine.id}
+                      onClick={() => handleCopyPublicRoutine(routine.id)}
+                    >
+                      {copyingRoutineId === routine.id ? <Loader2 size={14} className="spin" /> : <Repeat size={14} />}
+                      Copiar rutina
+                    </button>
+                  </div>
                 </div>
               ))}
             </>
@@ -797,6 +799,12 @@ const styles: Record<string, React.CSSProperties> = {
   routineRowMeta: {
     fontSize: '0.8rem',
     color: 'var(--text-muted)',
+  },
+  routineRowActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    flexShrink: 0,
   },
   routineCopyBtn: {
     display: 'inline-flex',

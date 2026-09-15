@@ -544,6 +544,8 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: '0.75rem',
   },
   pageTitle: {
     fontSize: '2.4rem',
@@ -620,7 +622,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   mainGrid: {
     display: 'grid',
-    gridTemplateColumns: '3fr 7fr',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 460px), 1fr))',
     gap: '1.75rem',
     alignItems: 'start',
     width: '100%',

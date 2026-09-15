@@ -383,7 +383,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   grid: {
     display: 'grid',
-    gridTemplateColumns: '4.5fr 5.5fr',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 480px), 1fr))',
     gap: '1.75rem',
     alignItems: 'start',
   },

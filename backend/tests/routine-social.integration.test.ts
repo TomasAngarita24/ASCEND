@@ -183,4 +183,30 @@ describe('shared routines', () => {
     });
     assert.equal(copyUnknown.status, 404);
   });
+
+  it('lets a viewer open a private routine shared through a published workout', async () => {
+    const owner = await registerAndGetAccessToken();
+    const viewer = await registerAndGetAccessToken();
+    const routineId = await routineWithExercise(owner);
+    const ownerHeaders = { authorization: `Bearer ${owner}`, 'content-type': 'application/json' };
+
+    const started = await request('/workouts', { body: JSON.stringify({ routineId }), headers: ownerHeaders, method: 'POST' });
+    const workoutId = (started.body.workout as Record<string, string>).id;
+    const completed = await request(`/workouts/${workoutId}/complete`, { headers: ownerHeaders, method: 'POST' });
+    assert.equal(completed.status, 200);
+    const shared = await request(`/workouts/${workoutId}/share`, { body: '{}', headers: ownerHeaders, method: 'POST' });
+    assert.equal(shared.status, 201);
+
+    const detail = await request(`/routines/${routineId}`, {
+      headers: { authorization: `Bearer ${viewer}` },
+    });
+    assert.equal(detail.status, 200);
+    assert.equal((detail.body.routine as Record<string, unknown>).name, 'Espalda fuerte');
+
+    const privateRoutineId = await routineWithExercise(owner);
+    const hidden = await request(`/routines/${privateRoutineId}`, {
+      headers: { authorization: `Bearer ${viewer}` },
+    });
+    assert.equal(hidden.status, 404);
+  });
 });

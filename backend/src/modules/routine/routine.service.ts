@@ -252,6 +252,9 @@ export async function getRoutine(userId: string, routineId: string): Promise<Rou
         { isPublic: true },
         { posts: { some: { postType: 'routine' } } },
         { posts: { some: { routineId } } },
+        // Published workouts reference this routine: sharing the workout
+        // intentionally shares the routine too, even if it is private.
+        { workouts: { some: { posts: { some: {} } } } },
       ],
     },
     include: { routineExercises: { include: { exercise: true }, orderBy: { position: 'asc' } } },

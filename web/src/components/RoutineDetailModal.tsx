@@ -194,12 +194,14 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: '0.75rem',
+    flexWrap: 'wrap',
     marginBottom: '1.25rem',
   },
   titleWrap: {
     display: 'flex',
     alignItems: 'center',
     gap: '0.6rem',
+    flexWrap: 'wrap',
     minWidth: 0,
   },
   modalTitle: {
