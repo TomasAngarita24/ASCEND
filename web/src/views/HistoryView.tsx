@@ -414,7 +414,7 @@ export const HistoryView: React.FC = () => {
               <h2 style={styles.modalTitle}>
                   {selectedSummary ? formatDate(selectedSummary.startedAt) : 'Entrenamiento'}
                 </h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 <button
                   style={isEditing ? styles.editDoneBtn : styles.editToggleBtn}
                   onClick={() => setIsEditing((v) => !v)}
@@ -752,7 +752,7 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
     borderRadius: 'var(--radius-container)',
-    padding: '2rem 2.5rem',
+    padding: 'clamp(1.25rem, 4vw, 2rem) clamp(1.25rem, 4vw, 2.5rem)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -767,7 +767,7 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: '0.2rem',
   },
   title: {
-    fontSize: '2.2rem',
+    fontSize: 'clamp(1.6rem, 5vw, 2.2rem)',
     fontWeight: 800,
     color: 'var(--text-primary)',
     letterSpacing: '-0.03em',
@@ -813,7 +813,7 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--surface-color)',
     border: '1px solid var(--border-color)',
     borderRadius: 'var(--radius-container)',
-    padding: '1.35rem 1.75rem',
+    padding: 'clamp(1.1rem, 3.5vw, 1.75rem)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -834,12 +834,15 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: '0.5rem',
+    flexWrap: 'wrap',
+    minWidth: 0,
   },
   dateText: {
     fontSize: '1.05rem',
     fontWeight: 800,
     color: 'var(--text-primary)',
     textTransform: 'capitalize',
+    minWidth: 0,
   },
   timeText: {
     fontSize: '0.85rem',
@@ -987,6 +990,8 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
+    gap: '0.75rem',
+    flexWrap: 'wrap',
     marginBottom: '1.25rem',
   },
   modalTitle: {
@@ -994,6 +999,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 800,
     color: 'var(--text-primary)',
     textTransform: 'capitalize',
+    minWidth: 0,
   },
   closeBtn: {
     padding: '0.25rem',
@@ -1005,7 +1011,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   modalStatsBar: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))',
     gap: '1rem',
     backgroundColor: 'var(--input-bg)',
     border: '1px solid var(--border-color)',
@@ -1050,6 +1056,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: '0.65rem',
+    flexWrap: 'wrap',
   },
   detailIndexBadge: {
     width: '26px',
@@ -1068,6 +1075,8 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 800,
     color: 'var(--text-primary)',
     flex: 1,
+    minWidth: 0,
+    wordBreak: 'break-word',
   },
   detailSetsCount: {
     fontSize: '0.78rem',
@@ -1078,10 +1087,13 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     gap: '0.35rem',
+    overflowX: 'auto',
+    WebkitOverflowScrolling: 'touch',
   },
   detailTableHeader: {
     display: 'grid',
-    gridTemplateColumns: '60px 1fr 1fr 1.2fr 100px',
+    gridTemplateColumns: '60px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr) 100px',
+    minWidth: '560px',
     padding: '0.35rem 0.5rem',
     fontSize: '0.7rem',
     fontWeight: 800,
@@ -1090,7 +1102,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   detailTableRow: {
     display: 'grid',
-    gridTemplateColumns: '60px 1fr 1fr 1.2fr 100px',
+    gridTemplateColumns: '60px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr) 100px',
+    minWidth: '560px',
     alignItems: 'center',
     padding: '0.45rem 0.5rem',
     borderRadius: 'var(--radius-element)',
@@ -1166,7 +1179,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   detailTableHeaderEditing: {
     display: 'grid',
-    gridTemplateColumns: '55px 95px 95px 1fr 40px',
+    gridTemplateColumns: '55px 95px 95px minmax(0, 1fr) 40px',
+    minWidth: '560px',
     padding: '0.35rem 0.5rem',
     fontSize: '0.7rem',
     fontWeight: 800,
@@ -1175,7 +1189,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   detailTableRowEditing: {
     display: 'grid',
-    gridTemplateColumns: '55px 95px 95px 1fr 40px',
+    gridTemplateColumns: '55px 95px 95px minmax(0, 1fr) 40px',
+    minWidth: '560px',
     alignItems: 'center',
     gap: '0.5rem',
     padding: '0.4rem 0.5rem',
