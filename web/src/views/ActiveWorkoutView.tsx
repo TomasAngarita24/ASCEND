@@ -1581,9 +1581,8 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.82rem',
     color: 'var(--text-muted)',
     fontFamily: 'var(--font-mono)',
-    overflow: 'hidden',
-    whiteSpace: 'nowrap',
-    textOverflow: 'ellipsis',
+    overflowWrap: 'anywhere',
+    wordBreak: 'break-word',
     minWidth: 0,
   },
   inputField: {
