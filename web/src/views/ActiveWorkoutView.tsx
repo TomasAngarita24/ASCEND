@@ -1205,7 +1205,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
 };
 
 
-const SET_TABLE_GRID_COLUMNS = '56px minmax(92px, 1.2fr) minmax(72px, 1.1fr) minmax(72px, 1.1fr) 50px 32px';
+const SET_TABLE_GRID_COLUMNS = '56px minmax(118px, 1.2fr) minmax(72px, 1.1fr) minmax(72px, 1.1fr) 50px 32px';
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
