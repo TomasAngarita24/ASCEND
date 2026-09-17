@@ -341,40 +341,38 @@ export const HistoryView: React.FC = () => {
               style={styles.card}
               onClick={() => handleOpenDetail(item.id)}
             >
-              <div style={styles.cardLeft}>
-                <div style={styles.dateBadgeWrap}>
-                  <Calendar size={18} color="var(--accent-teal)" />
-                  <span style={styles.dateText}>{formatDate(item.startedAt)}</span>
-                  <span style={styles.timeText}>• {formatTime(item.startedAt)}</span>
+              <div style={styles.dateBadgeWrap}>
+                <Calendar size={18} color="var(--accent-teal)" />
+                <span style={styles.dateText}>{formatDate(item.startedAt)}</span>
+                <span style={styles.timeText}>• {formatTime(item.startedAt)}</span>
+              </div>
+
+              <div style={styles.metricsPillsRow}>
+                <div style={styles.pillItem}>
+                  <Zap size={14} color="var(--accent-teal)" />
+                  <span style={styles.pillValue}>{item.totalVolume.toLocaleString()} kg</span>
+                  <span style={styles.pillLabel}>volumen</span>
                 </div>
 
-                <div style={styles.metricsPillsRow}>
-                  <div style={styles.pillItem}>
-                    <Zap size={14} color="var(--accent-teal)" />
-                    <span style={styles.pillValue}>{item.totalVolume.toLocaleString()} kg</span>
-                    <span style={styles.pillLabel}>volumen</span>
-                  </div>
+                <div style={styles.pillItem}>
+                  <Activity size={14} color="var(--accent-green)" />
+                  <span style={styles.pillValue}>{item.setsCompleted}</span>
+                  <span style={styles.pillLabel}>series</span>
+                </div>
 
-                  <div style={styles.pillItem}>
-                    <Activity size={14} color="var(--accent-green)" />
-                    <span style={styles.pillValue}>{item.setsCompleted}</span>
-                    <span style={styles.pillLabel}>series</span>
-                  </div>
+                <div style={styles.pillItem}>
+                  <Layers size={14} color="var(--accent-gold)" />
+                  <span style={styles.pillValue}>{item.exerciseCount}</span>
+                  <span style={styles.pillLabel}>ejercicios</span>
+                </div>
 
-                  <div style={styles.pillItem}>
-                    <Layers size={14} color="var(--accent-gold)" />
-                    <span style={styles.pillValue}>{item.exerciseCount}</span>
-                    <span style={styles.pillLabel}>ejercicios</span>
-                  </div>
-
-                  <div style={styles.pillItem}>
-                    <Clock size={14} color="var(--text-muted)" />
-                    <span style={styles.pillValue}>{formatDuration(item.durationSeconds)}</span>
-                  </div>
+                <div style={styles.pillItem}>
+                  <Clock size={14} color="var(--text-muted)" />
+                  <span style={styles.pillValue}>{formatDuration(item.durationSeconds)}</span>
                 </div>
               </div>
 
-              <div style={styles.cardRight}>
+              <div style={styles.cardFooter}>
                 <button
                   style={styles.shareCardBtn}
                   onClick={(e) => {
@@ -388,7 +386,7 @@ export const HistoryView: React.FC = () => {
                   <Share2 size={15} color="var(--accent-teal)" />
                   <span>Compartir</span>
                 </button>
-                <span style={styles.inspectText}>Ver detalle</span>
+                <span style={{ ...styles.inspectText, marginLeft: 'auto' }}>Ver detalle</span>
                 <ChevronRight size={18} color="var(--accent-teal)" />
                 <button
                   style={styles.deleteCardBtn}
@@ -815,25 +813,16 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 'var(--radius-container)',
     padding: 'clamp(1.1rem, 3.5vw, 1.75rem)',
     display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
     gap: '1rem',
-    flexWrap: 'wrap',
     cursor: 'pointer',
     transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
     boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
   },
-  cardLeft: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.75rem',
-    flex: '1 1 0',
-    minWidth: 0,
-  },
   dateBadgeWrap: {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem',
+    gap: '0.4rem 0.5rem',
     flexWrap: 'wrap',
     minWidth: 0,
   },
@@ -851,33 +840,35 @@ const styles: Record<string, React.CSSProperties> = {
   },
   metricsPillsRow: {
     display: 'flex',
-    gap: '0.75rem',
+    gap: '0.5rem',
     flexWrap: 'wrap',
   },
   pillItem: {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.4rem',
+    gap: '0.3rem',
     backgroundColor: 'var(--input-bg)',
-    padding: '0.35rem 0.75rem',
+    padding: '0.3rem 0.65rem',
     borderRadius: 'var(--radius-element)',
     border: '1px solid var(--border-subtle)',
   },
   pillValue: {
-    fontSize: '0.85rem',
+    fontSize: '0.82rem',
     fontWeight: 800,
     color: 'var(--text-primary)',
     fontFamily: 'var(--font-mono)',
   },
   pillLabel: {
-    fontSize: '0.72rem',
+    fontSize: '0.7rem',
     color: 'var(--text-muted)',
   },
-  cardRight: {
+  cardFooter: {
     display: 'flex',
     alignItems: 'center',
     gap: '0.35rem',
-    flexShrink: 0,
+    borderTop: '1px solid var(--border-subtle)',
+    paddingTop: '0.7rem',
+    flexWrap: 'wrap',
   },
   inspectText: {
     fontSize: '0.85rem',

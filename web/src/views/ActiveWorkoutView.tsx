@@ -1054,6 +1054,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
                           placeholder={prevSet?.weight?.toString() || '0'}
                           value={set.weight === null ? '' : set.weight}
                           onChange={(e) => handleUpdateSetField(exItem.id, set.id, 'weight', e.target.value)}
+                          onFocus={(e) => e.currentTarget.select()}
                           onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                           style={{
                             ...styles.inputField,
@@ -1071,6 +1072,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
                           placeholder={prevSet?.repetitions?.toString() || '10'}
                           value={set.repetitions === null ? '' : set.repetitions}
                           onChange={(e) => handleUpdateSetField(exItem.id, set.id, 'repetitions', e.target.value)}
+                          onFocus={(e) => e.currentTarget.select()}
                           onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                           style={{
                             ...styles.inputField,
@@ -1203,7 +1205,7 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
 };
 
 
-const SET_TABLE_GRID_COLUMNS = '56px minmax(0, 1.2fr) minmax(0, 1.1fr) minmax(0, 1.1fr) 50px 32px';
+const SET_TABLE_GRID_COLUMNS = '56px minmax(92px, 1.2fr) minmax(72px, 1.1fr) minmax(72px, 1.1fr) 50px 32px';
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
