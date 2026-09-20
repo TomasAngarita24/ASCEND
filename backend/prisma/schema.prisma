@@ -110,6 +110,7 @@ model RoutineExercise {
   targetWeight         Decimal? @map("target_weight") @db.Decimal(8, 2)
   restSeconds          Int?     @map("rest_seconds")
   notes                String?
+  setTargets           Json?    @map("set_targets")
   exercise             Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
   routine              Routine  @relation(fields: [routineId], references: [id], onDelete: Cascade)
 

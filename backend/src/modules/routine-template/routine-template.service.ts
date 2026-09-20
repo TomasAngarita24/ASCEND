@@ -130,6 +130,7 @@ export async function addRoutineTemplateToUser(userId: string, templateId: strin
       targetRepetitionsMin: item.targetRepetitionsMin,
       targetRepetitionsMax: item.targetRepetitionsMax,
       targetWeight: item.targetWeight === null ? null : Number(item.targetWeight),
+      setTargets: null,
       restSeconds: item.restSeconds,
       notes: item.notes,
 exercise: { id: item.exercise.id, name: item.exercise.name, mediaUrl: item.exercise.mediaUrl, targetMuscleGroups: item.exercise.targetMuscleGroups },

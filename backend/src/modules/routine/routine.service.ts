@@ -1,7 +1,8 @@
 import type { Prisma, RoutineExercise } from '../../generated/prisma/client';
 import { prisma } from '../../database/prisma';
 import { HttpError } from '../../errors/http-error';
-import type { RoutineExerciseResponse, RoutineResponse, RoutineSummary, RoutineFolderResponse } from './routine.types';
+import { setTargetsWriteValue, parseRoutineSetTargets } from './set-targets';
+import type { RoutineExerciseResponse, RoutineResponse, RoutineSummary, RoutineFolderResponse, RoutineSetTargetInput } from './routine.types';
 
 type RoutineWithExercises = Prisma.RoutineGetPayload<{
   include: { routineExercises: { include: { exercise: true }; orderBy: { position: 'asc' } } };
@@ -15,6 +16,7 @@ interface ExerciseConfiguration {
   targetRepetitionsMin?: number;
   targetSets?: number;
   targetWeight?: number;
+  setTargets?: RoutineSetTargetInput[];
 }
 
 function toRoutineExerciseResponse(item: RoutineExercise & { exercise: { id: string; name: string; mediaUrl: string | null; targetMuscleGroups: string[] } }): RoutineExerciseResponse {
@@ -25,6 +27,7 @@ function toRoutineExerciseResponse(item: RoutineExercise & { exercise: { id: str
     targetRepetitionsMin: item.targetRepetitionsMin,
     targetRepetitionsMax: item.targetRepetitionsMax,
     targetWeight: item.targetWeight === null ? null : Number(item.targetWeight),
+    setTargets: parseRoutineSetTargets(item.setTargets),
     restSeconds: item.restSeconds,
     notes: item.notes,
     exercise: { id: item.exercise.id, name: item.exercise.name, mediaUrl: item.exercise.mediaUrl, targetMuscleGroups: item.exercise.targetMuscleGroups },
@@ -163,6 +166,7 @@ interface RoutineSaveExercise {
   targetRepetitionsMin?: number;
   targetSets?: number;
   targetWeight?: number;
+  setTargets?: RoutineSetTargetInput[];
 }
 
 interface RoutineSaveInput {
@@ -229,6 +233,7 @@ export async function saveRoutine(userId: string, input: RoutineSaveInput): Prom
           targetRepetitionsMin: item.targetRepetitionsMin ?? null,
           targetRepetitionsMax: item.targetRepetitionsMax ?? null,
           targetWeight: item.targetWeight ?? null,
+          setTargets: setTargetsWriteValue(item.setTargets),
           restSeconds: item.restSeconds ?? null,
           notes: item.notes ?? null,
         })),
@@ -300,6 +305,7 @@ export async function duplicateRoutine(userId: string, routineId: string): Promi
           targetRepetitionsMin: item.targetRepetitionsMin,
           targetRepetitionsMax: item.targetRepetitionsMax,
           targetWeight: item.targetWeight,
+          setTargets: setTargetsWriteValue(item.setTargets),
           restSeconds: item.restSeconds,
           notes: item.notes,
         })),
@@ -323,6 +329,7 @@ export async function copyRoutineToUser(viewerId: string, routineId: string): Pr
           targetRepetitionsMin: true,
           targetRepetitionsMax: true,
           targetWeight: true,
+          setTargets: true,
           restSeconds: true,
           notes: true,
         },
@@ -360,6 +367,7 @@ export async function copyRoutineToUser(viewerId: string, routineId: string): Pr
           targetRepetitionsMin: item.targetRepetitionsMin,
           targetRepetitionsMax: item.targetRepetitionsMax,
           targetWeight: item.targetWeight,
+          setTargets: setTargetsWriteValue(item.setTargets),
           restSeconds: item.restSeconds,
           notes: item.notes,
         })),
@@ -396,7 +404,18 @@ export async function addRoutineExercise(
     }
 
     return transaction.routineExercise.create({
-      data: { ...input, exerciseId, position, routineId },
+      data: {
+        exerciseId,
+        position,
+        routineId,
+        notes: input.notes ?? null,
+        restSeconds: input.restSeconds ?? null,
+        targetSets: input.targetSets ?? null,
+        targetRepetitionsMin: input.targetRepetitionsMin ?? null,
+        targetRepetitionsMax: input.targetRepetitionsMax ?? null,
+        targetWeight: input.targetWeight ?? null,
+        setTargets: setTargetsWriteValue(input.setTargets),
+      },
       include: { exercise: { select: { id: true, name: true, mediaUrl: true, targetMuscleGroups: true } } },
     });
   });
@@ -455,6 +474,7 @@ export async function updateRoutineExercise(
         ...(input.targetRepetitionsMin !== undefined ? { targetRepetitionsMin: input.targetRepetitionsMin } : {}),
         ...(input.targetSets !== undefined ? { targetSets: input.targetSets } : {}),
         ...(input.targetWeight !== undefined ? { targetWeight: input.targetWeight } : {}),
+        ...(input.setTargets !== undefined ? { setTargets: setTargetsWriteValue(input.setTargets) } : {}),
       },
       include: { exercise: { select: { id: true, name: true, mediaUrl: true, targetMuscleGroups: true } } },
     });

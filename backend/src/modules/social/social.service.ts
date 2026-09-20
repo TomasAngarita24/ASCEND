@@ -3,6 +3,7 @@ import { prisma } from '../../database/prisma';
 import { HttpError } from '../../errors/http-error';
 import { estimateOneRepMax } from '../progress/one-rep-max';
 import { nextRoutinePosition } from '../routine/routine.service';
+import { setTargetsWriteValue } from '../routine/set-targets';
 import type {
   CommentsResponse, CopyRoutineResponse, FeedPost, FeedResponse, PostCommentResponse,
 } from './social.types';
@@ -314,6 +315,7 @@ export async function copySharedRoutine(userId: string, postId: string): Promise
           targetRepetitionsMin: true,
           targetRepetitionsMax: true,
           targetWeight: true,
+          setTargets: true,
           restSeconds: true,
           notes: true,
         },
@@ -339,6 +341,7 @@ export async function copySharedRoutine(userId: string, postId: string): Promise
           targetRepetitionsMin: item.targetRepetitionsMin,
           targetRepetitionsMax: item.targetRepetitionsMax,
           targetWeight: item.targetWeight,
+          setTargets: setTargetsWriteValue(item.setTargets),
           restSeconds: item.restSeconds,
           notes: item.notes,
         })),

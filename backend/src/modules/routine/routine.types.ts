@@ -1,3 +1,13 @@
+export interface RoutineSetTarget {
+  weight: number | null;
+  repetitions: number | null;
+}
+
+export interface RoutineSetTargetInput {
+  weight?: number | null;
+  repetitions?: number | null;
+}
+
 export interface RoutineExerciseResponse {
   id: string;
   position: number;
@@ -5,6 +15,7 @@ export interface RoutineExerciseResponse {
   targetRepetitionsMin: number | null;
   targetRepetitionsMax: number | null;
   targetWeight: number | null;
+  setTargets: RoutineSetTarget[] | null;
   restSeconds: number | null;
   notes: string | null;
   exercise: {

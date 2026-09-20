@@ -139,6 +139,11 @@ export interface ExerciseProgressionResponse {
   data: ExerciseProgressionPoint[];
 }
 
+export interface RoutineSetTarget {
+  weight: number | null;
+  repetitions: number | null;
+}
+
 export interface RoutineExercise {
   id: string;
   exercise: {
@@ -153,6 +158,7 @@ export interface RoutineExercise {
   targetRepetitionsMin: number | null;
   targetSets: number | null;
   targetWeight: number | null;
+  setTargets: RoutineSetTarget[] | null;
   notes: string | null;
 }
 
@@ -170,6 +176,7 @@ export interface RoutineSaveExercise {
   targetWeight?: number;
   targetRepetitionsMin?: number;
   targetRepetitionsMax?: number;
+  setTargets?: RoutineSetTarget[];
   restSeconds?: number;
   notes?: string;
 }

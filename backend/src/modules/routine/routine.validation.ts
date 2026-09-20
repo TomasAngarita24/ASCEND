@@ -6,6 +6,7 @@ const routineName = z.string().trim().min(1).max(255);
 const positiveInteger = z.coerce.number().int().min(1);
 const nonNegativeInteger = z.coerce.number().int().min(0);
 const nonNegativeNumber = z.coerce.number().min(0).max(999999.99);
+const MAX_SETS = 100;
 
 const createRoutineSchema = z.object({ name: routineName });
 const updateRoutineSchema = z.object({ name: routineName }).strict();
@@ -17,6 +18,10 @@ const exerciseConfigurationSchema = z.object({
   targetRepetitionsMin: positiveInteger.optional(),
   targetSets: positiveInteger.optional(),
   targetWeight: nonNegativeNumber.optional(),
+  setTargets: z.array(z.object({
+    weight: nonNegativeNumber.nullish(),
+    repetitions: positiveInteger.nullish(),
+  }).strict()).max(MAX_SETS).optional(),
 }).strict();
 const addRoutineExerciseSchema = exerciseConfigurationSchema.extend({ exerciseId: z.uuid() }).refine(
   (value) => value.targetRepetitionsMin === undefined
