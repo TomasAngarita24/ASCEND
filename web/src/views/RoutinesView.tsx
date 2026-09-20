@@ -346,6 +346,7 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({ onStartWorkout, onEx
           targetWeight: ex.targetWeight ?? undefined,
           targetRepetitionsMin: ex.targetRepetitionsMin ?? undefined,
           targetRepetitionsMax: ex.targetRepetitionsMax ?? undefined,
+          setTargets: ex.setTargets ?? undefined,
           restSeconds: ex.restSeconds ?? undefined,
           notes: ex.notes ?? undefined,
         })),

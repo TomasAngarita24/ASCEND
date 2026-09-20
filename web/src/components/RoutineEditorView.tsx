@@ -146,10 +146,11 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
         const targetRepetitionsMax = e.targetRepetitionsMax ?? e.targetRepetitionsMin ?? 10;
         const setTargets = Array.isArray(e.setTargets) && e.setTargets.length > 0
           ? e.setTargets.map((s: RoutineSetTarget) => ({
-              weight: typeof s?.weight === 'number' ? s.weight : null,
-              repetitions: typeof s?.repetitions === 'number' ? s.repetitions : null,
+              weight: s?.weight !== null && s?.weight !== undefined && !Number.isNaN(Number(s.weight)) ? Number(s.weight) : null,
+              repetitions: s?.repetitions !== null && s?.repetitions !== undefined && !Number.isNaN(Number(s.repetitions)) ? Number(s.repetitions) : null,
             }))
           : buildLegacySetTargets(e);
+        const initialWeight = Number(e.targetWeight ?? 0) || (setTargets[0]?.weight ?? 0);
         return {
           routineExerciseId: e.id ?? null,
           exerciseId: exId,
@@ -160,8 +161,8 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
           notes: e.notes || '',
           restSeconds: e.restSeconds ?? 90,
           config: {
-            targetSets,
-            targetWeight: e.targetWeight ?? 0,
+            targetSets: setTargets.length || targetSets,
+            targetWeight: initialWeight,
             targetRepetitionsMin,
             targetRepetitionsMax,
             setTargets,
@@ -411,11 +412,19 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
           if (rIdx !== setIdx) return row;
           if (field === 'weight') {
             const w = Math.max(0, raw || 0);
-            return { ...row, weight: w === 0 ? null : w };
+            return { ...row, weight: val === '' ? null : w };
           }
-          return { ...row, repetitions: Math.max(1, Math.min(100, raw || 1)) };
+          return { ...row, repetitions: val === '' ? null : Math.max(1, Math.min(100, raw || 1)) };
         });
-        return { ...ex, config: { ...ex.config, setTargets: nextRows } };
+        const firstWeight = nextRows.find((r) => r.weight !== null && r.weight !== undefined && r.weight > 0)?.weight ?? 0;
+        return {
+          ...ex,
+          config: {
+            ...ex.config,
+            setTargets: nextRows,
+            targetWeight: firstWeight,
+          },
+        };
       }),
     );
   };
@@ -557,14 +566,40 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
         name: routineName.trim(),
         isPublic,
         exercises: exercises.map((ex) => {
-          const minR = Math.max(1, Math.min(ex.config.targetRepetitionsMin, ex.config.targetRepetitionsMax));
-          const maxR = Math.max(1, Math.max(ex.config.targetRepetitionsMin, ex.config.targetRepetitionsMax));
+          const sets = (ex.config.setTargets && ex.config.setTargets.length > 0)
+            ? ex.config.setTargets
+            : Array.from({ length: Math.max(1, ex.config.targetSets) }, () => ({
+                weight: ex.config.targetWeight > 0 ? ex.config.targetWeight : null,
+                repetitions: ex.config.targetRepetitionsMin ?? 10,
+              }));
+
+          const cleanSetTargets = sets.map((s) => ({
+            weight: typeof s.weight === 'number' && !Number.isNaN(s.weight) && s.weight >= 0 ? s.weight : null,
+            repetitions: typeof s.repetitions === 'number' && !Number.isNaN(s.repetitions) && s.repetitions > 0 ? s.repetitions : null,
+          }));
+
+          const validWeights = cleanSetTargets
+            .map((s) => s.weight)
+            .filter((w): w is number => typeof w === 'number');
+          const primaryWeight = validWeights.length > 0 ? validWeights[0] : (ex.config.targetWeight || 0);
+
+          const validReps = cleanSetTargets
+            .map((s) => s.repetitions)
+            .filter((r): r is number => typeof r === 'number');
+          const minR = validReps.length > 0
+            ? Math.min(...validReps)
+            : Math.max(1, Math.min(ex.config.targetRepetitionsMin, ex.config.targetRepetitionsMax));
+          const maxR = validReps.length > 0
+            ? Math.max(...validReps)
+            : Math.max(1, Math.max(ex.config.targetRepetitionsMin, ex.config.targetRepetitionsMax));
+
           return {
             exerciseId: ex.exerciseId,
-            targetSets: Math.max(1, ex.config.targetSets),
-            targetWeight: ex.config.targetWeight,
+            targetSets: cleanSetTargets.length,
+            targetWeight: primaryWeight,
             targetRepetitionsMin: minR,
             targetRepetitionsMax: maxR,
+            setTargets: cleanSetTargets,
             restSeconds: ex.restSeconds,
             notes: ex.notes?.trim() ? ex.notes.trim() : undefined,
           };
