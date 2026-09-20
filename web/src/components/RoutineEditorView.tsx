@@ -798,14 +798,8 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
 
                       {(ex.config.setTargets ?? []).map((row, setIdx) => (
                         <div key={`${ex.exerciseId}-set-${setIdx}`} style={styles.setRow}>
-                          <div style={styles.configCell}>
-                            <input
-                              type="number"
-                              min="1"
-                              value={setIdx + 1}
-                              readOnly
-                              style={{ ...styles.setInput, ...styles.serieLabel }}
-                            />
+                          <div style={styles.serieBadgeWrap}>
+                            <span style={styles.serieBadge}>{setIdx + 1}</span>
                           </div>
                           <div style={styles.configCell}>
                             <input
@@ -816,15 +810,18 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
                               placeholder="0"
                               onChange={(e) => handleUpdateSetTarget(exIdx, setIdx, 'weight', e.target.value)}
                               style={styles.setInput}
+                              aria-label={`Peso objetivo para serie ${setIdx + 1}`}
                             />
                           </div>
                           <div style={styles.configCell}>
                             <input
                               type="number"
                               min="1"
-                              value={row.repetitions === null ? "" : row.repetitions}
+                              value={row.repetitions === null ? '' : row.repetitions}
+                              placeholder="10"
                               onChange={(e) => handleUpdateSetTarget(exIdx, setIdx, 'repetitions', e.target.value)}
                               style={styles.setInput}
+                              aria-label={`Repeticiones objetivo para serie ${setIdx + 1}`}
                             />
                           </div>
                         </div>
@@ -833,6 +830,7 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
                       {/* Set count adjustments */}
                       <div style={styles.setCountControls}>
                         <button type="button" style={styles.addSetBtn} onClick={() => handleAddSet(exIdx)}>
+                          <Plus size={15} />
                           <span>+ Serie</span>
                         </button>
                         {(ex.config.setTargets?.length ?? 1) > 1 && (
@@ -841,6 +839,7 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
                             style={styles.removeSetBtn}
                             onClick={() => handleDeleteSet(exIdx)}
                           >
+                            <Trash2 size={15} />
                             <span>− Serie</span>
                           </button>
                         )}
@@ -1468,11 +1467,29 @@ const styles: Record<string, React.CSSProperties> = {
   colHeaderReps: {
     textAlign: 'center',
   },
-  configRow: {
+  setRow: {
     display: 'grid',
     gridTemplateColumns: '2.5rem 1fr 1fr',
     gap: '0.75rem',
     alignItems: 'center',
+  },
+  serieBadgeWrap: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  serieBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '2rem',
+    height: '2rem',
+    borderRadius: 'var(--radius-full)',
+    backgroundColor: 'var(--surface-color)',
+    border: '1px solid var(--border-color)',
+    color: 'var(--text-muted)',
+    fontSize: '0.85rem',
+    fontWeight: 700,
   },
   configCell: {
     display: 'flex',
@@ -1483,14 +1500,15 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: '0.25rem',
   },
   removeSetBtn: {
+    flex: 1,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: '0.4rem',
-    padding: '0.75rem',
+    padding: '0.65rem 0.75rem',
     borderRadius: 'var(--radius-container)',
-    backgroundColor: 'rgba(192, 105, 105, 0.1)',
-    border: '1px dashed var(--danger-color)',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    border: '1px dashed rgba(239, 68, 68, 0.4)',
     color: 'var(--danger-color)',
     fontSize: '0.88rem',
     fontWeight: 700,
@@ -1510,11 +1528,12 @@ const styles: Record<string, React.CSSProperties> = {
     outline: 'none',
   },
   addSetBtn: {
+    flex: 1,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: '0.4rem',
-    padding: '0.75rem',
+    padding: '0.65rem 0.75rem',
     borderRadius: 'var(--radius-container)',
     backgroundColor: 'var(--surface-color)',
     border: '1px dashed var(--border-color)',
@@ -1522,7 +1541,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.88rem',
     fontWeight: 700,
     cursor: 'pointer',
-    marginTop: '0.25rem',
     transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
   },
   rightColumn: {
