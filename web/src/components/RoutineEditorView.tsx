@@ -1451,7 +1451,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   setsTableHeader: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(4, 1fr)',
+    gridTemplateColumns: '2.5rem 1fr 1fr',
     gap: '0.75rem',
     padding: '0.2rem 0.4rem',
     fontSize: '0.72rem',
@@ -1470,7 +1470,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   configRow: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(4, 1fr)',
+    gridTemplateColumns: '2.5rem 1fr 1fr',
     gap: '0.75rem',
     alignItems: 'center',
   },
