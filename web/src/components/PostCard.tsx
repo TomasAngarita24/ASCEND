@@ -162,7 +162,7 @@ export const PostCard: React.FC<PostCardProps> = ({
             </div>
             <div style={styles.workoutStat}>
               <Dumbbell size={14} color="var(--accent-blue)" />
-              <span>{post.workout.totalVolume.toLocaleString()} kg</span>
+              <span>{post.workout.totalVolume.toLocaleString('es-CO')} kg</span>
             </div>
             <div style={styles.workoutStat}>
               <Repeat size={14} color="var(--accent-green)" />
