@@ -866,7 +866,7 @@ export const RoutineEditorView: React.FC<RoutineEditorViewProps> = ({
                       <div style={styles.setCountControls}>
                         <button type="button" style={styles.addSetBtn} onClick={() => handleAddSet(exIdx)}>
                           <Plus size={15} />
-                          <span>+ Serie</span>
+                          <span>Serie</span>
                         </button>
                         {(ex.config.setTargets?.length ?? 1) > 1 && (
                           <button
