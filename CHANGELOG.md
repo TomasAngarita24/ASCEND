@@ -2,6 +2,14 @@
 
 All notable changes are tracked per fase below. Commits follow lowercase conventional messages (`feat:` / `fix:` / `chore:`).
 
+## Fase 15 — Importador de entrenamientos desde Notion, Excel y CSV
+- Parser inteligente de CSV (`csvImporter.ts`): detección automática de delimitador (coma, punto y coma, tabulación), soporte de comillas RFC 4180 y eliminación de BOM.
+- Reconocimiento de encabezados en español e inglés (`Ejercicio`, `Fecha`, `Serie`, `Peso`, `Reps`, `RPE`, `Tipo de serie`, `Notas`, `Rutina`).
+- Conversión de unidades (`lbs` a `kg`), decimales con coma (estilo Excel en español) y fechas (ISO, DD/MM/YYYY, Notion).
+- Agrupación automática de sesiones por fecha y rutina para generar entrenamientos completos.
+- Integración en `SettingsView.tsx` permitiendo importar archivos `.csv` y `.json` directamente.
+- Suite de pruebas unitarias automatizadas (`csvImporter.test.ts`).
+
 ## Fase 14 — Coaching en sesión, rendimiento y PWA
 `c979e7f`
 - In-session coaching: progressive-overload working-weight suggestion per exercise (from last session; +2.5 kg at ≥10 reps, −2.5 kg at ≤3 reps) with tap-to-apply.

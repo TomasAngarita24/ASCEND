@@ -6,6 +6,7 @@ import { api } from '../api/api';
 import { useTheme } from '../context/ThemeContext';
 import { getActiveSubscription, subscribeToPush, unsubscribeFromPush } from '../utils/push';
 import { useInstallPrompt } from '../hooks/useInstallPrompt';
+import { parseCsvToWorkoutRows } from '../utils/csvImporter';
 
 function ToggleSwitch({
   checked,
@@ -212,14 +213,31 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setIsImporting(true);
     try {
       const text = await file.text();
-      const json = JSON.parse(text);
-      const res = await api.importWorkouts(json);
-      toast.success(`¡Backup restaurado!`, {
-        description: `Se importaron ${res.importedWorkouts} entrenamientos y ${res.importedSets} series exitosamente.`,
+      let payload: { data: unknown[] };
+
+      const isCsv = file.name.toLowerCase().endsWith('.csv') || file.type.includes('csv');
+      if (isCsv) {
+        const { data, stats } = parseCsvToWorkoutRows(text);
+        payload = { data };
+        toast.info(`Importando ${stats.totalSets} series (${stats.totalWorkouts} entrenamientos) desde CSV...`);
+      } else {
+        const json = JSON.parse(text);
+        if (Array.isArray(json)) {
+          payload = { data: json };
+        } else if (json && Array.isArray(json.data)) {
+          payload = json as { data: unknown[] };
+        } else {
+          payload = { data: [json] };
+        }
+      }
+
+      const res = await api.importWorkouts(payload);
+      toast.success('¡Historial importado exitosamente!', {
+        description: `Se importaron ${res.importedWorkouts} entrenamientos y ${res.importedSets} series.`,
         duration: 5000,
       });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al procesar el archivo de backup JSON.');
+      toast.error(err instanceof Error ? err.message : 'Error al procesar el archivo.');
     } finally {
       setIsImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -686,9 +704,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         <div style={styles.exportContainer}>
           <div style={styles.exportInfoBox}>
-            <span style={styles.exportInfoTitle}>¿Qué incluye la exportación?</span>
+            <span style={styles.exportInfoTitle}>¿Qué formatos puedes exportar e importar?</span>
             <span style={styles.exportInfoDesc}>
-              Fechas, horas de inicio y fin, duración, ejercicios realizados, número de serie, pesos en kg, repeticiones, RPE, notas y volumen total por serie de todos tus entrenamientos completados.
+              Descarga tu historial en Excel / CSV o JSON. También puedes importar tus entrenamientos desde tablas exportadas de <strong>Notion (CSV)</strong>, hojas de cálculo de <strong>Excel (CSV)</strong>, <strong>Google Sheets</strong>, <strong>Hevy</strong> o <strong>Strong</strong>.
             </span>
           </div>
 
@@ -717,13 +735,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               disabled={isExporting || isImporting}
             >
               <Upload size={18} />
-              <span>{isImporting ? 'Restaurando...' : 'Restaurar Backup (.json)'}</span>
+              <span>{isImporting ? 'Importando...' : 'Importar Notion / Excel / JSON (.csv, .json)'}</span>
             </button>
 
             <input
               ref={fileInputRef}
               type="file"
-              accept=".json"
+              accept=".csv,.json,text/csv,application/json"
               style={{ display: 'none' }}
               onChange={handleImportBackup}
             />

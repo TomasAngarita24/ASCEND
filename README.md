@@ -47,7 +47,7 @@ ASCEND is a workout tracking and training management application. Plan routines,
 - Body measurements tracking (weight and circumference).
 - Password reset with email links (Resend) — falls back to console logging without an API key.
 - Google OAuth sign-in.
-- JSON/CSV export, JSON import/backup restore.
+- JSON/CSV export, Notion/Excel/CSV & JSON import/backup restore.
 - Offline action queue that replays when the network returns.
 - Installable PWA with an "Install app" button, update prompt, and offline-first shell.
 
