@@ -334,7 +334,7 @@ it('normalizes legacy "drop" set type to "drop_set"', async () => {
     });
     assert.equal(muscleGroups.status, 200);
     assert.deepEqual(muscleGroups.body.data, [{
-      muscleGroup: 'Chest',
+      muscleGroup: 'Pecho',
       trainingFrequency: 1,
       volume: 600,
     }]);

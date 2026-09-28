@@ -2,6 +2,7 @@ export interface BodyMeasurementResponse {
   id: string;
   date: string; // YYYY-MM-DD
   weight: number | null;
+  height: number | null;
   neck: number | null;
   shoulders: number | null;
   chest: number | null;
@@ -18,6 +19,7 @@ export interface BodyMeasurementResponse {
 export interface SaveMeasurementInput {
   date: string; // YYYY-MM-DD
   weight?: number | null;
+  height?: number | null;
   neck?: number | null;
   shoulders?: number | null;
   chest?: number | null;

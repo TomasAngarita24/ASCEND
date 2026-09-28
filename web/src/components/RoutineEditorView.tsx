@@ -48,16 +48,20 @@ interface RoutineEditorViewProps {
 const MUSCLE_GROUPS = [
   'Todos los músculos',
   'Pecho',
-  'Espalda',
+  'Dorsal',
   'Hombros',
-  'Bíceps',
-  'Tríceps',
-  'Cuádriceps',
+  'Biceps',
+  'Triceps',
+  'Cuadriceps',
   'Femoral',
-  'Glúteos',
+  'Gluteos',
   'Abdominales',
   'Pantorrillas',
+  'Trapecio',
+  'Antebrazo',
+  'Adductor',
   'Cardio',
+  'Otros',
 ];
 
 const EQUIPMENT_OPTIONS = [

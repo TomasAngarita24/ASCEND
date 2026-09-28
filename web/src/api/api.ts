@@ -83,6 +83,7 @@ export interface BodyMeasurement {
   id: string;
   date: string;
   weight: number | null;
+  height: number | null;
   neck: number | null;
   shoulders: number | null;
   chest: number | null;
@@ -99,6 +100,7 @@ export interface BodyMeasurement {
 export interface SaveMeasurementInput {
   date: string;
   weight?: number | null;
+  height?: number | null;
   neck?: number | null;
   shoulders?: number | null;
   chest?: number | null;

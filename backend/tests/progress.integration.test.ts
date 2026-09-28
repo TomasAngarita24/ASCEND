@@ -321,4 +321,46 @@ describe('progress endpoints', () => {
     assert.ok(globalValues.includes(520), 'global chart keeps the current-week volume');
     assert.ok(globalValues.includes(100), 'global chart keeps the older-week volume');
   });
+
+  it('detects weekly muscle sets for custom exercises with accented or alternative muscle group names', async () => {
+    const { accessToken, userId } = await registerUser('custom-muscle');
+    const headers = { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' };
+
+    // 1. Create a custom exercise with accented targetMuscleGroups
+    const createExRes = await request('/exercises', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        name: 'Curl Scott Especial',
+        targetMuscleGroups: ['Bíceps'],
+        equipment: 'Barra',
+      }),
+    });
+    assert.equal(createExRes.status, 201);
+    const customExercise = createExRes.body.exercise as { id: string; targetMuscleGroups: string[] };
+    assert.ok(customExercise.id);
+    // targetMuscleGroups stores the raw value as provided; normalized name is in primaryMuscleGroups
+    assert.deepEqual(customExercise.targetMuscleGroups, ['Bíceps']);
+
+    // 2. Complete a workout with 3 sets of this custom exercise
+    await createCompletedWorkout(userId, daysAgo(0, 0), [
+      { exerciseId: customExercise.id, sets: [{ weight: 25, reps: 10 }, { weight: 25, reps: 10 }, { weight: 25, reps: 10 }] },
+    ]);
+
+    // 3. Verify /progress/weekly-muscle-sets detects the 3 sets under canonical 'Biceps'
+    const weeklyRes = await request('/progress/weekly-muscle-sets', { headers });
+    assert.equal(weeklyRes.status, 200);
+    const weeklyBody = weeklyRes.body as {
+      data: Array<{ muscleGroup: string; weeklySets: number; totalSets: number }>;
+      totalWeeklySets: number;
+      totalDailySets: number;
+    };
+
+    assert.equal(weeklyBody.totalWeeklySets, 3);
+    assert.equal(weeklyBody.totalDailySets, 3);
+    const bicepsEntry = weeklyBody.data.find((item) => item.muscleGroup === 'Biceps');
+    assert.ok(bicepsEntry, 'Biceps group must be present in weekly muscle sets');
+    assert.equal(bicepsEntry.weeklySets, 3);
+    assert.equal(bicepsEntry.totalSets, 3);
+  });
 });

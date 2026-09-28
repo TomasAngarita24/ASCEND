@@ -1,3 +1,4 @@
+import { normalizeMuscleGroup, normalizeMuscleGroups } from '../../lib/muscle-groups';
 import type { Prisma, RoutineExercise } from '../../generated/prisma/client';
 import { prisma } from '../../database/prisma';
 import { HttpError } from '../../errors/http-error';
@@ -118,12 +119,13 @@ export async function listRoutines(userId: string): Promise<{ data: RoutineSumma
         const sets = item.targetSets ?? 0;
         totalSets += sets;
 
-        const primaryMuscle =
+        const rawMuscle =
           (item.exercise.primaryMuscleGroups && item.exercise.primaryMuscleGroups.length > 0)
             ? item.exercise.primaryMuscleGroups[0]
             : (item.exercise.targetMuscleGroups && item.exercise.targetMuscleGroups.length > 0)
             ? item.exercise.targetMuscleGroups[0]
             : 'Otros';
+        const primaryMuscle = normalizeMuscleGroup(rawMuscle);
 
         if (primaryMuscle && sets > 0) {
           muscleMap.set(primaryMuscle, (muscleMap.get(primaryMuscle) ?? 0) + sets);

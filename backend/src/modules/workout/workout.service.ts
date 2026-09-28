@@ -1,3 +1,4 @@
+import { normalizeMuscleGroup, normalizeMuscleGroups } from '../../lib/muscle-groups';
 import type { Prisma, Workout, WorkoutExercise, WorkoutSet } from '../../generated/prisma/client';
 import { prisma } from '../../database/prisma';
 import { HttpError } from '../../errors/http-error';
@@ -554,8 +555,9 @@ export async function importWorkoutHistory(userId: string, rows: ImportRow[]): P
             data: {
               name: exerciseName,
               createdByUserId: userId,
-              targetMuscleGroups: ['other'],
-              equipment: 'other',
+              targetMuscleGroups: ['Otros'],
+              primaryMuscleGroups: ['Otros'],
+              equipment: 'Otros',
             },
           });
         }

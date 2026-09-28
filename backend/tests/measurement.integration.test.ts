@@ -64,7 +64,7 @@ describe('measurements', () => {
     const headers = jsonHeaders(accessToken);
 
     const created = await request('/measurements', {
-      body: JSON.stringify({ date: '2026-06-01', weight: 82.5, waist: 88 }),
+      body: JSON.stringify({ date: '2026-06-01', weight: 82.5, height: 180, waist: 88 }),
       headers,
       method: 'POST',
     });
@@ -72,6 +72,7 @@ describe('measurements', () => {
     const firstMeasurement = created.body.measurement as Record<string, unknown>;
     assert.equal(firstMeasurement.date, '2026-06-01');
     assert.equal(firstMeasurement.weight, 82.5);
+    assert.equal(firstMeasurement.height, 180);
     assert.equal(firstMeasurement.waist, 88);
 
     // Same date upserts instead of creating a duplicate.
@@ -82,6 +83,8 @@ describe('measurements', () => {
     });
     assert.equal(upserted.status, 200);
     assert.equal((upserted.body.measurement as Record<string, unknown>).weight, 81);
+    // Omitted fields are left untouched by the upsert.
+    assert.equal((upserted.body.measurement as Record<string, unknown>).height, 180);
 
     const second = await request('/measurements', {
       body: JSON.stringify({ date: '2026-06-15', weight: 80.5 }),
@@ -141,6 +144,20 @@ describe('measurements', () => {
       method: 'POST',
     });
     assert.equal(outOfRange.status, 400);
+
+    const impossibleHeight = await request('/measurements', {
+      body: JSON.stringify({ date: '2026-06-01', weight: 80, height: 12 }),
+      headers,
+      method: 'POST',
+    });
+    assert.equal(impossibleHeight.status, 400);
+
+    const hugeHeight = await request('/measurements', {
+      body: JSON.stringify({ date: '2026-06-01', weight: 80, height: 900 }),
+      headers,
+      method: 'POST',
+    });
+    assert.equal(hugeHeight.status, 400);
 
     const unknownField = await request('/measurements', {
       body: JSON.stringify({ date: '2026-06-01', weight: 80, secretField: 'x' }),

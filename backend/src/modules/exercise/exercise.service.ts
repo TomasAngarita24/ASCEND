@@ -2,6 +2,7 @@ import type { Exercise, Prisma } from '../../generated/prisma/client';
 import { prisma } from '../../database/prisma';
 import { HttpError } from '../../errors/http-error';
 import type { ExerciseListResponse, ExerciseResponse, PreviousPerformanceResponse } from './exercise.types';
+import { normalizeMuscleGroup, normalizeMuscleGroups } from '../../lib/muscle-groups';
 
 interface CreateExerciseInput {
   description?: string;
@@ -70,6 +71,7 @@ export async function createCustomExercise(
   input: CreateExerciseInput,
 ): Promise<ExerciseResponse> {
   const targetGroups = input.targetMuscleGroups ?? [];
+  const normalizedPrimary = normalizeMuscleGroups(targetGroups);
   const exercise = await prisma.exercise.create({
     data: {
       createdByUserId: userId,
@@ -78,7 +80,7 @@ export async function createCustomExercise(
       instructions: input.instructions,
       name: input.name,
       targetMuscleGroups: targetGroups,
-      primaryMuscleGroups: targetGroups.length > 0 ? [targetGroups[0]] : [],
+      primaryMuscleGroups: normalizedPrimary,
     },
   });
 
@@ -109,7 +111,7 @@ export async function updateCustomExercise(
       ...(input.targetMuscleGroups !== undefined
         ? {
             targetMuscleGroups: input.targetMuscleGroups,
-            primaryMuscleGroups: input.targetMuscleGroups.length > 0 ? [input.targetMuscleGroups[0]] : [],
+            primaryMuscleGroups: normalizeMuscleGroups(input.targetMuscleGroups),
           }
         : {}),
     },
@@ -165,6 +167,7 @@ export async function listExercises(
             targetMuscleGroups: {
               hasSome: Array.from(new Set([
                 input.muscleGroup,
+                normalizeMuscleGroup(input.muscleGroup),
                 input.muscleGroup.toLowerCase(),
                 input.muscleGroup.toUpperCase(),
                 input.muscleGroup.charAt(0).toUpperCase() + input.muscleGroup.slice(1).toLowerCase(),

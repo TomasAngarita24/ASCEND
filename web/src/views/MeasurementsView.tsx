@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect, useId } from 'react';
-import { Scale, Plus, Trash2, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Scale, Plus, Trash2, TrendingUp, TrendingDown, Minus, Ruler } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../api/api';
+import { BMI_SCALE_MAX, BMI_SCALE_MIN, bmiScalePosition, calculateBmi, formatBmi } from '../utils/bmi';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -9,6 +10,7 @@ export interface MeasurementEntry {
   id: string;
   date: string; // ISO date string YYYY-MM-DD
   weight: number | null;       // kg
+  height: number | null;       // cm
   neck: number | null;         // cm
   shoulders: number | null;    // cm
   chest: number | null;        // cm
@@ -84,8 +86,8 @@ const LineChart: React.FC<LineChartProps> = ({ points, color, unit }) => {
       </defs>
 
       {/* Grid lines */}
-      {yLabels.map(({ val, y }) => (
-        <g key={val}>
+      {yLabels.map(({ val, y }, i) => (
+        <g key={`grid-${i}`}>
           <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y}
             stroke="rgba(255,255,255,0.06)" strokeWidth="1" strokeDasharray="4 4" />
           <text x={PAD.left - 6} y={y + 4} textAnchor="end" fill="var(--text-dim)" fontSize="11">
@@ -156,6 +158,7 @@ interface FieldDef { key: string; label: string; unit: string; color: string; lo
 
 const FIELDS: FieldDef[] = [
   { key: 'weight', label: 'Peso corporal', unit: 'kg', color: 'var(--accent-teal)', lowerIsBetter: false },
+  { key: 'height', label: 'Altura', unit: 'cm', color: 'var(--accent-blue)', lowerIsBetter: false },
   { key: 'bodyFat', label: 'Grasa corporal', unit: '%', color: '#B5754F', lowerIsBetter: true },
   { key: 'neck', label: 'Cuello', unit: 'cm', color: '#C0C2C6', lowerIsBetter: false },
   { key: 'shoulders', label: 'Hombros', unit: 'cm', color: '#B8914D', lowerIsBetter: false },
@@ -172,7 +175,7 @@ const FIELDS: FieldDef[] = [
 function emptyForm() {
   return {
     date: new Date().toISOString().slice(0, 10),
-    weight: '', neck: '', shoulders: '', chest: '', waist: '',
+    weight: '', height: '', neck: '', shoulders: '', chest: '', waist: '',
     hips: '', bicep: '', thigh: '', calf: '', bodyFat: '',
   };
 }
@@ -203,6 +206,7 @@ if (item && item.date) {
                   await api.saveMeasurement({
                     date: item.date,
                     weight: item.weight !== null && item.weight !== undefined ? Number(item.weight) : null,
+                    height: item.height !== null && item.height !== undefined ? Number(item.height) : null,
                     neck: item.neck !== null && item.neck !== undefined ? Number(item.neck) : null,
                     shoulders: item.shoulders !== null && item.shoulders !== undefined ? Number(item.shoulders) : null,
                     chest: item.chest !== null && item.chest !== undefined ? Number(item.chest) : null,
@@ -228,6 +232,7 @@ if (item && item.date) {
           id: m.id,
           date: m.date.slice(0, 10),
           weight: m.weight,
+          height: m.height,
           neck: m.neck,
           shoulders: m.shoulders,
           chest: m.chest,
@@ -256,6 +261,18 @@ if (item && item.date) {
   const latest = sortedEntries[sortedEntries.length - 1] ?? null;
   const prev = sortedEntries[sortedEntries.length - 2] ?? null;
 
+  // Altura vigente: la más reciente registrada, para que el IMC siga funcionando
+  // aunque la última entrada no repita la altura.
+  const latestHeight = useMemo(() => {
+    for (let i = sortedEntries.length - 1; i >= 0; i--) {
+      const h = sortedEntries[i].height;
+      if (h !== null && h !== undefined && h > 0) return h;
+    }
+    return null;
+  }, [sortedEntries]);
+
+  const bmi = useMemo(() => calculateBmi(latest?.weight, latestHeight), [latest?.weight, latestHeight]);
+
   function getChartPoints(fieldKey: string): ChartPoint[] {
     return sortedEntries
       .map((e) => ({ date: e.date, value: (e as Record<string, unknown>)[fieldKey] as number | null }))
@@ -275,6 +292,7 @@ if (item && item.date) {
       const saved = await api.saveMeasurement({
         date: form.date,
         weight: form.weight ? parseFloat(form.weight) : null,
+        height: form.height ? parseFloat(form.height) : null,
         neck: form.neck ? parseFloat(form.neck) : null,
         shoulders: form.shoulders ? parseFloat(form.shoulders) : null,
         chest: form.chest ? parseFloat(form.chest) : null,
@@ -290,6 +308,7 @@ if (item && item.date) {
         id: saved.id,
         date: saved.date.slice(0, 10),
         weight: saved.weight,
+        height: saved.height,
         neck: saved.neck,
         shoulders: saved.shoulders,
         chest: saved.chest,
@@ -421,6 +440,73 @@ if (item && item.date) {
                     );
                   })}
                 </div>
+              </>
+            )}
+          </div>
+
+          {/* BMI (IMC) Card */}
+          <div style={styles.card}>
+            <div style={styles.cardHeader}>
+              <Ruler size={22} color="var(--accent-teal)" />
+              <h2 style={styles.cardTitle}>Índice de masa corporal</h2>
+            </div>
+
+            {bmi === null ? (
+              <div style={styles.emptyText}>
+                {latest === null
+                  ? 'Registra tu peso y tu altura para calcular tu IMC.'
+                  : 'Registra tu altura para calcular tu IMC.'}
+              </div>
+            ) : (
+              <>
+                <div style={styles.bmiHeadline}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+                    <span style={{ ...styles.bmiValue, color: bmi.classification.color }}>
+                      {formatBmi(bmi.bmi)}
+                    </span>
+                    <span style={styles.bmiUnit}>IMC</span>
+                  </div>
+                  <span style={{ ...styles.bmiBadge, color: bmi.classification.color, borderColor: bmi.classification.color }}>
+                    {bmi.classification.label}
+                  </span>
+                </div>
+
+                {/* Scale: underweight | normal | overweight | obesity */}
+                <div style={styles.bmiScale}>
+                  <div
+                    style={{
+                      ...styles.bmiMarker,
+                      left: `${bmiScalePosition(bmi.bmi) * 100}%`,
+                      backgroundColor: bmi.classification.color,
+                    }}
+                  />
+                </div>
+                <div style={styles.bmiScaleLabels}>
+                  <span style={styles.bmiScaleLabel}>{BMI_SCALE_MIN}</span>
+                  <span style={styles.bmiScaleLabel}>Normal 18.5–24.9</span>
+                  <span style={styles.bmiScaleLabel}>{BMI_SCALE_MAX}+</span>
+                </div>
+
+                <p style={styles.bmiAdvice}>{bmi.classification.advice}</p>
+
+                <div style={styles.bmiMeta}>
+                  <div style={styles.bmiMetaItem}>
+                    <span style={styles.bmiMetaLabel}>Peso saludable</span>
+                    <span style={styles.bmiMetaValue}>
+                      {bmi.healthyWeightRange.min} – {bmi.healthyWeightRange.max} kg
+                    </span>
+                  </div>
+                  <div style={styles.bmiMetaItem}>
+                    <span style={styles.bmiMetaLabel}>Base de cálculo</span>
+                    <span style={styles.bmiMetaValue}>
+                      {latest?.weight} kg · {latestHeight} cm
+                    </span>
+                  </div>
+                </div>
+
+                <p style={styles.bmiDisclaimer}>
+                  El IMC es una estimación general y no distingue masa muscular de grasa.
+                </p>
               </>
             )}
           </div>
@@ -666,6 +752,89 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-muted)',
     fontSize: '0.9rem',
     lineHeight: 1.5,
+  },
+  bmiHeadline: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '1rem',
+    flexWrap: 'wrap',
+  },
+  bmiValue: {
+    fontSize: '3rem',
+    fontWeight: 800,
+    lineHeight: 1,
+  },
+  bmiUnit: {
+    fontSize: '0.95rem',
+    fontWeight: 700,
+    color: 'var(--text-muted)',
+  },
+  bmiBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '0.3rem 0.85rem',
+    borderRadius: 'var(--radius-full)',
+    border: '1px solid currentColor',
+    fontSize: '0.85rem',
+    fontWeight: 700,
+  },
+  bmiScale: {
+    position: 'relative',
+    height: '10px',
+    borderRadius: 'var(--radius-full)',
+    background:
+      'linear-gradient(to right, #5B8DEF 0%, #5B8DEF 17.2%, var(--accent-green) 17.2%, var(--accent-green) 42.4%, var(--accent-gold) 42.4%, var(--accent-gold) 57.6%, var(--danger-color) 57.6%, var(--danger-color) 100%)',
+  },
+  bmiMarker: {
+    position: 'absolute',
+    top: '50%',
+    width: '16px',
+    height: '16px',
+    borderRadius: 'var(--radius-full)',
+    border: '3px solid var(--surface-color)',
+    transform: 'translate(-50%, -50%)',
+  },
+  bmiScaleLabels: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: '0.5rem',
+  },
+  bmiScaleLabel: {
+    fontSize: '0.72rem',
+    color: 'var(--text-dim)',
+  },
+  bmiAdvice: {
+    margin: 0,
+    fontSize: '0.88rem',
+    lineHeight: 1.5,
+    color: 'var(--text-secondary)',
+  },
+  bmiMeta: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.6rem',
+  },
+  bmiMetaItem: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '1rem',
+  },
+  bmiMetaLabel: {
+    fontSize: '0.85rem',
+    color: 'var(--text-muted)',
+  },
+  bmiMetaValue: {
+    fontSize: '0.9rem',
+    fontWeight: 700,
+    color: 'var(--text-primary)',
+  },
+  bmiDisclaimer: {
+    margin: 0,
+    fontSize: '0.75rem',
+    lineHeight: 1.45,
+    color: 'var(--text-dim)',
   },
   latestDate: {
     fontSize: '0.82rem',

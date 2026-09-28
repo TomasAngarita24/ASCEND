@@ -1,3 +1,4 @@
+import { normalizeMuscleGroup, normalizeMuscleGroups } from '../../lib/muscle-groups';
 import type { Prisma } from '../../generated/prisma/client';
 import { prisma } from '../../database/prisma';
 import { HttpError } from '../../errors/http-error';
@@ -402,7 +403,8 @@ export async function getMuscleGroupStatistics(userId: string): Promise<MuscleGr
         (total, set) => total + Number(set.weight ?? 0) * (set.repetitions ?? 0),
         0,
       );
-      for (const muscleGroup of workoutExercise.exercise.targetMuscleGroups) {
+      for (const rawGroup of workoutExercise.exercise.targetMuscleGroups) {
+        const muscleGroup = normalizeMuscleGroup(rawGroup);
         const current = statistics.get(muscleGroup) ?? { trainingFrequency: 0, volume: 0 };
         current.volume += volume;
         statistics.set(muscleGroup, current);
@@ -465,12 +467,13 @@ export async function getWeeklyMuscleSets(userId: string, now: Date = new Date()
         0,
       );
 
-      const primaryMuscles =
+      const rawMuscles =
         workoutExercise.exercise.primaryMuscleGroups && workoutExercise.exercise.primaryMuscleGroups.length > 0
           ? workoutExercise.exercise.primaryMuscleGroups
           : workoutExercise.exercise.targetMuscleGroups && workoutExercise.exercise.targetMuscleGroups.length > 0
           ? workoutExercise.exercise.targetMuscleGroups.slice(0, 1)
-          : [];
+          : ['Otros'];
+      const primaryMuscles = normalizeMuscleGroups(rawMuscles);
 
       for (const muscleGroup of primaryMuscles) {
         const current = statistics.get(muscleGroup) ?? {

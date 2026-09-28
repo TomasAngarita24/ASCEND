@@ -110,14 +110,18 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onStartWorkout }
     Espalda: '#C8A45D',
     Back: '#C8A45D',
     Cuadriceps: '#4CAF7D',
+    Cuádriceps: '#4CAF7D',
     Femoral: '#6FC79B',
     Piernas: '#4CAF7D',
     Legs: '#4CAF7D',
     Gluteos: '#3D8F66',
+    Glúteos: '#3D8F66',
     Hombros: '#B8914D',
     Shoulders: '#B8914D',
     Biceps: '#C0C2C6',
+    Bíceps: '#C0C2C6',
     Triceps: '#8A8D93',
+    Tríceps: '#8A8D93',
     Brazos: '#C0C2C6',
     Arms: '#C0C2C6',
     Abdominales: '#B5754F',
@@ -126,6 +130,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onStartWorkout }
     Antebrazo: '#5F6268',
     Pantorrillas: '#7A9E87',
     Adductor: '#6FC79B',
+    Otros: '#9E9E9E',
+    Other: '#9E9E9E',
   };
 
   return (

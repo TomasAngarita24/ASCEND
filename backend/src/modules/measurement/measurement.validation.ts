@@ -4,10 +4,13 @@ import { HttpError } from '../../errors/http-error';
 
 const measurementField = z.coerce.number().min(0).max(999.99).nullable().optional();
   const bodyFatField = z.coerce.number().min(0).max(99.99).nullable().optional();
+  // Height in cm: reject values that cannot describe a human body.
+  const heightField = z.coerce.number().min(30).max(280).nullable().optional();
 
 const saveMeasurementSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   weight: measurementField,
+  height: heightField,
   neck: measurementField,
   shoulders: measurementField,
   chest: measurementField,
@@ -22,6 +25,7 @@ const saveMeasurementSchema = z.object({
 export interface ValidatedSaveMeasurement {
   date: string;
   weight?: number | null;
+  height?: number | null;
   neck?: number | null;
   shoulders?: number | null;
   chest?: number | null;

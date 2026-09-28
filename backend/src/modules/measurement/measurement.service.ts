@@ -8,6 +8,7 @@ function toMeasurementResponse(m: BodyMeasurement): BodyMeasurementResponse {
     id: m.id,
     date: m.date.toISOString().slice(0, 10),
     weight: m.weight === null ? null : Number(m.weight),
+    height: m.height === null ? null : Number(m.height),
     neck: m.neck === null ? null : Number(m.neck),
     shoulders: m.shoulders === null ? null : Number(m.shoulders),
     chest: m.chest === null ? null : Number(m.chest),
@@ -50,6 +51,7 @@ export async function saveMeasurement(userId: string, input: SaveMeasurementInpu
       userId,
       date: dateObj,
       weight: input.weight ?? null,
+      height: input.height ?? null,
       neck: input.neck ?? null,
       shoulders: input.shoulders ?? null,
       chest: input.chest ?? null,
@@ -62,6 +64,7 @@ export async function saveMeasurement(userId: string, input: SaveMeasurementInpu
     },
     update: {
       weight: input.weight !== undefined ? input.weight : undefined,
+      height: input.height !== undefined ? input.height : undefined,
       neck: input.neck !== undefined ? input.neck : undefined,
       shoulders: input.shoulders !== undefined ? input.shoulders : undefined,
       chest: input.chest !== undefined ? input.chest : undefined,

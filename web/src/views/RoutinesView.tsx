@@ -61,6 +61,8 @@ const MUSCLE_COLOR_MAP: Record<string, string> = {
   Gemelos: '#7A9E87',
   Antebrazos: '#5F6268',
   Trapecio: '#A67B4A',
+  Otros: '#9E9E9E',
+  Other: '#9E9E9E',
 };
 
 export const RoutinesView: React.FC<RoutinesViewProps> = ({ onStartWorkout, onExplore: _onExplore, onOpenEditor }) => {
