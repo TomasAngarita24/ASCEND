@@ -6,6 +6,7 @@ import { Sidebar } from './components/Sidebar';
 import { BottomNav } from './components/BottomNav';
 import { WorkoutSummaryModal, type WorkoutSummaryData } from './components/WorkoutSummaryModal';
 import { RoutineDetailModal } from './components/RoutineDetailModal';
+import { EmailVerificationBanner } from './components/EmailVerificationBanner';
 import type { NavTab } from './components/Sidebar';
 import { AuthView } from './views/AuthView';
 import type { UserProfileCustomData } from './views/SettingsView';
@@ -24,6 +25,7 @@ const RoutinesView = lazy(() => import('./views/RoutinesView').then((m) => ({ de
 const RoutineEditorView = lazy(() => import('./components/RoutineEditorView').then((m) => ({ default: m.RoutineEditorView })));
 const SettingsView = lazy(() => import('./views/SettingsView').then((m) => ({ default: m.SettingsView })));
 const ResetPasswordView = lazy(() => import('./views/ResetPasswordView').then((m) => ({ default: m.ResetPasswordView })));
+const VerifyEmailView = lazy(() => import('./views/VerifyEmailView').then((m) => ({ default: m.VerifyEmailView })));
 const SocialFeedView = lazy(() => import('./views/SocialFeedView').then((m) => ({ default: m.SocialFeedView })));
 const UserProfileView = lazy(() => import('./views/UserProfileView').then((m) => ({ default: m.UserProfileView })));
 
@@ -124,8 +126,6 @@ export function App() {
 
   const handleLogout = useCallback(() => {
     api.logout().catch(() => {});
-    // Pending offline mutations belong to this user: never replay them under a
-    // different account after the next login.
     offlineQueue.clear();
     localStorage.removeItem('ascend_session');
     localStorage.removeItem('ascend_profile');
@@ -136,7 +136,6 @@ export function App() {
     navigate('/', { replace: true });
   }, [navigate]);
 
-  // Registers the callback so api.ts can auto-logout when the session expires
   useEffect(() => {
     api.setSessionExpiredCallback(() => {
       handleLogout();
@@ -144,8 +143,6 @@ export function App() {
     });
   }, [handleLogout]);
 
-  // Keep accessTokenExpiresAt in memory + storage current after a background
-  // token refresh (auth/refresh returns the new expiry in its body).
   useEffect(() => {
     api.setTokenRefreshedCallback((accessTokenExpiresAt) => {
       setSession((prev) => {
@@ -160,7 +157,6 @@ export function App() {
     });
   }, []);
 
-  // Process offline queue automatically when network is re-established
   useEffect(() => {
     if (isOnline) {
       offlineQueue.processQueue((syncedCount) => {
@@ -171,14 +167,12 @@ export function App() {
     }
   }, [isOnline]);
 
-  // Warm up the most common lazy views while the browser is idle
   useEffect(() => {
     prefetchOnIdle(() => import('./views/HomeView'));
     prefetchOnIdle(() => import('./views/RoutinesView'));
     prefetchOnIdle(() => import('./views/ExerciseLibraryView'));
   }, []);
 
-  // Restore saved session from localStorage and restore an in-progress workout
   useEffect(() => {
     const saved = localStorage.getItem('ascend_session');
     if (saved) {
@@ -187,13 +181,11 @@ export function App() {
         if (!parsed.user) {
           throw new Error('Sesión inválida');
         }
-        // Tokens live in httpOnly cookies now; keep only user + expiry locally.
         const tokens = makePlaceholderTokens(parsed.tokens?.accessTokenExpiresAt ?? parsed.expiresAt ?? '');
         api.getProfile()
           .then(async (user) => {
             setSession({ user, tokens });
 
-            // Restore profileData
             const savedProfile = localStorage.getItem('ascend_profile');
             let initialProfile: UserProfileCustomData;
             if (savedProfile) {
@@ -201,7 +193,6 @@ export function App() {
               if (user.fullName && !initialProfile.fullName) initialProfile.fullName = user.fullName;
               if (user.bio && !initialProfile.bio) initialProfile.bio = user.bio;
               if (user.avatarUrl && !initialProfile.avatarUrl) initialProfile.avatarUrl = user.avatarUrl;
-              // If local has custom name/bio, sync to backend
               if ((initialProfile.fullName || initialProfile.bio) && (!user.fullName || !user.bio)) {
                 api.updateProfile({
                   fullName: initialProfile.fullName,
@@ -220,12 +211,10 @@ export function App() {
             }
             setProfileData(initialProfile);
 
-            // Restore active workout if one was in progress
             const savedWorkoutId = localStorage.getItem('ascend_active_workout_id');
             if (savedWorkoutId) {
               try {
                 const detail = await api.getWorkout(savedWorkoutId);
-                // Only restore if still active (not completed or cancelled)
                 const asActive = detail as unknown as ActiveWorkout;
                 if (asActive.status === 'active' || asActive.status === 'in_progress') {
                   setActiveWorkout(asActive);
@@ -252,7 +241,6 @@ export function App() {
 
   const handleAuthSuccess = (newSession: AuthSession) => {
     setSession(newSession);
-    // Persist only non-sensitive data; tokens ride in httpOnly cookies.
     localStorage.setItem(
       'ascend_session',
       JSON.stringify({ user: newSession.user, expiresAt: newSession.tokens.accessTokenExpiresAt }),
@@ -306,12 +294,20 @@ export function App() {
     }
   };
 
-  // Password reset links arrive outside the authenticated app
   const isResetPath = location.pathname.startsWith('/reset-password');
   if (isResetPath) {
     return (
       <Suspense fallback={routeFallback}>
         <ResetPasswordView />
+      </Suspense>
+    );
+  }
+
+  const isVerifyPath = location.pathname.startsWith('/verify-email');
+  if (isVerifyPath && !session) {
+    return (
+      <Suspense fallback={routeFallback}>
+        <VerifyEmailView />
       </Suspense>
     );
   }
@@ -331,7 +327,7 @@ export function App() {
 
   return (
     <div style={styles.appLayout}>
-      {/* Offline banner — fixed top bar when connectivity is lost */}
+      {/* Offline banner */}
       {!isOnline && (
         <div style={offlineBannerStyle}>
           <span>Sin conexión — los datos se sincronizarán al reconectarse</span>
@@ -347,132 +343,122 @@ export function App() {
 
       {/* Main Content Viewport */}
       <main className="mobile-main-content" style={styles.mainContent}>
+        <EmailVerificationBanner user={session.user} />
         <Suspense fallback={routeFallback}>
           <Routes>
-          {/* Default redirect: / → /home */}
-          <Route path="/" element={<Navigate to="/home" replace />} />
+            <Route path="/" element={<Navigate to="/home" replace />} />
 
-          <Route
-            path="/home"
-            element={
-              <HomeView
-                onNavigate={navigateToTab}
-                onStartWorkout={handleStartWorkout}
-              />
-            }
-          />
-
-          <Route
-            path="/routines"
-            element={
-              routineEditorState.isOpen ? (
-                <RoutineEditorView
-                  isNew={routineEditorState.isNew}
-                  routineId={routineEditorState.routineId}
-                  initialName={routineEditorState.name}
-                  initialExercises={routineEditorState.detail?.exercises ?? []}
-                  initialDetail={routineEditorState.detail}
-                  onClose={() => setRoutineEditorState(s => ({ ...s, isOpen: false }))}
-                  onSaved={() => setRoutineEditorState(s => ({ ...s, isOpen: false }))}
-                />
-              ) : (
-                <RoutinesView
+            <Route
+              path="/home"
+              element={
+                <HomeView
+                  onNavigate={navigateToTab}
                   onStartWorkout={handleStartWorkout}
-                  onExplore={() => navigate('/exercises')}
-                  onOpenEditor={(opts) => setRoutineEditorState({ ...opts, isOpen: true })}
                 />
-              )
-            }
-          />
+              }
+            />
 
-          <Route
-            path="/exercises"
-            element={<ExerciseLibraryView />}
-          />
-          <Route
-            path="/exercises/:exerciseId"
-            element={<ExerciseLibraryView />}
-          />
+            <Route
+              path="/routines"
+              element={
+                routineEditorState.isOpen ? (
+                  <RoutineEditorView
+                    isNew={routineEditorState.isNew}
+                    routineId={routineEditorState.routineId}
+                    initialName={routineEditorState.name}
+                    initialExercises={routineEditorState.detail?.exercises ?? []}
+                    initialDetail={routineEditorState.detail}
+                    onClose={() => setRoutineEditorState((s) => ({ ...s, isOpen: false }))}
+                    onSaved={() => setRoutineEditorState((s) => ({ ...s, isOpen: false }))}
+                  />
+                ) : (
+                  <RoutinesView
+                    onStartWorkout={handleStartWorkout}
+                    onExplore={() => navigate('/exercises')}
+                    onOpenEditor={(opts) => setRoutineEditorState({ ...opts, isOpen: true })}
+                  />
+                )
+              }
+            />
 
-          <Route
-            path="/active-workout"
-            element={
-              activeWorkout ? (
-                <ActiveWorkoutView
-                  workout={activeWorkout}
-                  onFinished={handleFinishWorkout}
+            <Route path="/exercises" element={<ExerciseLibraryView />} />
+            <Route path="/exercises/:exerciseId" element={<ExerciseLibraryView />} />
+
+            <Route
+              path="/active-workout"
+              element={
+                activeWorkout ? (
+                  <ActiveWorkoutView
+                    workout={activeWorkout}
+                    onFinished={handleFinishWorkout}
+                  />
+                ) : (
+                  <div style={styles.noWorkoutContainer}>
+                    <h2 style={styles.noWorkoutTitle}>Sin entrenamiento activo</h2>
+                    <p style={styles.noWorkoutDesc}>
+                      Puedes iniciar un entrenamiento libre o seleccionar una rutina.
+                    </p>
+                    <button style={styles.startEmptyBtn} onClick={() => handleStartWorkout()}>
+                      Iniciar rutina vacía
+                    </button>
+                  </div>
+                )
+              }
+            />
+
+            <Route path="/history" element={<HistoryView />} />
+
+            <Route
+              path="/social"
+              element={
+                <SocialFeedView
+                  currentUserId={session.user.id}
+                  highlightPostId={highlightPostId}
+                  onHighlightConsumed={() => setHighlightPostId(null)}
                 />
-              ) : (
-                <div style={styles.noWorkoutContainer}>
-                  <h2 style={styles.noWorkoutTitle}>Sin entrenamiento activo</h2>
-                  <p style={styles.noWorkoutDesc}>Puedes iniciar un entrenamiento libre o seleccionar una rutina.</p>
-                  <button style={styles.startEmptyBtn} onClick={() => handleStartWorkout()}>
-                    Iniciar rutina vacía
-                  </button>
-                </div>
-              )
-            }
-          />
+              }
+            />
 
-          <Route
-            path="/history"
-            element={<HistoryView />}
-          />
+            <Route path="/r/:routineId" element={<RoutineDeepLinkWrapper />} />
 
-          <Route
-            path="/social"
-            element={<SocialFeedView currentUserId={session.user.id} highlightPostId={highlightPostId} onHighlightConsumed={() => setHighlightPostId(null)} />}
-          />
+            <Route
+              path="/users/:userId"
+              element={<UserProfileView viewerUserId={session.user.id} />}
+            />
 
-          <Route
-            path="/r/:routineId"
-            element={
-              <RoutineDeepLinkWrapper />
-            }
-          />
+            <Route
+              path="/profile"
+              element={
+                <ProfileView
+                  user={session.user}
+                  profileData={profileData}
+                  onNavigate={navigateToTab}
+                  onStartWorkout={handleStartWorkout}
+                  onLogout={handleLogout}
+                />
+              }
+            />
 
-          <Route
-            path="/users/:userId"
-            element={<UserProfileView viewerUserId={session.user.id} />}
-          />
+            <Route path="/measurements" element={<MeasurementsView />} />
 
-          <Route
-            path="/profile"
-            element={
-              <ProfileView
-                user={session.user}
-                profileData={profileData}
-                onNavigate={navigateToTab}
-                onStartWorkout={handleStartWorkout}
-                onLogout={handleLogout}
-              />
-            }
-          />
+            <Route path="/plate-calculator" element={<PlateCalculatorView />} />
 
-          <Route
-            path="/measurements"
-            element={<MeasurementsView />}
-          />
+            <Route
+              path="/settings"
+              element={
+                <SettingsView
+                  user={session.user}
+                  profileData={profileData}
+                  onUpdateProfileData={handleUpdateProfileData}
+                  onLogout={handleLogout}
+                />
+              }
+            />
 
-          <Route
-            path="/plate-calculator"
-            element={<PlateCalculatorView />}
-          />
+            <Route path="/verify-email" element={<VerifyEmailView />} />
 
-          <Route
-            path="/settings"
-            element={
-              <SettingsView
-                user={session.user}
-                profileData={profileData}
-                onUpdateProfileData={handleUpdateProfileData}
-                onLogout={handleLogout}
-              />
-            }
-          />
-
-          {/* Catch-all: redirect unknown paths to /home */}
-          <Route path="*" element={<Navigate to="/home" replace />} />
+            {/* Catch-all: redirect unknown paths to /home */}
+            <Route path="*" element={<Navigate to="/home" replace />} />
           </Routes>
         </Suspense>
       </main>

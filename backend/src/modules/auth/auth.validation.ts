@@ -41,6 +41,10 @@ const resetPasswordSchema = z.object({
   password: z.string().min(8).max(128),
 }).strict();
 
+const verifyEmailSchema = z.object({
+  token: z.string().min(1).max(512),
+}).strict();
+
 function validate<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);
 
@@ -77,4 +81,8 @@ export function validateForgotPassword(value: unknown): z.infer<typeof forgotPas
 
 export function validateResetPassword(value: unknown): z.infer<typeof resetPasswordSchema> {
   return validate(resetPasswordSchema, value);
+}
+
+export function validateVerifyEmail(value: unknown): z.infer<typeof verifyEmailSchema> {
+  return validate(verifyEmailSchema, value);
 }

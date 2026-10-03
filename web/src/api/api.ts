@@ -20,6 +20,7 @@ const API_BASE_URL =
 export interface User {
   id: string;
   email: string;
+  emailVerified?: boolean;
   fullName?: string | null;
   bio?: string | null;
   avatarUrl?: string | null;
@@ -1010,6 +1011,19 @@ class ApiClient {
   async deleteAccount(): Promise<void> {
     await this.request<void>('/auth/me', {
       method: 'DELETE',
+    });
+  }
+
+  async verifyEmail(token: string): Promise<void> {
+    await this.request<void>('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+  }
+
+  async resendVerification(): Promise<void> {
+    await this.request<void>('/auth/resend-verification', {
+      method: 'POST',
     });
   }
 

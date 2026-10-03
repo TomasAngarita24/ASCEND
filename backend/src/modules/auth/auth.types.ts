@@ -1,6 +1,7 @@
 export interface AuthenticatedUser {
   id: string;
   email: string;
+  emailVerified: boolean;
   fullName?: string | null;
   bio?: string | null;
   avatarUrl?: string | null;

@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { prisma } from '../../database/prisma';
 import { env } from '../../config/env';
 import { HttpError } from '../../errors/http-error';
-import { sendPasswordResetEmailWithLink } from './email.service';
+import { sendPasswordResetEmailWithLink, sendVerificationEmailWithLink } from './email.service';
 import type { AuthContext, AuthTokens, AuthenticatedUser } from './auth.types';
 import { hashPassword, verifyPassword } from './password.service';
 import { createAccessToken, createRefreshToken, hashRefreshToken } from './token.service';
@@ -21,6 +21,7 @@ interface AuthenticationResult extends AuthTokens {
 interface AuthenticatedUserSource {
   id: string;
   email: string;
+  emailVerified: boolean;
   fullName: string | null;
   bio: string | null;
   avatarUrl: string | null;
@@ -32,6 +33,7 @@ function toAuthenticatedUser(user: AuthenticatedUserSource): AuthenticatedUser {
   return {
     id: user.id,
     email: user.email,
+    emailVerified: user.emailVerified,
     fullName: user.fullName,
     bio: user.bio,
     avatarUrl: user.avatarUrl,
@@ -40,7 +42,10 @@ function toAuthenticatedUser(user: AuthenticatedUserSource): AuthenticatedUser {
   };
 }
 
-export async function updateProfile(userId: string, input: { fullName?: string | null; bio?: string | null; avatarUrl?: string | null }): Promise<AuthenticatedUser> {
+export async function updateProfile(
+  userId: string,
+  input: { fullName?: string | null; bio?: string | null; avatarUrl?: string | null }
+): Promise<AuthenticatedUser> {
   const existing = await prisma.user.findUnique({ where: { id: userId } });
   if (!existing) {
     throw new HttpError(404, 'USER_NOT_FOUND', 'User does not exist.');
@@ -61,12 +66,16 @@ export async function updateProfile(userId: string, input: { fullName?: string |
 export async function changePassword(
   userId: string,
   currentPassword: string,
-  newPassword: string,
+  newPassword: string
 ): Promise<void> {
   const user = await prisma.user.findUnique({ where: { id: userId } });
 
   if (!user || !user.passwordHash) {
-    throw new HttpError(400, 'CHANGE_PASSWORD_UNAVAILABLE', 'Password change is not available for this account.');
+    throw new HttpError(
+      400,
+      'CHANGE_PASSWORD_UNAVAILABLE',
+      'Password change is not available for this account.'
+    );
   }
 
   if (!(await verifyPassword(user.passwordHash, currentPassword))) {
@@ -86,17 +95,29 @@ export async function deleteAccount(userId: string): Promise<void> {
 }
 
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
+const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 function createPasswordResetToken(): { token: string; hash: string; expiresAt: Date } {
-  const token = createRefreshToken(); // Random 256-bit token, same shape as a refresh token.
-  return { token: token.token, hash: token.hash, expiresAt: new Date(Date.now() + PASSWORD_RESET_TOKEN_TTL_MS) };
+  const token = createRefreshToken();
+  return {
+    token: token.token,
+    hash: token.hash,
+    expiresAt: new Date(Date.now() + PASSWORD_RESET_TOKEN_TTL_MS),
+  };
+}
+
+function createVerificationToken(): { token: string; hash: string; expiresAt: Date } {
+  const token = createRefreshToken();
+  return {
+    token: token.token,
+    hash: token.hash,
+    expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TOKEN_TTL_MS),
+  };
 }
 
 export async function forgotPassword(email: string): Promise<void> {
   const existing = await prisma.user.findUnique({ where: { email } });
 
-  // Always report success, regardless of whether the account exists, to avoid
-  // leaking which emails are registered.
   if (!existing?.passwordHash || !existing.email) {
     return;
   }
@@ -127,7 +148,11 @@ export async function resetPassword(token: string, newPassword: string): Promise
   });
 
   if (!reset || reset.expiresAt <= new Date()) {
-    throw new HttpError(400, 'INVALID_RESET_TOKEN', 'The password reset token is invalid or expired.');
+    throw new HttpError(
+      400,
+      'INVALID_RESET_TOKEN',
+      'The password reset token is invalid or expired.'
+    );
   }
 
   const passwordHash = await hashPassword(newPassword);
@@ -140,6 +165,59 @@ export async function resetPassword(token: string, newPassword: string): Promise
       data: { passwordHash },
     }),
   ]);
+}
+
+export async function verifyEmail(token: string): Promise<void> {
+  const tokenHash = createHash('sha256').update(token).digest('hex');
+
+  const record = await prisma.emailVerificationToken.findUnique({
+    where: { tokenHash },
+  });
+
+  if (!record || record.expiresAt <= new Date()) {
+    throw new HttpError(
+      400,
+      'INVALID_VERIFICATION_TOKEN',
+      'El token de verificación es inválido o ha expirado.'
+    );
+  }
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: record.userId },
+      data: { emailVerified: true },
+    }),
+    prisma.emailVerificationToken.deleteMany({
+      where: { userId: record.userId },
+    }),
+  ]);
+}
+
+export async function resendVerificationEmail(userId: string): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    throw new HttpError(404, 'USER_NOT_FOUND', 'El usuario no existe.');
+  }
+
+  if (user.emailVerified) {
+    throw new HttpError(400, 'ALREADY_VERIFIED', 'El correo electrónico ya ha sido verificado.');
+  }
+
+  const verify = createVerificationToken();
+
+  await prisma.$transaction([
+    prisma.emailVerificationToken.deleteMany({ where: { userId: user.id } }),
+    prisma.emailVerificationToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: verify.hash,
+        expiresAt: verify.expiresAt,
+      },
+    }),
+  ]);
+
+  const verifyUrl = `${env.appUrl}/verify-email?token=${encodeURIComponent(verify.token)}`;
+  await sendVerificationEmailWithLink(user.email, verifyUrl);
 }
 
 async function createSessionTokens(userId: string): Promise<AuthTokens> {
@@ -176,12 +254,24 @@ export async function register(credentials: Credentials): Promise<Authentication
   const passwordHash = await hashPassword(credentials.password);
 
   try {
+    const verify = createVerificationToken();
+
     const user = await prisma.user.create({
       data: {
         email: credentials.email,
         passwordHash,
+        emailVerified: false,
+        emailVerificationTokens: {
+          create: {
+            tokenHash: verify.hash,
+            expiresAt: verify.expiresAt,
+          },
+        },
       },
     });
+
+    const verifyUrl = `${env.appUrl}/verify-email?token=${encodeURIComponent(verify.token)}`;
+    void sendVerificationEmailWithLink(user.email, verifyUrl).catch(() => {});
 
     return {
       user: toAuthenticatedUser(user),
@@ -220,7 +310,7 @@ export async function authenticateWithGoogle(idToken: string): Promise<Authentic
     if (userByEmail) {
       user = await prisma.user.update({
         where: { id: userByEmail.id },
-        data: { googleId },
+        data: { googleId, emailVerified: true },
       });
     } else {
       user = await prisma.user.create({
@@ -228,6 +318,7 @@ export async function authenticateWithGoogle(idToken: string): Promise<Authentic
           email,
           googleId,
           passwordHash: null,
+          emailVerified: true,
         },
       });
     }
@@ -294,6 +385,7 @@ export async function getAuthenticatedUser(context: AuthContext): Promise<Authen
         select: {
           id: true,
           email: true,
+          emailVerified: true,
           fullName: true,
           bio: true,
           avatarUrl: true,

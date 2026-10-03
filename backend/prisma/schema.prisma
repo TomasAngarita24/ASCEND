@@ -21,21 +21,23 @@ model User {
   reminderHour        Int?                 @map("reminder_hour")
   reminderMinute      Int?                 @map("reminder_minute")
   reminderTzOffsetMin Int?                 @map("reminder_tz_offset_min")
-  bodyMeasurements    BodyMeasurement[]
-  customExercises     Exercise[]           @relation("CustomExercises")
-  exerciseBookmarks   ExerciseBookmark[]
-  passwordResetTokens PasswordResetToken[]
-  posts               Post[]               @relation("Posts")
-  postComments        PostComment[]        @relation("UserPostComments")
-  postLikes           PostLike[]           @relation("PostLikes")
-  pushSubscriptions   PushSubscription[]
-  routines            Routine[]
-  routineFolders      RoutineFolder[]
-  sessions            Session[]
-  following           UserFollow[]         @relation("UserFollowers")
-  followers           UserFollow[]         @relation("UserFollowing")
-  workouts            Workout[]
-  restPushSchedule    RestPushSchedule?
+  emailVerified           Boolean                  @default(false) @map("email_verified")
+  bodyMeasurements        BodyMeasurement[]
+  customExercises         Exercise[]               @relation("CustomExercises")
+  exerciseBookmarks       ExerciseBookmark[]
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  posts                   Post[]                   @relation("Posts")
+  postComments            PostComment[]            @relation("UserPostComments")
+  postLikes               PostLike[]               @relation("PostLikes")
+  pushSubscriptions       PushSubscription[]
+  routines                Routine[]
+  routineFolders          RoutineFolder[]
+  sessions                Session[]
+  following               UserFollow[]             @relation("UserFollowers")
+  followers               UserFollow[]             @relation("UserFollowing")
+  workouts                Workout[]
+  restPushSchedule        RestPushSchedule?
 
   @@map("users")
 }
@@ -234,6 +236,18 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_token")
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verification_token")
 }
 
 model PushSubscription {

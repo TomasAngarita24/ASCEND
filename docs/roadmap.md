@@ -94,7 +94,4 @@ The architecture should leave room for future functionality without requiring ma
 - Rest timer notifications
 - Offline workout tracking (partial: offline queue implemented)
 - Multiple devices
-- Apple Health integration
-- Google Health Connect integration
-- Wearable device integration
 - Social challenges

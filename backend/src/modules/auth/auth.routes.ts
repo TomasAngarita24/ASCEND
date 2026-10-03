@@ -4,8 +4,30 @@ import { asyncHandler } from '../../lib/async-handler';
 import { credentialLimiter, perEmailCredentialLimiter } from '../../middleware/rate-limit';
 import { authenticate } from './auth.middleware';
 import { setAuthCookies, clearAuthCookies, REFRESH_TOKEN_COOKIE } from './auth.cookies';
-import { authenticateWithGoogle, changePassword, deleteAccount, forgotPassword, login, logout, refresh, register, resetPassword, updateProfile } from './auth.service';
-import { validateChangePassword, validateCredentials, validateForgotPassword, validateGoogleAuth, validateRefreshToken, validateResetPassword, validateUpdateProfile } from './auth.validation';
+import {
+  authenticateWithGoogle,
+  changePassword,
+  deleteAccount,
+  forgotPassword,
+  login,
+  logout,
+  refresh,
+  register,
+  resetPassword,
+  updateProfile,
+  verifyEmail,
+  resendVerificationEmail,
+} from './auth.service';
+import {
+  validateChangePassword,
+  validateCredentials,
+  validateForgotPassword,
+  validateGoogleAuth,
+  validateRefreshToken,
+  validateResetPassword,
+  validateUpdateProfile,
+  validateVerifyEmail,
+} from './auth.validation';
 
 export const authRouter = Router();
 
@@ -69,6 +91,19 @@ authRouter.post('/forgot-password', asyncHandler(async (request, response) => {
 authRouter.post('/reset-password', asyncHandler(async (request, response) => {
   const { token, password } = validateResetPassword(request.body);
   await resetPassword(token, password);
+
+  response.status(204).send();
+}));
+
+authRouter.post('/verify-email', asyncHandler(async (request, response) => {
+  const { token } = validateVerifyEmail(request.body);
+  await verifyEmail(token);
+
+  response.status(204).send();
+}));
+
+authRouter.post('/resend-verification', authenticate, asyncHandler(async (request, response) => {
+  await resendVerificationEmail(request.auth!.userId);
 
   response.status(204).send();
 }));

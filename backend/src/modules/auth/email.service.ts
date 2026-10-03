@@ -3,10 +3,13 @@ import nodemailer from 'nodemailer';
 import { env } from '../../config/env';
 
 export type PasswordResetLinkHandler = (email: string, resetUrl: string) => Promise<void> | void;
+export type EmailVerificationLinkHandler = (email: string, verifyUrl: string) => Promise<void> | void;
 
 const RESET_EMAIL_SUBJECT = 'Restablece tu contraseña de ASCEND';
+const VERIFY_EMAIL_SUBJECT = 'Confirma tu cuenta de ASCEND';
 
 let customLinkHandler: PasswordResetLinkHandler | null = null;
+let customVerificationLinkHandler: EmailVerificationLinkHandler | null = null;
 
 type SmtpTransport = ReturnType<typeof nodemailer.createTransport>;
 
@@ -15,6 +18,11 @@ let transporter: SmtpTransport | null = null;
 /** Test hook: intercept the reset link instead of sending it. */
 export function setPasswordResetLinkHandler(handler: PasswordResetLinkHandler | null): void {
   customLinkHandler = handler;
+}
+
+/** Test hook: intercept the verification link instead of sending it. */
+export function setEmailVerificationLinkHandler(handler: EmailVerificationLinkHandler | null): void {
+  customVerificationLinkHandler = handler;
 }
 
 function getTransporter(): SmtpTransport | null {
@@ -44,10 +52,6 @@ async function sendPasswordResetEmail(email: string, resetUrl: string): Promise<
     return;
   }
 
-  // Without SMTP credentials the reset link is logged so the flow can still be
-  // exercised end to end in local development. In production the URL (which
-  // contains the reset token) is never written to logs: the missing
-  // configuration is surfaced loudly instead, so the failure is visible.
   const smtp = getTransporter();
   if (!smtp) {
     if (env.nodeEnv === 'production') {
@@ -76,4 +80,40 @@ async function sendPasswordResetEmail(email: string, resetUrl: string): Promise<
 
 export function sendPasswordResetEmailWithLink(email: string, resetUrl: string): Promise<void> {
   return sendPasswordResetEmail(email, resetUrl);
+}
+
+async function sendVerificationEmail(email: string, verifyUrl: string): Promise<void> {
+  if (customVerificationLinkHandler) {
+    await customVerificationLinkHandler(email, verifyUrl);
+    return;
+  }
+
+  const smtp = getTransporter();
+  if (!smtp) {
+    if (env.nodeEnv === 'production') {
+      console.error('[email-verification] SMTP credentials are not configured; verification emails cannot be sent.');
+    } else {
+      console.log(`[email-verification] ${email} -> ${verifyUrl}`);
+    }
+    return;
+  }
+
+  try {
+    await smtp.sendMail({
+      from: fromAddress(),
+      to: email,
+      subject: VERIFY_EMAIL_SUBJECT,
+      html:
+        `<p>¡Bienvenido a ASCEND!</p>` +
+        `<p>Por favor confirma tu dirección de correo electrónico haciendo clic en el siguiente enlace:</p>` +
+        `<p><a href="${verifyUrl}">Confirmar mi correo electrónico</a></p>` +
+        `<p>Si no creaste una cuenta en ASCEND, puedes ignorar este mensaje.</p>`,
+    });
+  } catch {
+    throw new Error(`Failed to send verification email.`);
+  }
+}
+
+export function sendVerificationEmailWithLink(email: string, verifyUrl: string): Promise<void> {
+  return sendVerificationEmail(email, verifyUrl);
 }
