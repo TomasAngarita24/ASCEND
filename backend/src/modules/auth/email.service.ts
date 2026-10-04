@@ -25,6 +25,8 @@ export function setEmailVerificationLinkHandler(handler: EmailVerificationLinkHa
   customVerificationLinkHandler = handler;
 }
 
+import net from 'node:net';
+
 function getTransporter(): SmtpTransport | null {
   if (!env.smtp.user || !env.smtp.pass) {
     return null;
@@ -36,6 +38,22 @@ function getTransporter(): SmtpTransport | null {
       port: env.smtp.port,
       secure: env.smtp.port === 465,
       auth: { user: env.smtp.user, pass: env.smtp.pass },
+      getSocket(options, callback) {
+        // Enforce IPv4 (family: 4) because hosting environments like Render lack outbound IPv6 routing
+        const port = Number(options.port) || env.smtp.port;
+        const host = options.host || env.smtp.host;
+        const socket = net.connect(
+          {
+            host,
+            port,
+            family: 4,
+          },
+          () => {
+            callback(null, { connection: socket });
+          },
+        );
+        socket.once('error', (err) => callback(err));
+      },
     });
   }
 

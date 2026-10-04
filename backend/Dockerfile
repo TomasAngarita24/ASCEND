@@ -32,5 +32,5 @@ COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/prisma.config.ts ./
 
 EXPOSE 3000
-# Apply migrations, then start the API.
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
+# Apply migrations, then start the API with IPv4 resolution prioritized.
+CMD ["sh", "-c", "npx prisma migrate deploy && node --dns-result-order=ipv4first dist/server.js"]
