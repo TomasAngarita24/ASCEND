@@ -6,7 +6,7 @@ import { Sidebar } from './components/Sidebar';
 import { BottomNav } from './components/BottomNav';
 import { WorkoutSummaryModal, type WorkoutSummaryData } from './components/WorkoutSummaryModal';
 import { RoutineDetailModal } from './components/RoutineDetailModal';
-import { EmailVerificationBanner } from './components/EmailVerificationBanner';
+// import { EmailVerificationBanner } from './components/EmailVerificationBanner';
 import type { NavTab } from './components/Sidebar';
 import { AuthView } from './views/AuthView';
 import type { UserProfileCustomData } from './views/SettingsView';
@@ -343,7 +343,7 @@ export function App() {
 
       {/* Main Content Viewport */}
       <main className="mobile-main-content" style={styles.mainContent}>
-        <EmailVerificationBanner user={session.user} />
+        {/* Email verification banner paused for future release: <EmailVerificationBanner user={session.user} /> */}
         <Suspense fallback={routeFallback}>
           <Routes>
             <Route path="/" element={<Navigate to="/home" replace />} />

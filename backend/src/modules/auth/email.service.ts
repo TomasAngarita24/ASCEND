@@ -128,8 +128,8 @@ async function sendVerificationEmail(email: string, verifyUrl: string): Promise<
         `<p>Si no creaste una cuenta en ASCEND, puedes ignorar este mensaje.</p>`,
     });
   } catch (err) {
-    console.error('[email-verification] SMTP error:', err);
-    throw new Error(`Failed to send verification email.`);
+    // Email verification paused for future implementation; log but do not break the request
+    console.warn('[email-verification] Notice: SMTP delivery paused/unavailable:', (err as Error)?.message || err);
   }
 }
 
