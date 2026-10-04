@@ -109,7 +109,8 @@ async function sendVerificationEmail(email: string, verifyUrl: string): Promise<
         `<p><a href="${verifyUrl}">Confirmar mi correo electrónico</a></p>` +
         `<p>Si no creaste una cuenta en ASCEND, puedes ignorar este mensaje.</p>`,
     });
-  } catch {
+  } catch (err) {
+    console.error('[email-verification] SMTP error:', err);
     throw new Error(`Failed to send verification email.`);
   }
 }
