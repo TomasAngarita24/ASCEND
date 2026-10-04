@@ -1,3 +1,9 @@
+import dns from 'node:dns';
+
+// Render containers do not have outbound IPv6 routes, which causes ENETUNREACH when connecting to Gmail.
+// Forcing IPv4 resolution first resolves this.
+dns.setDefaultResultOrder('ipv4first');
+
 import { app } from './app';
 import { env } from './config/env';
 import { prisma } from './database/prisma';
