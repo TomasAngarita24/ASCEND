@@ -36,7 +36,8 @@ export const EmailVerificationBanner: React.FC<EmailVerificationBannerProps> = (
       <div style={styles.content}>
         <Mail size={18} color="var(--accent-teal)" style={{ flexShrink: 0 }} />
         <span style={styles.text}>
-          Confirma tu correo electrónico (<strong>{user.email}</strong>) para asegurar el acceso a tu cuenta.
+          Confirma tu correo electrónico (<strong>{user.email}</strong>) para asegurar el acceso a tu cuenta.{' '}
+          Si no lo encuentras, revisa tu carpeta de spam.
         </span>
       </div>
       <div style={styles.actions}>
